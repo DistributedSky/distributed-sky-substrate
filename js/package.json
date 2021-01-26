@@ -1,0 +1,16 @@
+{
+  "name": "node-template",
+  "version": "1.0.0",
+  "description": "Example of using Polkadot-js API to query node rpc",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "Dmitry Dulesov <d.dulesov@mixbytes.io>",
+  "license": "Apache-2.0",
+  "private": false,
+  "dependencies": {
+    "@polkadot/api": "^2.9.1",
+    "dotenv": "^8.2.0"
+  }
+}

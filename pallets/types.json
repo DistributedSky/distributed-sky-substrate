@@ -1,0 +1,10 @@
+{
+	"AccountRole": "u8",
+	"Address": "AccountId",
+	"LookupSource": "AccountId",
+	"Moment": "u64",
+	"AccountOf": {
+	  "roles": "AccountRole",
+	  "create_date": "u64"
+	}
+}
