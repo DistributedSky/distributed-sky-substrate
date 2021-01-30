@@ -104,7 +104,9 @@ type BalanceOf<T> =
 const NONE_ROLE: u8 = 0x00;
 pub const ADMIN_ROLE: u8 = 0x01;
 #[allow(dead_code)]
-const USER_ROLE: u8 = 0x02;
+pub const PILOT_ROLE: u8 = 0x02;
+#[allow(dead_code)]
+pub const REGISTRAR_ROLE: u8 = 0x03;
 
 // Storage, Events, Errors are declared using rust macros
 // How to use macros see
