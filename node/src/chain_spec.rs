@@ -162,7 +162,7 @@ fn testnet_genesis(
             // Assign network admin rights.
             key: root_key,
         }),
-        pallet_template: Some(TemplateModuleConfig {
+        pallet_ds_accounts: Some(TemplateModuleConfig {
             // set roles for each pre-set accounts (set role)
             genesis_account_registry: endowed_accounts
                 .first()

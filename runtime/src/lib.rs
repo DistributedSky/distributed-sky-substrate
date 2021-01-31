@@ -9,7 +9,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
-use pallet_template::{prelude::IdentityMultiplierUpdater, AccountOf, ADMIN_ROLE, PILOT_ROLE, REGISTRAR_ROLE};
+use pallet_ds_accounts::{prelude::IdentityMultiplierUpdater, AccountOf, ADMIN_ROLE, PILOT_ROLE, REGISTRAR_ROLE};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -42,8 +42,8 @@ pub use pallet_timestamp::Call as TimestampCall;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-/// Import the template pallet.
-pub use pallet_template;
+/// Import the DS accounts pallet.
+pub use pallet_ds_accounts;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -273,8 +273,8 @@ parameter_types! {
     pub const RegistrarRole: u8 = REGISTRAR_ROLE;
 }
 
-/// Configure the template pallet in pallets/template.
-impl pallet_template::Trait for Runtime {
+/// Configure the DS accounts pallet in pallets/ds-accounts.
+impl pallet_ds_accounts::Trait for Runtime {
     type Event = Event;
     type AdminRole = AdminRole;
     type AccountRole = u8;
@@ -297,8 +297,8 @@ construct_runtime!(
         Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
         TransactionPayment: pallet_transaction_payment::{Module, Storage, Config},
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
-        // Include the custom logic from the template pallet in the runtime.
-        TemplateModule: pallet_template::{Module, Call, Storage, Config<T>, Event<T>},
+        // Include the custom logic from the DS accounts pallet in the runtime.
+        TemplateModule: pallet_ds_accounts::{Module, Call, Storage, Config<T>, Event<T>},
     }
 );
 
