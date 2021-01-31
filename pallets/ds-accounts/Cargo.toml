@@ -4,7 +4,7 @@ description = 'FRAME pallet template for defining custom runtime logic.'
 edition = '2018'
 homepage = 'https://substrate.dev'
 license = 'Apache-2.0'
-name = 'pallet-template'
+name = 'pallet-ds-accounts'
 repository = 'https://github.com/mixbytes/substrate-project-template'
 version = '2.0.0'
 
