@@ -9,7 +9,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
-use pallet_template::{prelude::IdentityMultiplierUpdater, AccountOf, ADMIN_ROLE};
+use pallet_template::{prelude::IdentityMultiplierUpdater, AccountOf, ADMIN_ROLE, PILOT_ROLE, REGISTRAR_ROLE};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -269,6 +269,8 @@ impl pallet_sudo::Trait for Runtime {
 // Configure pallet constants
 parameter_types! {
     pub const AdminRole: u8 = ADMIN_ROLE;
+    pub const PilotRole: u8 = PILOT_ROLE;
+    pub const RegistrarRole: u8 = REGISTRAR_ROLE;
 }
 
 /// Configure the template pallet in pallets/template.
