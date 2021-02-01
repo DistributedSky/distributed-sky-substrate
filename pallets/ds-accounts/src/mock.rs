@@ -91,15 +91,6 @@ parameter_types! {
 
 struct WeightInfo;
 impl crate::WeightInfo for WeightInfo {
-    fn update_something() -> Weight {
-        <() as crate::WeightInfo>::update_something()
-    }
-    // Add balances::transfer weight to default one
-    fn account_transfer_and_lock() -> Weight {
-        <() as crate::WeightInfo>::account_transfer_and_lock()
-            .saturating_add(<() as pallet_balances::WeightInfo>::transfer())
-    }
-
     fn account_disable() -> Weight {
         <() as crate::WeightInfo>::account_disable()
     }
