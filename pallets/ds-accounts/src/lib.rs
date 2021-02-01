@@ -10,10 +10,10 @@ use frame_support::{
         traits::{AtLeast32Bit, Zero},
     },
     traits::{
-        Currency, ExistenceRequirement::AllowDeath, Get, LockIdentifier, LockableCurrency,
-        OnKilledAccount, WithdrawReason, WithdrawReasons,
+        Currency, Get, LockableCurrency,
+        OnKilledAccount, 
     },
-    weights::{DispatchClass, Pays, Weight},
+    weights::{Weight},
     Parameter,
 };
 use frame_system::ensure_signed;
@@ -74,7 +74,6 @@ impl<
 }
 
 pub type AccountOf<T> = Account<<T as pallet_timestamp::Trait>::Moment, <T as Trait>::AccountRole>;
-const FEE_LOCK_ID: LockIdentifier = *b"fee lock";
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
@@ -96,8 +95,6 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
 }
 
 pub trait WeightInfo {
-    fn update_something() -> Weight;
-    fn account_transfer_and_lock() -> Weight;
     fn account_disable() -> Weight;
     fn account_add() -> Weight;
     fn register_pilot() -> Weight;
@@ -128,8 +125,6 @@ decl_storage! {
     trait Store for Module<T: Trait> as TemplateModule {
         // Learn more about declaring storage items:
         // https://substrate.dev/docs/en/knowledgebase/runtime/storage#declaring-storage-items
-        Something get(fn something): Option<u32>;
-
         AccountRegistry
             get(fn account_registry)
             config(genesis_account_registry):
@@ -272,70 +267,6 @@ decl_module! {
             // });
             Self::deposit_event(RawEvent::AccountDisabled(who, whom));
             Ok(())
-        }
-
-        /// An example dispatchable that demonstrates `pallet_balances` capability to  froze
-        /// account balance for specific purpose.
-        /// After `account_transfer_and_lock` was called the account can be put his balance only to pay off fees.
-        #[weight = <T as Trait>::WeightInfo::account_transfer_and_lock()]
-        pub fn account_transfer_and_lock(origin, whom: T::AccountId, amount: BalanceOf<T>) -> dispatch::DispatchResult {
-            let sender = ensure_signed(origin)?;
-            // Ensure origin has associated account with admin privileges.
-            ensure!(Self::account_is_admin(&sender), Error::<T>::NotAuthorized);
-
-            T::Currency::transfer(&sender, &whom, amount, AllowDeath)?;
-            let amount = T::Currency::free_balance(&whom);
-            T::Currency::set_lock(
-                FEE_LOCK_ID,
-                &whom,
-                amount,
-                WithdrawReasons::except(WithdrawReason::TransactionPayment),
-            );
-            Self::deposit_event(RawEvent::BalanceLocked(whom, amount));
-
-            Ok(())
-        }
-
-        /// An example dispatchable that takes a singles value as a parameter, writes the value to
-        /// storage and emits an event. This function must be dispatched by a signed extrinsic.
-        /// Origin doesn't pay fee for this transaction and can call it with zero balance.
-        #[weight = (10_000_000, DispatchClass::Normal, Pays::No)]
-        pub fn do_something(origin, something: u32) -> dispatch::DispatchResult {
-            // Check that the extrinsic was signed and get the signer.
-            // This function will return an error if the extrinsic is not signed.
-            // https://substrate.dev/docs/en/knowledgebase/runtime/origin
-            let who = ensure_signed(origin)?;
-
-            // Update storage.
-            Something::put(something);
-            debug::info!("do_something: who={:?} what={:?}", who, something);
-            // Emit an event.
-            Self::deposit_event(RawEvent::SomethingStored(something, who));
-            // Return a successful DispatchResult
-            Ok(())
-        }
-
-        /// An example dispatchable that can require various fee depends of runtime logic.
-        /// On increase storage value it requires standard fee value.
-        /// On decrease origin doesn't have to pay fee.
-        /// See more about fees https://substrate.dev/docs/en/knowledgebase/runtime/fees.
-        #[weight = <T as Trait>::WeightInfo::update_something()]
-        pub fn update_something(origin, something: u32) -> dispatch::DispatchResultWithPostInfo{
-            let who = ensure_signed(origin)?;
-            ensure!(Self::account_is_admin(&who), Error::<T>::NotAuthorized);
-            Something::try_mutate(|v|->dispatch::DispatchResultWithPostInfo{
-                let res = match v {
-                    // disable pay
-                    Some(ref prev) if *prev>something => (Pays::No).into(),
-                    // default weight and pay value
-                    _ => None.into(),
-                };
-                *v = Some(something);
-                // Event emission should be perform after the storage has been updated.
-                // Here we can ensure that update will succeed.
-                Self::deposit_event(RawEvent::SomethingStored(something, who));
-                Ok(res)
-            })
         }
     }
 }

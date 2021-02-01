@@ -1,9 +1,6 @@
 use crate::mock::*;
 use frame_support::{
     assert_noop, assert_ok,
-    dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo},
-    traits::UnfilteredDispatchable,
-    weights::{Pays, Weight},
 };
 
 // Learn more about testing substrate runtime modules
@@ -14,6 +11,7 @@ type System = frame_system::Module<Test>;
 type Balances = pallet_balances::Module<Test>;
 type Error = super::Error<Test>;
 
+#[allow(dead_code)]
 // get last events and reset
 fn events() -> Vec<TestEvent> {
     let evt = System::events()
@@ -65,24 +63,6 @@ fn it_identity_pallet_transaction_payment_multiplier() {
 }
 
 #[test]
-fn it_works_for_default_value() {
-    new_test_ext().execute_with(|| {
-        System::set_block_number(2);
-        // Dispatch a signed extrinsic.
-        assert_ok!(TemplateModule::do_something(Origin::signed(1), 42));
-        assert_eq!(
-            events(),
-            vec![TestEvent::template(super::RawEvent::SomethingStored(42, 1))]
-        );
-
-        // Read pallet storage and assert an expected result.
-        assert_eq!(TemplateModule::something(), Some(42));
-        System::set_block_number(3);
-        assert_eq!(events(), vec![]);
-    });
-}
-
-#[test]
 fn it_create_new_account() {
     new_test_ext().execute_with(|| {
         let account = TemplateModule::account_registry(2);
@@ -100,13 +80,8 @@ fn it_create_new_account() {
 
         let age = account.age(20000);
         assert_eq!(age, 15000);
-
-        assert_ok!(TemplateModule::do_something(Origin::signed(2), 20));
-        System::set_block_number(2);
-        assert_eq!(TemplateModule::something(), Some(20));
     });
 }
-
 
 #[test]
 fn it_disable_account() {
@@ -147,7 +122,6 @@ fn it_try_create_by_registrar() {
     });
 }
 
-
 #[test]
 fn it_account_reaped() {
     new_test_ext().execute_with(|| {
@@ -163,31 +137,6 @@ fn it_account_reaped() {
         assert!(!TemplateModule::account_registry(2).is_enable());
     });
 }
-
-
-#[test]
-fn it_lock_balance() {
-    new_test_ext().execute_with(|| {
-        assert_ok!(TemplateModule::account_transfer_and_lock(
-            Origin::signed(1),
-            2,
-            10000
-        ));
-        assert_ok!(TemplateModule::account_add(
-            Origin::signed(1),
-            2,
-            super::REGISTRAR_ROLE
-        ));
-
-        assert!(TemplateModule::account_registry(2).is_enable());
-        assert_eq!(Balances::free_balance(2), 10000);
-        assert_noop!(
-            Balances::transfer(Origin::signed(2), 3, 5000),
-            pallet_balances::Error::<Test, _>::LiquidityRestrictions
-        );
-    });
-}
-
 
 #[test]
 fn it_balance() {
@@ -213,81 +162,3 @@ fn it_balance() {
     });
 }
 
-#[test]
-fn it_dispatchable_weight() {
-    // pre-dispatch weights
-    fn assert_dispatch(call: crate::Call<Test>, weight: Weight, pay: Pays) -> DispatchInfo {
-        let dispatch_info = call.get_dispatch_info();
-
-        assert_eq!(dispatch_info.weight, weight);
-        assert_eq!(dispatch_info.pays_fee, pay);
-        dispatch_info
-    }
-    let call = crate::Call::<Test>::account_add(3, 1);
-    assert_dispatch(call, <() as super::WeightInfo>::account_add(), Pays::Yes);
-
-    let call = crate::Call::<Test>::update_something(3);
-    assert_dispatch(
-        call,
-        <() as super::WeightInfo>::update_something(),
-        Pays::Yes,
-    );
-
-    // post-dispatch weights
-    fn assert_call(
-        origin: Origin,
-        call: crate::Call<Test>,
-        weight: Weight,
-        pay: Pays,
-    ) -> DispatchResultWithPostInfo {
-        let dispatch_info = call.get_dispatch_info();
-        let dispatch_post_info = call.dispatch_bypass_filter(origin)?;
-
-        assert_eq!(dispatch_post_info.pays_fee(&dispatch_info), pay);
-        assert_eq!(
-            dispatch_post_info.calc_actual_weight(&dispatch_info),
-            weight
-        );
-        Ok(dispatch_post_info)
-    }
-
-    new_test_ext().execute_with(|| {
-        let call = crate::Call::<Test>::update_something(300);
-        assert_ok!(assert_call(
-            Origin::signed(1),
-            call,
-            <() as super::WeightInfo>::update_something(),
-            Pays::Yes
-        ));
-
-        let call = crate::Call::<Test>::update_something(100);
-        assert_ok!(assert_call(
-            Origin::signed(1),
-            call,
-            <() as super::WeightInfo>::update_something(),
-            Pays::No
-        ));
-
-        let call = crate::Call::<Test>::account_add(3, 1);
-        assert_ok!(assert_call(
-            Origin::signed(1),
-            call,
-            <() as super::WeightInfo>::account_add(),
-            Pays::Yes
-        ));
-
-        let call = crate::Call::<Test>::account_disable(3);
-        assert_ok!(assert_call(
-            Origin::signed(1),
-            call,
-            <() as super::WeightInfo>::account_disable(),
-            Pays::Yes
-        ));
-
-        let call = crate::Call::<Test>::update_something(300);
-        assert_noop!(
-            assert_call(Origin::signed(2), call, 0, Pays::Yes),
-            Error::NotAuthorized
-        );
-    });
-}
