@@ -47,9 +47,15 @@ impl<
     pub fn is_admin(&self) -> bool {
         !(self.roles & ADMIN_ROLE.into()).is_zero()
     }
+
+    pub fn is_registrar(&self) -> bool {
+        !(self.roles & PILOT_ROLE.into()).is_zero()
+    }
+
     pub fn is_enable(&self) -> bool {
         !self.roles.is_zero()
     }
+
     pub fn is_role_correct(_role: AccountRole) -> bool {
         true
     }
@@ -94,12 +100,13 @@ pub trait WeightInfo {
     fn account_transfer_and_lock() -> Weight;
     fn account_disable() -> Weight;
     fn account_add() -> Weight;
+    fn register_pilot() -> Weight;
 }
 
 type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
-/// Account roles . Add additional values if required
+/// Account roles. Add additional values if required
 #[allow(dead_code)]
 const NONE_ROLE: u8 = 0x00;
 pub const ADMIN_ROLE: u8 = 0x01;
@@ -149,6 +156,8 @@ decl_event!(
         AccountDisabled(AccountId, AccountId),
         /// Lock balance [who, balance]
         BalanceLocked(AccountId, Balance),
+        /// Pilot has been registered [who, account]
+        PilotRegistered(AccountId, AccountId),
         // add other events here
     }
 );
@@ -207,6 +216,31 @@ decl_module! {
 
             // Emit an event.
             Self::deposit_event(RawEvent::AccountCreated(who, account, role));
+            // Return a successful DispatchResult
+            Ok(())
+        }
+
+        #[weight = <T as Trait>::WeightInfo::register_pilot()]
+        pub fn register_pilot(origin, account: T::AccountId, role: T::AccountRole) -> dispatch::DispatchResult {
+            // Check that the extrinsic was signed and get the signer.
+            // This function will return an error if the extrinsic is not signed.
+            // https://substrate.dev/docs/en/knowledgebase/runtime/origin
+            let who = ensure_signed(origin)?;
+            ensure!(AccountOf::<T>::is_role_correct(role), Error::<T>::InvalidData);
+            ensure!(Self::account_is_registrar(&who), Error::<T>::NotAuthorized);
+
+            // Update storage.
+            AccountRegistry::<T>::mutate(&account, |acc|{
+                debug::info!("register_pilot: roles:{:?} create_time={:?}", acc.roles, acc.create_time);
+                acc.roles = PILOT_ROLE.into();
+                if acc.create_time.is_zero() {
+                    // Get current timestamp using pallet-timestamp module
+                    acc.create_time = <pallet_timestamp::Module<T>>::get();
+                }
+            });
+
+            // Emit an event.
+            Self::deposit_event(RawEvent::PilotRegistered(who, account));
             // Return a successful DispatchResult
             Ok(())
         }
@@ -312,6 +346,10 @@ impl<T: Trait> Module<T> {
     /// Check if an account has ADMIN role
     pub fn account_is_admin(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).is_admin()
+    }
+    /// Check if an account has PILOT role
+    pub fn account_is_registrar(acc: &T::AccountId) -> bool {
+        AccountRegistry::<T>::get(acc).is_registrar()
     }
 }
 
