@@ -92,7 +92,7 @@ fn it_create_new_account() {
         assert_ok!(TemplateModule::account_add(
             Origin::signed(1),
             2,
-            super::USER_ROLE
+            super::REGISTRAR_ROLE
         ));
 
         let account = TemplateModule::account_registry(2);
@@ -107,13 +107,14 @@ fn it_create_new_account() {
     });
 }
 
+
 #[test]
 fn it_disable_account() {
     new_test_ext().execute_with(|| {
         assert_ok!(TemplateModule::account_add(
             Origin::signed(1),
             2,
-            super::USER_ROLE
+            super::REGISTRAR_ROLE
         ));
         assert_ok!(TemplateModule::account_disable(Origin::signed(1), 2));
         assert!(!TemplateModule::account_registry(2).is_enable());
@@ -132,19 +133,20 @@ fn it_try_disable_themself() {
 }
 
 #[test]
-fn it_try_create_by_user() {
+fn it_try_create_by_registrar() {
     new_test_ext().execute_with(|| {
         assert_ok!(TemplateModule::account_add(
             Origin::signed(1),
             2,
-            super::USER_ROLE
+            super::REGISTRAR_ROLE
         ));
         assert_noop!(
-            TemplateModule::account_add(Origin::signed(2), 3, super::USER_ROLE),
+            TemplateModule::account_add(Origin::signed(2), 3, super::REGISTRAR_ROLE),
             Error::NotAuthorized
         );
     });
 }
+
 
 #[test]
 fn it_account_reaped() {
@@ -153,7 +155,7 @@ fn it_account_reaped() {
         assert_ok!(TemplateModule::account_add(
             Origin::signed(1),
             2,
-            super::USER_ROLE
+            super::REGISTRAR_ROLE
         ));
 
         assert!(TemplateModule::account_registry(2).is_enable());
@@ -161,6 +163,7 @@ fn it_account_reaped() {
         assert!(!TemplateModule::account_registry(2).is_enable());
     });
 }
+
 
 #[test]
 fn it_lock_balance() {
@@ -173,7 +176,7 @@ fn it_lock_balance() {
         assert_ok!(TemplateModule::account_add(
             Origin::signed(1),
             2,
-            super::USER_ROLE
+            super::REGISTRAR_ROLE
         ));
 
         assert!(TemplateModule::account_registry(2).is_enable());
@@ -185,6 +188,7 @@ fn it_lock_balance() {
     });
 }
 
+
 #[test]
 fn it_balance() {
     new_test_ext().execute_with(|| {
@@ -195,7 +199,7 @@ fn it_balance() {
         assert_ok!(TemplateModule::account_add(
             Origin::signed(1),
             3,
-            super::USER_ROLE
+            super::REGISTRAR_ROLE
         ));
 
         assert_ok!(Balances::transfer(Origin::signed(1), 2, 50000));
