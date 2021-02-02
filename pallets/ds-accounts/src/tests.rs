@@ -21,6 +21,13 @@ fn events() -> Vec<TestEvent> {
     System::reset_events();
     evt
 }
+
+// Constants to make tests more readable
+const ADMIN_ACCOUNT_ID: u64 = 1;
+const REGISTRAR_1_ACCOUNT_ID: u64 = 2;
+const REGISTRAR_2_ACCOUNT_ID: u64 = 3;
+const PILOT_1_ACCOUNT_ID: u64 = 4;
+
 #[allow(dead_code)]
 fn last_event() -> TestEvent {
     System::events().pop().expect("Event expected").event
@@ -70,12 +77,12 @@ fn it_create_new_account() {
 
         Timestamp::set_timestamp(5000);
         assert_ok!(TemplateModule::account_add(
-            Origin::signed(1),
-            2,
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
             super::REGISTRAR_ROLE
         ));
 
-        let account = TemplateModule::account_registry(2);
+        let account = TemplateModule::account_registry(REGISTRAR_1_ACCOUNT_ID);
         assert!(account.is_enable());
 
         let age = account.age(20000);
@@ -87,12 +94,15 @@ fn it_create_new_account() {
 fn it_disable_account() {
     new_test_ext().execute_with(|| {
         assert_ok!(TemplateModule::account_add(
-            Origin::signed(1),
-            2,
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
             super::REGISTRAR_ROLE
         ));
-        assert_ok!(TemplateModule::account_disable(Origin::signed(1), 2));
-        assert!(!TemplateModule::account_registry(2).is_enable());
+        assert_ok!(TemplateModule::account_disable(
+                Origin::signed(ADMIN_ACCOUNT_ID), 
+                REGISTRAR_1_ACCOUNT_ID
+        ));
+        assert!(!TemplateModule::account_registry(REGISTRAR_1_ACCOUNT_ID).is_enable());
     });
 }
 
@@ -100,10 +110,13 @@ fn it_disable_account() {
 fn it_try_disable_themself() {
     new_test_ext().execute_with(|| {
         assert_noop!(
-            TemplateModule::account_disable(Origin::signed(1), 1),
+            TemplateModule::account_disable(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                ADMIN_ACCOUNT_ID
+            ),
             Error::InvalidAction
         );
-        assert!(TemplateModule::account_registry(1).is_enable());
+        assert!(TemplateModule::account_registry(ADMIN_ACCOUNT_ID).is_enable());
     });
 }
 
@@ -111,12 +124,52 @@ fn it_try_disable_themself() {
 fn it_try_create_by_registrar() {
     new_test_ext().execute_with(|| {
         assert_ok!(TemplateModule::account_add(
-            Origin::signed(1),
-            2,
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
             super::REGISTRAR_ROLE
         ));
         assert_noop!(
-            TemplateModule::account_add(Origin::signed(2), 3, super::REGISTRAR_ROLE),
+            TemplateModule::account_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
+                REGISTRAR_2_ACCOUNT_ID, 
+                super::REGISTRAR_ROLE
+            ),
+            Error::NotAuthorized
+        );
+    });
+}
+
+#[test]
+fn it_register_pilot_by_registrar() {
+    new_test_ext().execute_with(|| {
+        Timestamp::set_timestamp(5000);
+
+        assert_ok!(TemplateModule::account_add(
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
+            super::REGISTRAR_ROLE
+        ));
+        assert_ok!(TemplateModule::register_pilot(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
+                PILOT_1_ACCOUNT_ID
+        ));
+
+        let account = TemplateModule::account_registry(PILOT_1_ACCOUNT_ID);
+        assert!(account.is_enable());
+
+        let age = account.age(20000);
+        assert_eq!(age, 15000);
+    });
+}
+
+#[test]
+fn it_try_register_pilot_not_by_registrar() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            TemplateModule::register_pilot(
+                Origin::signed(ADMIN_ACCOUNT_ID), 
+                PILOT_1_ACCOUNT_ID
+            ),
             Error::NotAuthorized
         );
     });
@@ -125,16 +178,24 @@ fn it_try_create_by_registrar() {
 #[test]
 fn it_account_reaped() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Balances::transfer(Origin::signed(1), 2, 10000));
+        assert_ok!(Balances::transfer(
+                Origin::signed(ADMIN_ACCOUNT_ID), 
+                REGISTRAR_1_ACCOUNT_ID, 
+                10000)
+        );
         assert_ok!(TemplateModule::account_add(
-            Origin::signed(1),
-            2,
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
             super::REGISTRAR_ROLE
         ));
 
-        assert!(TemplateModule::account_registry(2).is_enable());
-        assert_ok!(Balances::transfer(Origin::signed(2), 3, 10000));
-        assert!(!TemplateModule::account_registry(2).is_enable());
+        assert!(TemplateModule::account_registry(REGISTRAR_1_ACCOUNT_ID).is_enable());
+        assert_ok!(Balances::transfer(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
+                3, 
+                10000
+        ));
+        assert!(!TemplateModule::account_registry(REGISTRAR_1_ACCOUNT_ID).is_enable());
     });
 }
 
@@ -143,20 +204,28 @@ fn it_balance() {
     new_test_ext().execute_with(|| {
         //total_issuance
         assert_eq!(Balances::total_issuance(), 100000);
-        assert_eq!(Balances::free_balance(1), 100000);
-        assert_eq!(Balances::free_balance(2), 0);
+        assert_eq!(Balances::free_balance(ADMIN_ACCOUNT_ID), 100000);
+        assert_eq!(Balances::free_balance(REGISTRAR_1_ACCOUNT_ID), 0);
         assert_ok!(TemplateModule::account_add(
             Origin::signed(1),
             3,
             super::REGISTRAR_ROLE
         ));
 
-        assert_ok!(Balances::transfer(Origin::signed(1), 2, 50000));
+        assert_ok!(Balances::transfer(
+                Origin::signed(ADMIN_ACCOUNT_ID), 
+                REGISTRAR_1_ACCOUNT_ID, 
+                50000)
+        );
 
-        assert_eq!(Balances::free_balance(1), 50000);
-        assert_eq!(Balances::free_balance(2), 50000);
+        assert_eq!(Balances::free_balance(ADMIN_ACCOUNT_ID), 50000);
+        assert_eq!(Balances::free_balance(REGISTRAR_1_ACCOUNT_ID), 50000);
         assert_eq!(Balances::total_issuance(), 100000);
-        assert_ok!(Balances::transfer(Origin::signed(1), 2, 49990));
+        assert_ok!(Balances::transfer(
+                Origin::signed(ADMIN_ACCOUNT_ID), 
+                REGISTRAR_1_ACCOUNT_ID, 
+                49990
+        ));
         // Account 1 has been removed from balances and dust remaining 10
         assert_eq!(Balances::total_issuance(), 99990);
     });
