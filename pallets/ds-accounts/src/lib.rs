@@ -49,7 +49,7 @@ impl<
     }
 
     pub fn is_registrar(&self) -> bool {
-        !(self.roles & PILOT_ROLE.into()).is_zero()
+        !(self.roles & REGISTRAR_ROLE.into()).is_zero()
     }
 
     pub fn is_enable(&self) -> bool {
