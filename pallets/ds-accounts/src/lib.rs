@@ -103,14 +103,14 @@ pub trait WeightInfo {
 type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
-/// Account roles. Add additional values if required
+/// Account roles. Add additional values if required.
+/// Note that role value must be a power of two
 #[allow(dead_code)]
 const NONE_ROLE: u8 = 0x00;
 pub const ADMIN_ROLE: u8 = 0x01;
-#[allow(dead_code)]
 pub const PILOT_ROLE: u8 = 0x02;
 #[allow(dead_code)]
-pub const REGISTRAR_ROLE: u8 = 0x03;
+pub const REGISTRAR_ROLE: u8 = 0x04;
 
 // Storage, Events, Errors are declared using rust macros
 // How to use macros see
@@ -216,12 +216,11 @@ decl_module! {
         }
 
         #[weight = <T as Trait>::WeightInfo::register_pilot()]
-        pub fn register_pilot(origin, account: T::AccountId, role: T::AccountRole) -> dispatch::DispatchResult {
+        pub fn register_pilot(origin, account: T::AccountId) -> dispatch::DispatchResult {
             // Check that the extrinsic was signed and get the signer.
             // This function will return an error if the extrinsic is not signed.
             // https://substrate.dev/docs/en/knowledgebase/runtime/origin
             let who = ensure_signed(origin)?;
-            ensure!(AccountOf::<T>::is_role_correct(role), Error::<T>::InvalidData);
             ensure!(Self::account_is_registrar(&who), Error::<T>::NotAuthorized);
 
             // Update storage.
@@ -229,14 +228,11 @@ decl_module! {
                 debug::info!("register_pilot: roles:{:?} create_time={:?}", acc.roles, acc.create_time);
                 acc.roles = PILOT_ROLE.into();
                 if acc.create_time.is_zero() {
-                    // Get current timestamp using pallet-timestamp module
                     acc.create_time = <pallet_timestamp::Module<T>>::get();
                 }
             });
 
-            // Emit an event.
             Self::deposit_event(RawEvent::PilotRegistered(who, account));
-            // Return a successful DispatchResult
             Ok(())
         }
 
