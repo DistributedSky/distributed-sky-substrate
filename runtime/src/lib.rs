@@ -96,8 +96,8 @@ pub mod opaque {
 }
 
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("node-template"),
-    impl_name: create_runtime_str!("node-template"),
+    spec_name: create_runtime_str!("node-dsky"),
+    impl_name: create_runtime_str!("node-dsky"),
     authoring_version: 1,
     spec_version: 1,
     impl_version: 1,
@@ -334,7 +334,7 @@ pub type Executive = frame_executive::Executive<
     AllModules,
 >;
 
-pub type TemplateAccount = AccountOf<Runtime>;
+pub type DSAccount = AccountOf<Runtime>;
 
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {
