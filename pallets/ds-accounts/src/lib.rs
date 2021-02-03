@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(feature = "std")]
-
 use serde::{Deserialize, Serialize};
+
 use frame_support::{
     codec::{Decode, Encode},
     debug, decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
@@ -55,6 +55,10 @@ impl<
 
     pub fn is_registrar(&self) -> bool {
         !(self.roles & REGISTRAR_ROLE.into()).is_zero()
+    }
+
+    pub fn is_none_role(&self) -> bool {
+        self.roles.is_zero()
     }
 
     pub fn is_enable(&self) -> bool {
@@ -205,8 +209,8 @@ decl_module! {
             // https://substrate.dev/docs/en/knowledgebase/runtime/origin
             let who = ensure_signed(origin)?;
             ensure!(AccountOf::<T>::is_role_correct(role), Error::<T>::InvalidData);
-            ensure!(Self::account_is_admin(&who), Error::<T>::NotAuthorized);
             ensure!(role != PILOT_ROLE.into(), Error::<T>::NotAllowedRole);
+            ensure!(Self::account_is_admin(&who), Error::<T>::NotAuthorized);
 
             // Update storage.
             AccountRegistry::<T>::mutate(&account, |acc|{
@@ -231,6 +235,7 @@ decl_module! {
             // https://substrate.dev/docs/en/knowledgebase/runtime/origin
             let who = ensure_signed(origin)?;
             ensure!(Self::account_is_registrar(&who), Error::<T>::NotAuthorized);
+            ensure!(Self::account_is_none_role(&account), Error::<T>::NotAllowedRole);
 
             // Update storage.
             AccountRegistry::<T>::mutate(&account, |acc|{
@@ -287,6 +292,10 @@ impl<T: Trait> Module<T> {
     /// Check if an account has PILOT role
     pub fn account_is_registrar(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).is_registrar()
+    }
+    /// Check if an account has NONE role
+    pub fn account_is_none_role(acc: &T::AccountId) -> bool {
+        AccountRegistry::<T>::get(acc).is_none_role()
     }
 }
 
