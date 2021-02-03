@@ -177,6 +177,8 @@ decl_error! {
         NotAuthorized,
         /// Account doesn't exist
         NotExists,
+        /// Role is not allowed
+        NotAllowedRole,
         // add additional errors below
     }
 }
@@ -204,6 +206,7 @@ decl_module! {
             let who = ensure_signed(origin)?;
             ensure!(AccountOf::<T>::is_role_correct(role), Error::<T>::InvalidData);
             ensure!(Self::account_is_admin(&who), Error::<T>::NotAuthorized);
+            ensure!(role != PILOT_ROLE.into(), Error::<T>::NotAllowedRole);
 
             // Update storage.
             AccountRegistry::<T>::mutate(&account, |acc|{
