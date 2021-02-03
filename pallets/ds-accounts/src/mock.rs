@@ -68,7 +68,7 @@ impl system::Trait for Test {
     type PalletInfo = ();
     type AccountData = pallet_balances::AccountData<Balance>;
     type OnNewAccount = ();
-    type OnKilledAccount = TemplateModule;
+    type OnKilledAccount = DSAccountsModule;
     type SystemWeightInfo = ();
 }
 
@@ -139,7 +139,7 @@ impl pallet_balances::Trait for Test {
 //     type FeeMultiplierUpdate = ();
 // }
 
-pub type TemplateModule = Module<Test>;
+pub type DSAccountsModule = Module<Test>;
 pub type Account = super::AccountOf<Test>;
 
 static INITIAL: [(

@@ -72,18 +72,18 @@ fn it_identity_pallet_transaction_payment_multiplier() {
 #[test]
 fn it_create_new_account() {
     new_test_ext().execute_with(|| {
-        let account = TemplateModule::account_registry(2);
-        assert!(!account.is_enable());
+        let account = DSAccountsModule::account_registry(2);
+        assert!(!account.is_enabled());
 
         Timestamp::set_timestamp(5000);
-        assert_ok!(TemplateModule::account_add(
+        assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
             super::REGISTRAR_ROLE
         ));
 
-        let account = TemplateModule::account_registry(REGISTRAR_1_ACCOUNT_ID);
-        assert!(account.is_enable());
+        let account = DSAccountsModule::account_registry(REGISTRAR_1_ACCOUNT_ID);
+        assert!(account.is_enabled());
 
         let age = account.age(20000);
         assert_eq!(age, 15000);
@@ -93,16 +93,16 @@ fn it_create_new_account() {
 #[test]
 fn it_disable_account() {
     new_test_ext().execute_with(|| {
-        assert_ok!(TemplateModule::account_add(
+        assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
             super::REGISTRAR_ROLE
         ));
-        assert_ok!(TemplateModule::account_disable(
+        assert_ok!(DSAccountsModule::account_disable(
                 Origin::signed(ADMIN_ACCOUNT_ID), 
                 REGISTRAR_1_ACCOUNT_ID
         ));
-        assert!(!TemplateModule::account_registry(REGISTRAR_1_ACCOUNT_ID).is_enable());
+        assert!(!DSAccountsModule::account_registry(REGISTRAR_1_ACCOUNT_ID).is_enabled());
     });
 }
 
@@ -110,13 +110,13 @@ fn it_disable_account() {
 fn it_try_disable_themself() {
     new_test_ext().execute_with(|| {
         assert_noop!(
-            TemplateModule::account_disable(
+            DSAccountsModule::account_disable(
                 Origin::signed(ADMIN_ACCOUNT_ID),
                 ADMIN_ACCOUNT_ID
             ),
             Error::InvalidAction
         );
-        assert!(TemplateModule::account_registry(ADMIN_ACCOUNT_ID).is_enable());
+        assert!(DSAccountsModule::account_registry(ADMIN_ACCOUNT_ID).is_enabled());
     });
 }
 
@@ -124,7 +124,7 @@ fn it_try_disable_themself() {
 fn it_try_create_account_with_role_pilot() {
     new_test_ext().execute_with(|| {
         assert_noop!(
-            TemplateModule::account_add(
+            DSAccountsModule::account_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
                 PILOT_1_ACCOUNT_ID,
                 super::PILOT_ROLE,
@@ -137,13 +137,13 @@ fn it_try_create_account_with_role_pilot() {
 #[test]
 fn it_try_create_by_registrar() {
     new_test_ext().execute_with(|| {
-        assert_ok!(TemplateModule::account_add(
+        assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
             super::REGISTRAR_ROLE
         ));
         assert_noop!(
-            TemplateModule::account_add(
+            DSAccountsModule::account_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
                 REGISTRAR_2_ACCOUNT_ID, 
                 super::REGISTRAR_ROLE
@@ -158,18 +158,18 @@ fn it_register_pilot_by_registrar() {
     new_test_ext().execute_with(|| {
         Timestamp::set_timestamp(5000);
 
-        assert_ok!(TemplateModule::account_add(
+        assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
             super::REGISTRAR_ROLE
         ));
-        assert_ok!(TemplateModule::register_pilot(
+        assert_ok!(DSAccountsModule::register_pilot(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
                 PILOT_1_ACCOUNT_ID
         ));
 
-        let account = TemplateModule::account_registry(PILOT_1_ACCOUNT_ID);
-        assert!(account.is_enable());
+        let account = DSAccountsModule::account_registry(PILOT_1_ACCOUNT_ID);
+        assert!(account.is_enabled());
 
         let age = account.age(20000);
         assert_eq!(age, 15000);
@@ -180,7 +180,7 @@ fn it_register_pilot_by_registrar() {
 fn it_try_register_pilot_not_by_registrar() {
     new_test_ext().execute_with(|| {
         assert_noop!(
-            TemplateModule::register_pilot(
+            DSAccountsModule::register_pilot(
                 Origin::signed(ADMIN_ACCOUNT_ID), 
                 PILOT_1_ACCOUNT_ID
             ),
@@ -192,13 +192,13 @@ fn it_try_register_pilot_not_by_registrar() {
 #[test]
 fn it_try_register_admin_as_pilot() {
     new_test_ext().execute_with(|| {
-        assert_ok!(TemplateModule::account_add(
+        assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
             super::REGISTRAR_ROLE
         ));
         assert_noop!(
-            TemplateModule::register_pilot(
+            DSAccountsModule::register_pilot(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
                 ADMIN_ACCOUNT_ID, 
             ),
@@ -215,19 +215,19 @@ fn it_account_reaped() {
                 REGISTRAR_1_ACCOUNT_ID, 
                 10000)
         );
-        assert_ok!(TemplateModule::account_add(
+        assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
             super::REGISTRAR_ROLE
         ));
 
-        assert!(TemplateModule::account_registry(REGISTRAR_1_ACCOUNT_ID).is_enable());
+        assert!(DSAccountsModule::account_registry(REGISTRAR_1_ACCOUNT_ID).is_enabled());
         assert_ok!(Balances::transfer(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
                 3, 
                 10000
         ));
-        assert!(!TemplateModule::account_registry(REGISTRAR_1_ACCOUNT_ID).is_enable());
+        assert!(!DSAccountsModule::account_registry(REGISTRAR_1_ACCOUNT_ID).is_enabled());
     });
 }
 
@@ -238,7 +238,7 @@ fn it_balance() {
         assert_eq!(Balances::total_issuance(), 100000);
         assert_eq!(Balances::free_balance(ADMIN_ACCOUNT_ID), 100000);
         assert_eq!(Balances::free_balance(REGISTRAR_1_ACCOUNT_ID), 0);
-        assert_ok!(TemplateModule::account_add(
+        assert_ok!(DSAccountsModule::account_add(
             Origin::signed(1),
             3,
             super::REGISTRAR_ROLE
