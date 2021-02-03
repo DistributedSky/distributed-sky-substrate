@@ -121,6 +121,20 @@ fn it_try_disable_themself() {
 }
 
 #[test]
+fn it_try_create_account_with_role_pilot() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            TemplateModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                PILOT_1_ACCOUNT_ID,
+                super::PILOT_ROLE,
+            ),
+            Error::NotAllowedRole
+        );
+    });
+}
+
+#[test]
 fn it_try_create_by_registrar() {
     new_test_ext().execute_with(|| {
         assert_ok!(TemplateModule::account_add(
