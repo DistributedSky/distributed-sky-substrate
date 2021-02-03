@@ -17,13 +17,13 @@
 
 use crate::cli::{Cli, Subcommand};
 use crate::{chain_spec, service};
-use node_template_runtime::Block;
+use node_dsky_runtime::Block;
 use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
-        "Mixbytes Template Node".into()
+        "Mixbytes DS Node".into()
     }
 
     fn impl_version() -> String {
@@ -57,7 +57,7 @@ impl SubstrateCli for Cli {
     }
 
     fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-        &node_template_runtime::VERSION
+        &node_dsky_runtime::VERSION
     }
 }
 

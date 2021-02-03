@@ -1,6 +1,6 @@
-use node_template_runtime::{
+use node_dsky_runtime::{
     AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-    SystemConfig, TemplateAccount, DSAccountsModuleConfig, TransactionPaymentConfig, WASM_BINARY,
+    SystemConfig, DSAccount, DSAccountsModuleConfig, TransactionPaymentConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -166,7 +166,7 @@ fn testnet_genesis(
             // set roles for each pre-set accounts (set role)
             genesis_account_registry: endowed_accounts
                 .first()
-                .map(|acc| (acc.clone(), TemplateAccount::new_admin()))
+                .map(|acc| (acc.clone(), DSAccount::new_admin()))
                 .into_iter()
                 .collect(),
         }),

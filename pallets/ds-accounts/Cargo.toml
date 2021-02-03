@@ -1,11 +1,11 @@
 [package]
-authors = ['Mixbytes <https://github.com/mixbytes/substrate-project-template>']
-description = 'FRAME pallet template for defining custom runtime logic.'
+authors = ['Mixbytes <https://github.com/mixbytes/dsky-substrate-template>']
+description = 'FRAME pallet for defining DS accounts management runtime logic.'
 edition = '2018'
 homepage = 'https://substrate.dev'
 license = 'Apache-2.0'
 name = 'pallet-ds-accounts'
-repository = 'https://github.com/mixbytes/substrate-project-template'
+repository = 'https://github.com/mixbytes/dsky-substrate-template'
 version = '2.0.0'
 
 [package.metadata.docs.rs]

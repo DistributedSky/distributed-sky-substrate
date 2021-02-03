@@ -1,16 +1,16 @@
 [package]
-authors = ['Mixbytes <https://github.com/mixbytes/substrate-project-template>']
+authors = ['Mixbytes <https://github.com/mixbytes/dsky-substrate-template>']
 build = 'build.rs'
 description = 'A fresh FRAME-based Substrate node'
 edition = '2018'
 homepage = 'https://substrate.dev'
 license = 'Apache-2.0'
-name = 'node-template'
-repository = 'https://github.com/mixbytes/substrate-project-template'
+name = 'node-dsky'
+repository = 'https://github.com/mixbytes/dsky-substrate-template'
 version = '2.0.0'
 
 [[bin]]
-name = 'node-template'
+name = 'node-dsky'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -23,7 +23,7 @@ jsonrpc-core = '15.0.0'
 structopt = '0.3.8'
 
 # local dependencies
-node-template-runtime = { path = '../runtime', version = '2.0.0' }
+node-dsky-runtime = { path = '../runtime', version = '2.0.0' }
 
 # Substrate dependencies
 frame-benchmarking = '2.0.0'
@@ -54,4 +54,4 @@ substrate-frame-rpc-system = '2.0.0'
 
 [features]
 default = []
-runtime-benchmarks = ['node-template-runtime/runtime-benchmarks']
+runtime-benchmarks = ['node-dsky-runtime/runtime-benchmarks']
