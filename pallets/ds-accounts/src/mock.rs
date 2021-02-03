@@ -172,6 +172,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
                     Account {
                         roles: *role,
                         create_time: 0,
+                        managed_by: Default::default(),
                     },
                 )
             })
