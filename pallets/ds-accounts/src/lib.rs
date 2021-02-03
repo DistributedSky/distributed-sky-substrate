@@ -37,17 +37,17 @@ pub mod prelude {
 /// Structure, specific for each role
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default)]
-pub struct Account<Moment, AccountRole, AccountManager> {
+pub struct Account<Instant, AccountRole, AccountManager> {
     pub roles: AccountRole,
-    pub create_time: Moment,
+    pub create_time: Instant,
     pub managed_by: AccountManager, 
 }
 
 impl<
-        Moment: Default + AtLeast32Bit + Copy,
+        Instant: Default + AtLeast32Bit + Copy,
         AccountRole: Zero + Copy + From<u8> + BitAnd<Output = AccountRole>,
         AccountManager: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
-    > Account<Moment, AccountRole, AccountManager>
+    > Account<Instant, AccountRole, AccountManager>
 {
     pub fn is_admin(&self) -> bool {
         !(self.roles & ADMIN_ROLE.into()).is_zero()
@@ -61,7 +61,7 @@ impl<
         self.roles.is_zero()
     }
 
-    pub fn is_enable(&self) -> bool {
+    pub fn is_enabled(&self) -> bool {
         !self.roles.is_zero()
     }
 
@@ -70,7 +70,7 @@ impl<
     }
 
     #[allow(dead_code)]
-    pub fn age(&self, now: Moment) -> Moment {
+    pub fn age(&self, now: Instant) -> Instant {
         now - self.create_time
     }
 
@@ -132,7 +132,7 @@ decl_storage! {
     // A unique name is used to ensure that the pallet's storage items are isolated.
     // This name may be updated, but each pallet in the runtime must use a unique name.
     // ---------------------------------vvvvvvvvvvvvvv
-    trait Store for Module<T: Trait> as TemplateModule {
+    trait Store for Module<T: Trait> as DSAccountsModule {
         // Learn more about declaring storage items:
         // https://substrate.dev/docs/en/knowledgebase/runtime/storage#declaring-storage-items
         AccountRegistry

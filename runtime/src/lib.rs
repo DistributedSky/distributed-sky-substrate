@@ -189,7 +189,7 @@ impl frame_system::Trait for Runtime {
     /// What to do if a new account is created.
     type OnNewAccount = ();
     /// What to do if an account is fully reaped from the system.
-    type OnKilledAccount = TemplateModule;
+    type OnKilledAccount = DSAccountsModule;
     /// The data to be stored in an account.
     type AccountData = pallet_balances::AccountData<Balance>;
     /// Weight information for the extrinsics of this pallet.
@@ -296,8 +296,8 @@ construct_runtime!(
         Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
         TransactionPayment: pallet_transaction_payment::{Module, Storage, Config},
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
-        // Include the custom logic from the DS accounts pallet in the runtime.
-        TemplateModule: pallet_ds_accounts::{Module, Call, Storage, Config<T>, Event<T>},
+        // Include the DS account management logic from ds-accounts pallet in the runtime
+        DSAccountsModule: pallet_ds_accounts::{Module, Call, Storage, Config<T>, Event<T>},
     }
 );
 

@@ -1,6 +1,6 @@
 use node_template_runtime::{
     AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-    SystemConfig, TemplateAccount, TemplateModuleConfig, TransactionPaymentConfig, WASM_BINARY,
+    SystemConfig, TemplateAccount, DSAccountsModuleConfig, TransactionPaymentConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -162,7 +162,7 @@ fn testnet_genesis(
             // Assign network admin rights.
             key: root_key,
         }),
-        pallet_ds_accounts: Some(TemplateModuleConfig {
+        pallet_ds_accounts: Some(DSAccountsModuleConfig {
             // set roles for each pre-set accounts (set role)
             genesis_account_registry: endowed_accounts
                 .first()
