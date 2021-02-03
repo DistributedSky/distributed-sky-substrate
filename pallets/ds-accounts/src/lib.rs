@@ -1,17 +1,20 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
 
+use serde::{Deserialize, Serialize};
 use frame_support::{
     codec::{Decode, Encode},
     debug, decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
     sp_runtime::{
         sp_std::ops::BitAnd,
-        traits::{AtLeast32Bit, Zero},
+        traits::{
+            AtLeast32Bit, Member, 
+            MaybeSerializeDeserialize, Zero
+        },
     },
     traits::{
         Currency, Get, LockableCurrency,
-        OnKilledAccount, 
+        OnKilledAccount,
     },
     weights::{Weight},
     Parameter,
@@ -34,15 +37,17 @@ pub mod prelude {
 /// Structure, specific for each role
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default)]
-pub struct Account<Moment, AccountRole> {
+pub struct Account<Moment, AccountRole, AccountManager> {
     pub roles: AccountRole,
     pub create_time: Moment,
+    pub managed_by: AccountManager, 
 }
 
 impl<
         Moment: Default + AtLeast32Bit + Copy,
         AccountRole: Zero + Copy + From<u8> + BitAnd<Output = AccountRole>,
-    > Account<Moment, AccountRole>
+        AccountManager: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
+    > Account<Moment, AccountRole, AccountManager>
 {
     pub fn is_admin(&self) -> bool {
         !(self.roles & ADMIN_ROLE.into()).is_zero()
@@ -69,11 +74,12 @@ impl<
         Account {
             roles: ADMIN_ROLE.into(),
             create_time: Default::default(),
+            managed_by: Default::default(),
         }
     }
 }
 
-pub type AccountOf<T> = Account<<T as pallet_timestamp::Trait>::Moment, <T as Trait>::AccountRole>;
+pub type AccountOf<T> = Account<<T as pallet_timestamp::Trait>::Moment, <T as Trait>::AccountRole, <T as frame_system::Trait>::AccountId>;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
@@ -230,6 +236,7 @@ decl_module! {
                 if acc.create_time.is_zero() {
                     acc.create_time = <pallet_timestamp::Module<T>>::get();
                 }
+                acc.managed_by = who.clone();
             });
 
             Self::deposit_event(RawEvent::PilotRegistered(who, account));
