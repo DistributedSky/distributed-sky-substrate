@@ -6,7 +6,7 @@ use frame_support::{
     codec::{Decode, Encode},
     debug, decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
     sp_runtime::{
-        sp_std::ops::BitAnd,
+        sp_std::ops::{BitAnd, BitOr},
         traits::{
             AtLeast32Bit, Member, 
             MaybeSerializeDeserialize, Zero
@@ -45,7 +45,7 @@ pub struct Account<Moment, AccountRole, AccountManager> {
 
 impl<
         Moment: Default + AtLeast32Bit + Copy,
-        AccountRole: Zero + Copy + From<u8> + BitAnd<Output = AccountRole>,
+        AccountRole: Zero + Copy + From<u8> + BitAnd<Output = AccountRole> + BitOr<Output = AccountRole>,
         AccountManager: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
     > Account<Moment, AccountRole, AccountManager>
 {
@@ -66,7 +66,9 @@ impl<
     }
 
     pub fn is_role_correct(_role: AccountRole) -> bool {
-        true
+        !(_role & ADMIN_ROLE.into()).is_zero() ||
+        !(_role & PILOT_ROLE.into()).is_zero() ||
+        !(_role & REGISTRAR_ROLE.into()).is_zero()
     }
 
     #[allow(dead_code)]
@@ -99,7 +101,8 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
         + Zero
         + From<u8>
         + Copy
-        + BitAnd<Output = Self::AccountRole>;
+        + BitAnd<Output = Self::AccountRole>
+        + BitOr<Output = Self::AccountRole>;
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
     type WeightInfo: WeightInfo;
 }
@@ -233,12 +236,11 @@ decl_module! {
             // https://substrate.dev/docs/en/knowledgebase/runtime/origin
             let who = ensure_signed(origin)?;
             ensure!(Self::account_is_registrar(&who), Error::<T>::NotAuthorized);
-            ensure!(Self::account_is_none_role(&account), Error::<T>::NotAllowedRole);
 
             // Update storage.
             AccountRegistry::<T>::mutate(&account, |acc|{
                 debug::info!("register_pilot: roles:{:?} create_time={:?}", acc.roles, acc.create_time);
-                acc.roles = PILOT_ROLE.into();
+                acc.roles = acc.roles | PILOT_ROLE.into();
                 if acc.create_time.is_zero() {
                     acc.create_time = <pallet_timestamp::Module<T>>::get();
                 }
