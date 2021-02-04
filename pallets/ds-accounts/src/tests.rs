@@ -192,19 +192,18 @@ fn it_try_register_pilot_not_by_registrar() {
 }
 
 #[test]
-fn it_try_register_admin_as_pilot() {
+fn it_try_to_add_admin_account_role_pilot() {
     new_test_ext().execute_with(|| {
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
             super::REGISTRAR_ROLE
         ));
-        assert_noop!(
+        assert_ok!(
             DSAccountsModule::register_pilot(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
                 ADMIN_ACCOUNT_ID, 
-            ),
-            Error::NotAllowedRole
+            )
         );
     });
 }
