@@ -37,17 +37,17 @@ pub mod prelude {
 /// Structure, specific for each role
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default)]
-pub struct Account<Instant, AccountRole, AccountManager> {
+pub struct Account<Moment, AccountRole, AccountManager> {
     pub roles: AccountRole,
-    pub create_time: Instant,
+    pub create_time: Moment,
     pub managed_by: AccountManager, 
 }
 
 impl<
-        Instant: Default + AtLeast32Bit + Copy,
+        Moment: Default + AtLeast32Bit + Copy,
         AccountRole: Zero + Copy + From<u8> + BitAnd<Output = AccountRole>,
         AccountManager: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
-    > Account<Instant, AccountRole, AccountManager>
+    > Account<Moment, AccountRole, AccountManager>
 {
     pub fn is_admin(&self) -> bool {
         !(self.roles & ADMIN_ROLE.into()).is_zero()
@@ -70,7 +70,7 @@ impl<
     }
 
     #[allow(dead_code)]
-    pub fn age(&self, now: Instant) -> Instant {
+    pub fn age(&self, now: Moment) -> Moment {
         now - self.create_time
     }
 
@@ -153,8 +153,6 @@ decl_event!(
         AccountRole = <T as Trait>::AccountRole,
     {
         // Event documentation should end with an array that provides descriptive names for event parameters.
-        /// Something store value has been updated. [value, who]
-        SomethingStored(u32, AccountId),
         /// New account has been created [who, account, role]
         AccountCreated(AccountId, AccountId, AccountRole),
         /// Account has been disabled [who, account]
