@@ -41,12 +41,13 @@ fn it_default_pallet_transaction_payment_multiplier() {
     let multiplier: Multiplier = Multiplier::saturating_from_integer(1);
 
     let new_multiplier = <() as Convert<Multiplier, Multiplier>>::convert(multiplier);
-    println!(
+
+    assert_eq!(
+        new_multiplier, 
+        0.into(),
         "default multiplier convert from {:} to {:}",
         multiplier, new_multiplier
     );
-
-    assert_eq!(new_multiplier, 0.into());
 }
 
 #[test]
@@ -61,12 +62,13 @@ fn it_identity_pallet_transaction_payment_multiplier() {
         Multiplier,
         Multiplier,
     >>::convert(multiplier);
-    println!(
-        "identiry multiplier convert from {:} to {:}",
+
+    assert_eq!(
+        new_multiplier, 
+        multiplier,
+        "identity multiplier convert from {:} to {:}",
         multiplier, new_multiplier
     );
-
-    assert_eq!(new_multiplier, multiplier);
 }
 
 #[test]
