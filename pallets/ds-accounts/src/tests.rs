@@ -7,31 +7,14 @@ use frame_support::{
 // https://substrate.dev/docs/en/knowledgebase/runtime/tests
 // type Module = super::Module<Test>;
 type Timestamp = pallet_timestamp::Module<Test>;
-type System = frame_system::Module<Test>;
 type Balances = pallet_balances::Module<Test>;
 type Error = super::Error<Test>;
-
-#[allow(dead_code)]
-// get last events and reset
-fn events() -> Vec<TestEvent> {
-    let evt = System::events()
-        .into_iter()
-        .map(|evt| evt.event)
-        .collect::<Vec<_>>();
-    System::reset_events();
-    evt
-}
 
 // Constants to make tests more readable
 const ADMIN_ACCOUNT_ID: u64 = 1;
 const REGISTRAR_1_ACCOUNT_ID: u64 = 2;
 const REGISTRAR_2_ACCOUNT_ID: u64 = 3;
 const PILOT_1_ACCOUNT_ID: u64 = 4;
-
-#[allow(dead_code)]
-fn last_event() -> TestEvent {
-    System::events().pop().expect("Event expected").event
-}
 
 #[test]
 fn it_default_pallet_transaction_payment_multiplier() {
