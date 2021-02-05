@@ -65,11 +65,10 @@ impl<
         !self.roles.is_zero()
     }
 
-    pub fn is_role_correct(_role: AccountRole) -> bool {
-        !(_role & ALL_ROLES.into()).is_zero() 
+    pub fn is_role_correct(role: AccountRole) -> bool {
+        !(role & ALL_ROLES.into()).is_zero() 
     }
 
-    #[allow(dead_code)]
     pub fn age(&self, now: Moment) -> Moment {
         now - self.create_time
     }
@@ -116,8 +115,6 @@ type BalanceOf<T> =
 
 /// Account roles. Add additional values if required.
 /// Note that role value must be a power of two
-#[allow(dead_code)]
-const NONE_ROLE: u8 = 0x00;
 pub const ADMIN_ROLE: u8 = 0x01;
 pub const PILOT_ROLE: u8 = 0x02;
 pub const REGISTRAR_ROLE: u8 = 0x04;
