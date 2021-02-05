@@ -1,0 +1,76 @@
+name:                              Compilation and Testing Suite
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - v*
+    paths-ignore:
+      - 'README.md'
+jobs:
+## Check Stage
+  check-test-build:
+    name:                          Check, test and build
+    runs-on:                       self-hosted
+    container:
+      image:                       paritytech/ci-linux:production
+      volumes:
+        - /cache:/cache
+    env:
+      RUST_BACKTRACE:              full
+      CARGO_TARGET_DIR:            /cache/master
+      SCCACHE_REDIS:               redis://172.17.0.1/0
+      SCCACHE_IDLE_TIMEOUT:        0
+      CMAKE_C_COMPILER_LAUNCHER:   sccache
+      CMAKE_CXX_COMPILER_LAUNCHER: sccache
+    steps:
+      - name:                      Cancel Previous Runs
+        uses:                      styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token:            ${{ github.token }}
+      - name:                      Checkout sources & submodules
+        uses:                      actions/checkout@v2
+        with:
+          fetch-depth:             5
+          submodules:              false
+      - name:                      Install nightly
+        uses:                      actions-rs/toolchain@v1
+        with:
+            target:                wasm32-unknown-unknown
+            components:            rustfmt, clippy
+      - name:                      Checking rust
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 check
+          args:                    --all  --verbose
+
+## Test Stage
+      - name:                      Testing rust
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 test
+          args:                    --all  --verbose
+
+## Linting Stage
+      - name:                      Clippy
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 clippy
+          args:                    --all-targets -- -D warnings
+
+## Check Node Benchmarks
+      - name:                      Check evercity-node
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 check
+          args:                    --verbose
+
+## Build Stage
+      - name:                      Building rust
+        uses:                      actions-rs/cargo@master
+        if:                        github.ref == 'refs/heads/master'
+        with:
+          command:                 build
+          args:                    --all --release --verbose
