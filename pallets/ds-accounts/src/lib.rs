@@ -66,9 +66,7 @@ impl<
     }
 
     pub fn is_role_correct(_role: AccountRole) -> bool {
-        !(_role & ADMIN_ROLE.into()).is_zero() ||
-        !(_role & PILOT_ROLE.into()).is_zero() ||
-        !(_role & REGISTRAR_ROLE.into()).is_zero()
+        !(_role & ALL_ROLES.into()).is_zero() 
     }
 
     #[allow(dead_code)]
@@ -122,8 +120,8 @@ type BalanceOf<T> =
 const NONE_ROLE: u8 = 0x00;
 pub const ADMIN_ROLE: u8 = 0x01;
 pub const PILOT_ROLE: u8 = 0x02;
-#[allow(dead_code)]
 pub const REGISTRAR_ROLE: u8 = 0x04;
+const ALL_ROLES: u8 = ADMIN_ROLE | PILOT_ROLE | REGISTRAR_ROLE;
 
 // Storage, Events, Errors are declared using rust macros
 // How to use macros see
