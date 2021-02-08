@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - master
+      - main
     tags:
       - v*
     paths-ignore:
@@ -59,7 +59,7 @@ jobs:
 ## Build Stage
       - name:                      Building rust
         uses:                      actions-rs/cargo@master
-        if:                        github.ref == 'refs/heads/master'
+        if:                        github.ref == 'refs/heads/main'
         with:
           command:                 build
           args:                    --all --release --verbose
