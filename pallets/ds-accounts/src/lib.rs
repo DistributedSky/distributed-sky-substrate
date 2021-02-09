@@ -57,6 +57,10 @@ impl<
         !(self.roles & REGISTRAR_ROLE.into()).is_zero()
     }
 
+    pub fn is_pilot(&self) -> bool {
+        !(self.roles & PILOT_ROLE.into()).is_zero()
+    }
+
     pub fn is_none_role(&self) -> bool {
         self.roles.is_zero()
     }
@@ -179,6 +183,8 @@ decl_error! {
         NotExists,
         /// Role is not allowed
         NotAllowedRole,
+        /// Pilot has already been registered
+        AlreadyRegistered,
         // add additional errors below
     }
 }
@@ -232,18 +238,25 @@ decl_module! {
             let who = ensure_signed(origin)?;
             ensure!(Self::account_is_registrar(&who), Error::<T>::NotAuthorized);
 
-            // Update storage.
-            AccountRegistry::<T>::mutate(&account, |acc|{
+            let update_storage_result = AccountRegistry::<T>::mutate(&account, |acc| -> dispatch::DispatchResult {
+                ensure!(!AccountOf::<T>::is_pilot(acc), Error::<T>::AlreadyRegistered);
                 debug::info!("register_pilot: roles:{:?} create_time={:?}", acc.roles, acc.create_time);
+
                 acc.roles = acc.roles | PILOT_ROLE.into();
                 if acc.create_time.is_zero() {
                     acc.create_time = <pallet_timestamp::Module<T>>::get();
                 }
                 acc.managed_by = who.clone();
+
+                Ok(())
             });
 
-            Self::deposit_event(RawEvent::PilotRegistered(who, account));
-            Ok(())
+            match update_storage_result {
+                Ok(_) => Self::deposit_event(RawEvent::PilotRegistered(who, account)),
+                Err(_) => {}
+            }
+
+            update_storage_result
         }
 
         /// Disable account entry by removing it from registry.
@@ -284,7 +297,7 @@ impl<T: Trait> Module<T> {
     pub fn account_is_admin(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).is_admin()
     }
-    /// Check if an account has PILOT role
+    /// Check if an account has REGISTRAR role
     pub fn account_is_registrar(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).is_registrar()
     }
