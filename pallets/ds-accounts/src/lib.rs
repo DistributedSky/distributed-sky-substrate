@@ -251,9 +251,8 @@ decl_module! {
                 Ok(())
             });
 
-            match update_storage_result {
-                Ok(_) => Self::deposit_event(RawEvent::PilotRegistered(who, account)),
-                Err(_) => {}
+            if update_storage_result.is_ok() {
+                Self::deposit_event(RawEvent::PilotRegistered(who, account));
             }
 
             update_storage_result
