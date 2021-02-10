@@ -101,6 +101,9 @@ impl crate::WeightInfo for WeightInfo {
     fn register_pilot() -> Weight {
         <() as crate::WeightInfo>::register_pilot()
     }
+    fn register_uav() -> Weight {
+        <() as crate::WeightInfo>::register_uav()
+    }
 }
 
 impl Trait for Test {
