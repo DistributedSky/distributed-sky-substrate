@@ -279,6 +279,7 @@ impl pallet_ds_accounts::Trait for Runtime {
     type AccountRole = u8;
     type Currency = Balances;
     type WeightInfo = ();
+    type MetaIPFS = Vec<u8>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

@@ -109,6 +109,7 @@ impl Trait for Test {
     type AccountRole = u8;
     type Currency = pallet_balances::Module<Self>;
     type WeightInfo = ();
+    type MetaIPFS = Vec<u8>;
 }
 
 parameter_types! {

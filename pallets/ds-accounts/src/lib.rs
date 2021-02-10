@@ -82,7 +82,32 @@ impl<
     }
 }
 
+//account_id is a blockchain address of UAV, managed_by is an account of owner
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Default)]
+pub struct UAVStruct<AccountId, MetaIPFS, OwnerId> { 
+    pub account_id: AccountId,      
+    pub metadata_ipfs_hash: MetaIPFS,
+    pub managed_by: OwnerId,
+}
+
+impl<
+    AccountId: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
+    MetaIPFS: Default + Copy,
+    OwnerId: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
+    > UAVStruct<AccountId, MetaIPFS, OwnerId>
+    { 
+        pub fn new() -> Self {
+            UAVStruct {
+                account_id: Default::default(),
+                metadata_ipfs_hash: Default::default(),
+                managed_by: Default::default(),
+        }
+    }
+}
+
 pub type AccountOf<T> = Account<<T as pallet_timestamp::Trait>::Moment, <T as Trait>::AccountRole, <T as frame_system::Trait>::AccountId>;
+pub type UAVOf<T> = UAVStruct<<T as frame_system::Trait>::AccountId, <T as Trait>::MetaIPFS, <T as frame_system::Trait>::AccountId>;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
@@ -102,6 +127,8 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
         + BitOr<Output = Self::AccountRole>;
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
     type WeightInfo: WeightInfo;
+
+    type MetaIPFS: Default + Parameter;  //later add ipfs_api, change accordingly
 }
 
 pub trait WeightInfo {
@@ -138,6 +165,9 @@ decl_storage! {
             config(genesis_account_registry):
             map hasher(blake2_128_concat) T::AccountId => AccountOf<T>;
 
+        UAVRegistry
+            get(fn drone_registry):
+            map hasher(blake2_128_concat) T::AccountId => UAVOf<T>;
     }
 }
 
