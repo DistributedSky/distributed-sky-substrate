@@ -57,6 +57,11 @@ impl<
         !(self.roles & REGISTRAR_ROLE.into()).is_zero()
     }
 
+    //TODO guess whole block should be reworked (module will continue to grow with similar checks)
+    pub fn is_pilot(&self) -> bool {
+        !(self.roles & PILOT_ROLE.into()).is_zero()
+    }
+
     pub fn is_none_role(&self) -> bool {
         self.roles.is_zero()
     }
@@ -89,6 +94,7 @@ pub struct UAVStruct<AccountId, MetaIPFS, OwnerId> {
     pub account_id: AccountId,      
     pub metadata_ipfs_hash: MetaIPFS,
     pub managed_by: OwnerId,
+    pub weight: u32,
 }
 
 impl<
@@ -97,11 +103,12 @@ impl<
     OwnerId: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
     > UAVStruct<AccountId, MetaIPFS, OwnerId>
     { 
-        pub fn new() -> Self {
+        pub fn new_default() -> Self {
             UAVStruct {
                 account_id: Default::default(),
                 metadata_ipfs_hash: Default::default(),
                 managed_by: Default::default(),
+                weight: 100, 
         }
     }
 }
@@ -135,6 +142,7 @@ pub trait WeightInfo {
     fn account_disable() -> Weight;
     fn account_add() -> Weight;
     fn register_pilot() -> Weight;
+    fn register_uav() -> Weight;
 }
 
 type BalanceOf<T> =
@@ -189,6 +197,8 @@ decl_event!(
         BalanceLocked(AccountId, Balance),
         /// Pilot has been registered [who, account]
         PilotRegistered(AccountId, AccountId),
+        /// UAV has been registered [who, account]
+        UAVRegistred(AccountId, AccountId),
         // add other events here
     }
 );
@@ -209,6 +219,8 @@ decl_error! {
         NotExists,
         /// Role is not allowed
         NotAllowedRole,
+        /// Address doesnt belong to drone
+        WrongDroneAddress,
         // add additional errors below
     }
 }
@@ -256,9 +268,7 @@ decl_module! {
 
         #[weight = <T as Trait>::WeightInfo::register_pilot()]
         pub fn register_pilot(origin, account: T::AccountId) -> dispatch::DispatchResult {
-            // Check that the extrinsic was signed and get the signer.
-            // This function will return an error if the extrinsic is not signed.
-            // https://substrate.dev/docs/en/knowledgebase/runtime/origin
+            //Maybe replace body w "account_add(origin, account, acc.roles | PILOT_ROLE.into())" ?
             let who = ensure_signed(origin)?;
             ensure!(Self::account_is_registrar(&who), Error::<T>::NotAuthorized);
 
@@ -273,6 +283,28 @@ decl_module! {
             });
 
             Self::deposit_event(RawEvent::PilotRegistered(who, account));
+            Ok(())
+        }
+
+        #[weight = <T as Trait>::WeightInfo::register_uav()]
+        pub fn register_uav( origin, 
+                             uav_account: T::AccountId, 
+                             meta: T::MetaIPFS, 
+                             weight: u32 ) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin)?;
+            let allow_registration = Self::account_is_registrar(&who) || Self::account_is_pilot(&who);
+            ensure!(allow_registration, Error::<T>::NotAuthorized);
+            ensure!(Self::account_is_uav(&uav_account), Error::<T>::WrongDroneAddress);
+            
+            // Update storage.
+            UAVRegistry::<T>::mutate(&uav_account, |uav| {
+                debug::info!("register_uav: uav address:{:?} owner address={:?}", uav.account_id, uav.managed_by);
+                uav.weight = weight;
+                uav.metadata_ipfs_hash = meta;
+                uav.managed_by = who.clone();
+            });
+
+            Self::deposit_event(RawEvent::UAVRegistred(who, uav_account));
             Ok(())
         }
 
@@ -314,13 +346,22 @@ impl<T: Trait> Module<T> {
     pub fn account_is_admin(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).is_admin()
     }
-    /// Check if an account has PILOT role
+    /// Check if an account has REGISTRAR role
     pub fn account_is_registrar(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).is_registrar()
+    }
+    /// Check if an account has PILOT role
+    pub fn account_is_pilot(acc: &T::AccountId) -> bool {
+        AccountRegistry::<T>::get(acc).is_pilot()
     }
     /// Check if an account has NONE role
     pub fn account_is_none_role(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).is_none_role()
+    }
+    //dont know for now, how to impl this
+    ///Check if account belong to UAV
+    pub fn account_is_uav(_acc: &T::AccountId) -> bool {
+        true
     }
 }
 
