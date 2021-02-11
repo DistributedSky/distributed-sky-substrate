@@ -341,7 +341,7 @@ fn it_try_register_user_on_uav_addr() {
         assert_ok!(DSAccountsModule::register_uav(
             Origin::signed(REGISTRAR_1_ACCOUNT_ID),
             UAV_1_ACCOUNT_ID,            
-            ipfs_hash_example.to_owned(),
+            ipfs_hash_example,
             String::from("1234-IDG-AF"),
         ));
         assert_noop!(
