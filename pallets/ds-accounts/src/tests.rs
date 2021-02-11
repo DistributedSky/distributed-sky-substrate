@@ -267,13 +267,13 @@ fn it_try_to_add_new_uav_with_allowed_roles() {
             Origin::signed(PILOT_1_ACCOUNT_ID),
             UAV_1_ACCOUNT_ID,
             ipfs_hash_example.to_owned(),
-            400
+            String::from("1234-IDG-AF"),
         ));
         assert_ok!(DSAccountsModule::register_uav(
             Origin::signed(REGISTRAR_1_ACCOUNT_ID),
             UAV_1_ACCOUNT_ID,
             ipfs_hash_example.to_owned(),
-            400
+            String::from("1234-IDG-AF"),
         ));
     });
 }
@@ -288,7 +288,7 @@ fn it_try_register_uav_not_by_allowed_users() {
                 Origin::signed(ADMIN_ACCOUNT_ID),
                 UAV_1_ACCOUNT_ID,
                 ipfs_hash_example.to_owned(),
-                400
+                String::from("1234-IDG-AF"),
             ),
             Error::NotAuthorized
         );
