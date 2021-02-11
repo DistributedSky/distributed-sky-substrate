@@ -87,34 +87,31 @@ impl<
     }
 }
 
-//account_id is a blockchain address of UAV, managed_by is an account of owner
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default)]
-pub struct UAVStruct<AccountId, MetaIPFS, OwnerId> { 
-    pub account_id: AccountId,      
+pub struct UAVStruct<SerialNumber, MetaIPFS, OwnerId> { 
+    pub uav_id: SerialNumber,
     pub metadata_ipfs_hash: MetaIPFS,
     pub managed_by: OwnerId,
-    pub weight: u32,
 }
 
 impl<
-    AccountId: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
+    SerialNumber: Default + Copy,
     MetaIPFS: Default + Copy,
     OwnerId: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
-    > UAVStruct<AccountId, MetaIPFS, OwnerId>
+    > UAVStruct<SerialNumber, MetaIPFS, OwnerId>
     { 
         pub fn new_default() -> Self {
             UAVStruct {
-                account_id: Default::default(),
+                uav_id : Default::default(),
                 metadata_ipfs_hash: Default::default(),
                 managed_by: Default::default(),
-                weight: 100, 
         }
     }
 }
 
 pub type AccountOf<T> = Account<<T as pallet_timestamp::Trait>::Moment, <T as Trait>::AccountRole, <T as frame_system::Trait>::AccountId>;
-pub type UAVOf<T> = UAVStruct<<T as frame_system::Trait>::AccountId, <T as Trait>::MetaIPFS, <T as frame_system::Trait>::AccountId>;
+pub type UAVOf<T> = UAVStruct<<T as Trait>::SerialNumber, <T as Trait>::MetaIPFS, <T as frame_system::Trait>::AccountId>;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
@@ -134,8 +131,8 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
         + BitOr<Output = Self::AccountRole>;
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
     type WeightInfo: WeightInfo;
-
-    type MetaIPFS: Default + Parameter;  //later add ipfs_api, change accordingly
+    type SerialNumber: Default +Parameter + Clone;
+    type MetaIPFS: Default + Parameter + Clone;  
 }
 
 pub trait WeightInfo {
@@ -197,7 +194,7 @@ decl_event!(
         BalanceLocked(AccountId, Balance),
         /// Pilot has been registered [who, account]
         PilotRegistered(AccountId, AccountId),
-        /// UAV has been registered [who, account]
+        /// UAV has been registered [who, account] (do we need ipfs link here?)
         UAVRegistred(AccountId, AccountId),
         // add other events here
     }
@@ -268,7 +265,6 @@ decl_module! {
 
         #[weight = <T as Trait>::WeightInfo::register_pilot()]
         pub fn register_pilot(origin, account: T::AccountId) -> dispatch::DispatchResult {
-            //Maybe replace body w "account_add(origin, account, acc.roles | PILOT_ROLE.into())" ?
             let who = ensure_signed(origin)?;
             ensure!(Self::account_is_registrar(&who), Error::<T>::NotAuthorized);
 
@@ -288,23 +284,22 @@ decl_module! {
 
         #[weight = <T as Trait>::WeightInfo::register_uav()]
         pub fn register_uav( origin, 
-                             uav_account: T::AccountId, 
-                             meta: T::MetaIPFS, 
-                             weight: u32 ) -> dispatch::DispatchResult {
+                             uav_address: T::AccountId, 
+                             meta: T::MetaIPFS,
+                             serial_number: T::SerialNumber ) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             let allow_registration = Self::account_is_registrar(&who) || Self::account_is_pilot(&who);
             ensure!(allow_registration, Error::<T>::NotAuthorized);
-            ensure!(Self::account_is_uav(&uav_account), Error::<T>::WrongDroneAddress);
-            
+            ensure!(!AccountRegistry::<T>::contains_key(&uav_address), Error::<T>::WrongDroneAddress);
             // Update storage.
-            UAVRegistry::<T>::mutate(&uav_account, |uav| {
-                debug::info!("register_uav: uav address:{:?} owner address={:?}", uav.account_id, uav.managed_by);
-                uav.weight = weight;
+            UAVRegistry::<T>::mutate(&uav_address, |uav| {
+                debug::info!("register_uav: uav address:{:?} owner address={:?}", &uav_address, uav.managed_by);
                 uav.metadata_ipfs_hash = meta;
                 uav.managed_by = who.clone();
+                uav.uav_id = serial_number;
             });
 
-            Self::deposit_event(RawEvent::UAVRegistred(who, uav_account));
+            Self::deposit_event(RawEvent::UAVRegistred(who, uav_address));
             Ok(())
         }
 
@@ -357,11 +352,6 @@ impl<T: Trait> Module<T> {
     /// Check if an account has NONE role
     pub fn account_is_none_role(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).is_none_role()
-    }
-    //dont know for now, how to impl this
-    ///Check if account belong to UAV
-    pub fn account_is_uav(_acc: &T::AccountId) -> bool {
-        true
     }
 }
 
