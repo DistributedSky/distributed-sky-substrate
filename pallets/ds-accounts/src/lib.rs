@@ -217,7 +217,7 @@ decl_error! {
         /// Role is not allowed
         NotAllowedRole,
         /// Address doesnt belong to drone
-        WrongDroneAddress,
+        AddressAlreadyUsed,
         // add additional errors below
     }
 }
@@ -246,6 +246,7 @@ decl_module! {
             ensure!(AccountOf::<T>::is_role_correct(role), Error::<T>::InvalidData);
             ensure!(role != PILOT_ROLE.into(), Error::<T>::NotAllowedRole);
             ensure!(Self::account_is_admin(&who), Error::<T>::NotAuthorized);
+            ensure!(!UAVRegistry::<T>::contains_key(&account), Error::<T>::AddressAlreadyUsed);
 
             // Update storage.
             AccountRegistry::<T>::mutate(&account, |acc|{
@@ -267,6 +268,7 @@ decl_module! {
         pub fn register_pilot(origin, account: T::AccountId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(Self::account_is_registrar(&who), Error::<T>::NotAuthorized);
+            ensure!(!UAVRegistry::<T>::contains_key(&account), Error::<T>::AddressAlreadyUsed);
 
             // Update storage.
             AccountRegistry::<T>::mutate(&account, |acc|{
@@ -290,7 +292,8 @@ decl_module! {
             let who = ensure_signed(origin)?;
             let allow_registration = Self::account_is_registrar(&who) || Self::account_is_pilot(&who);
             ensure!(allow_registration, Error::<T>::NotAuthorized);
-            ensure!(!AccountRegistry::<T>::contains_key(&uav_address), Error::<T>::WrongDroneAddress);
+            ensure!(!AccountRegistry::<T>::contains_key(&uav_address), Error::<T>::AddressAlreadyUsed);
+            
             // Update storage.
             UAVRegistry::<T>::mutate(&uav_address, |uav| {
                 debug::info!("register_uav: uav address:{:?} owner address={:?}", &uav_address, uav.managed_by);
