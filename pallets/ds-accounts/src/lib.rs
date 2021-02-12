@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use frame_support::{
     codec::{Decode, Encode},
-    debug, decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
+    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
     sp_runtime::{
         sp_std::ops::{BitAnd, BitOr},
         traits::{
@@ -216,9 +216,8 @@ decl_module! {
 
             // Update storage.
             AccountRegistry::<T>::mutate(&account, |acc|{
-                debug::info!("account_add: roles={:?} create_time={:?}", acc.roles, acc.create_time);
                 acc.roles = role;
-                if acc.create_time.is_zero(){
+                if acc.create_time.is_zero() {
                     // Get current timestamp using pallet-timestamp module
                     acc.create_time = <pallet_timestamp::Module<T>>::get();
                 }
@@ -230,6 +229,7 @@ decl_module! {
             Ok(())
         }
 
+        /// Register an entry in account registry with PILOT role.
         #[weight = <T as Trait>::WeightInfo::register_pilot()]
         pub fn register_pilot(origin, account: T::AccountId) -> dispatch::DispatchResult {
             // Check that the extrinsic was signed and get the signer.
@@ -240,7 +240,6 @@ decl_module! {
 
             let update_storage_result = AccountRegistry::<T>::mutate(&account, |acc| -> dispatch::DispatchResult {
                 ensure!(!AccountOf::<T>::is_pilot(acc), Error::<T>::AlreadyRegistered);
-                debug::info!("register_pilot: roles:{:?} create_time={:?}", acc.roles, acc.create_time);
 
                 acc.roles = acc.roles | PILOT_ROLE.into();
                 if acc.create_time.is_zero() {
