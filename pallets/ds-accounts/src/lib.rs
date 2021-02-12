@@ -49,21 +49,9 @@ impl<
         AccountManager: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
     > Account<Moment, AccountRole, AccountManager>
 {
-    pub fn is_admin(&self) -> bool {
-        !(self.roles & ADMIN_ROLE.into()).is_zero()
-    }
 
-    pub fn is_registrar(&self) -> bool {
-        !(self.roles & REGISTRAR_ROLE.into()).is_zero()
-    }
-
-    //TODO guess whole block should be reworked (module will continue to grow with similar checks)
-    pub fn is_pilot(&self) -> bool {
-        !(self.roles & PILOT_ROLE.into()).is_zero()
-    }
-
-    pub fn is_none_role(&self) -> bool {
-        self.roles.is_zero()
+    pub fn role_is(&self, role: u8) -> bool{
+        !(self.roles & role.into()).is_zero()
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -101,14 +89,16 @@ impl<
     OwnerId: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
     > UAVStruct<SerialNumber, MetaIPFS, OwnerId>
     { 
-        pub fn new_default() -> Self {
+        pub fn new(serial: SerialNumber, meta: MetaIPFS, own: OwnerId) -> Self {
             UAVStruct {
-                uav_id : Default::default(),
-                metadata_ipfs_hash: Default::default(),
-                managed_by: Default::default(),
+                uav_id: serial,
+                metadata_ipfs_hash: meta,
+                managed_by: own,
+            }
         }
     }
-}
+
+
 
 pub type AccountOf<T> = Account<<T as pallet_timestamp::Trait>::Moment, <T as Trait>::AccountRole, <T as frame_system::Trait>::AccountId>;
 pub type UAVOf<T> = UAVStruct<<T as Trait>::SerialNumber, <T as Trait>::MetaIPFS, <T as frame_system::Trait>::AccountId>;
@@ -245,12 +235,11 @@ decl_module! {
             let who = ensure_signed(origin)?;
             ensure!(AccountOf::<T>::is_role_correct(role), Error::<T>::InvalidData);
             ensure!(role != PILOT_ROLE.into(), Error::<T>::NotAllowedRole);
-            ensure!(Self::account_is_admin(&who), Error::<T>::NotAuthorized);
+            ensure!(Self::account_is(&who, ADMIN_ROLE), Error::<T>::NotAuthorized);
             ensure!(!UAVRegistry::<T>::contains_key(&account), Error::<T>::AddressAlreadyUsed);
 
             // Update storage.
             AccountRegistry::<T>::mutate(&account, |acc|{
-                debug::info!("account_add: roles={:?} create_time={:?}", acc.roles, acc.create_time);
                 acc.roles = role;
                 if acc.create_time.is_zero(){
                     // Get current timestamp using pallet-timestamp module
@@ -267,12 +256,11 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::register_pilot()]
         pub fn register_pilot(origin, account: T::AccountId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
-            ensure!(Self::account_is_registrar(&who), Error::<T>::NotAuthorized);
+            ensure!(Self::account_is(&who, REGISTRAR_ROLE), Error::<T>::NotAuthorized);
             ensure!(!UAVRegistry::<T>::contains_key(&account), Error::<T>::AddressAlreadyUsed);
 
             // Update storage.
             AccountRegistry::<T>::mutate(&account, |acc|{
-                debug::info!("register_pilot: roles:{:?} create_time={:?}", acc.roles, acc.create_time);
                 acc.roles = acc.roles | PILOT_ROLE.into();
                 if acc.create_time.is_zero() {
                     acc.create_time = <pallet_timestamp::Module<T>>::get();
@@ -290,13 +278,12 @@ decl_module! {
                              meta: T::MetaIPFS,
                              serial_number: T::SerialNumber ) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
-            let allow_registration = Self::account_is_registrar(&who) || Self::account_is_pilot(&who);
+            let allow_registration = Self::account_is(&who, REGISTRAR_ROLE | PILOT_ROLE);
             ensure!(allow_registration, Error::<T>::NotAuthorized);
             ensure!(!AccountRegistry::<T>::contains_key(&uav_address), Error::<T>::AddressAlreadyUsed);
             
             // Update storage.
             UAVRegistry::<T>::mutate(&uav_address, |uav| {
-                debug::info!("register_uav: uav address:{:?} owner address={:?}", &uav_address, uav.managed_by);
                 uav.metadata_ipfs_hash = meta;
                 uav.managed_by = who.clone();
                 uav.uav_id = serial_number;
@@ -320,7 +307,7 @@ decl_module! {
         pub fn account_disable(origin, whom: T::AccountId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             // Ensure origin has associated account with admin privileges.
-            ensure!(Self::account_is_admin(&who), Error::<T>::NotAuthorized);
+            ensure!(Self::account_is(&who, ADMIN_ROLE), Error::<T>::NotAuthorized);
             // Self disabling is prohibited.
             ensure!(who != whom, Error::<T>::InvalidAction);
             // Raise error if the account doesn't exist or has been disabled already.
@@ -340,21 +327,10 @@ decl_module! {
 impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
-    /// Check if an account has ADMIN role
-    pub fn account_is_admin(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::get(acc).is_admin()
-    }
-    /// Check if an account has REGISTRAR role
-    pub fn account_is_registrar(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::get(acc).is_registrar()
-    }
-    /// Check if an account has PILOT role
-    pub fn account_is_pilot(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::get(acc).is_pilot()
-    }
-    /// Check if an account has NONE role
-    pub fn account_is_none_role(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::get(acc).is_none_role()
+
+    /// Check if an account has some role
+    pub fn account_is(acc: &T::AccountId, role: u8) -> bool {
+        AccountRegistry::<T>::get(acc).role_is(role)
     }
 }
 
