@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use frame_support::{
     codec::{Decode, Encode},
-    debug, decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
+    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
     sp_runtime::{
         sp_std::ops::{BitAnd, BitOr},
         traits::{
@@ -84,16 +84,16 @@ pub struct UAVStruct<SerialNumber, MetaIPFS, OwnerId> {
 }
 
 impl<
-    SerialNumber: Default + Copy,
-    MetaIPFS: Default + Copy,
+    SerialNumber: Default + Clone,
+    MetaIPFS: Default + Clone,
     OwnerId: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
     > UAVStruct<SerialNumber, MetaIPFS, OwnerId>
     { 
-        pub fn new(serial: SerialNumber, meta: MetaIPFS, own: OwnerId) -> Self {
+        pub fn new(serial: SerialNumber, meta: MetaIPFS, own: &OwnerId) -> Self {
             UAVStruct {
                 uav_id: serial,
                 metadata_ipfs_hash: meta,
-                managed_by: own,
+                managed_by: own.clone(),
             }
         }
     }
@@ -121,7 +121,7 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
         + BitOr<Output = Self::AccountRole>;
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
     type WeightInfo: WeightInfo;
-    type SerialNumber: Default +Parameter + Clone;
+    type SerialNumber: Default + Parameter + Clone;
     type MetaIPFS: Default + Parameter + Clone;  
 }
 
@@ -274,20 +274,14 @@ decl_module! {
 
         #[weight = <T as Trait>::WeightInfo::register_uav()]
         pub fn register_uav( origin, 
-                             uav_address: T::AccountId, 
+                             serial_number: T::SerialNumber,
                              meta: T::MetaIPFS,
-                             serial_number: T::SerialNumber ) -> dispatch::DispatchResult {
+                             uav_address: T::AccountId, ) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
-            let allow_registration = Self::account_is(&who, REGISTRAR_ROLE | PILOT_ROLE);
-            ensure!(allow_registration, Error::<T>::NotAuthorized);
+            ensure!(Self::account_is(&who, REGISTRAR_ROLE | PILOT_ROLE), Error::<T>::NotAuthorized);
             ensure!(!AccountRegistry::<T>::contains_key(&uav_address), Error::<T>::AddressAlreadyUsed);
-            
-            // Update storage.
-            UAVRegistry::<T>::mutate(&uav_address, |uav| {
-                uav.metadata_ipfs_hash = meta;
-                uav.managed_by = who.clone();
-                uav.uav_id = serial_number;
-            });
+
+            UAVRegistry::<T>::insert(&uav_address, UAVOf::<T>::new(serial_number, meta, &who));
 
             Self::deposit_event(RawEvent::UAVRegistred(who, uav_address));
             Ok(())
