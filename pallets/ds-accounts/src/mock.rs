@@ -113,7 +113,7 @@ impl Trait for Test {
     type Currency = pallet_balances::Module<Self>;
     type WeightInfo = ();
     type MetaIPFS = Vec<u8>;        
-    type SerialNumber = String;    //not sure which type use here, for simplicity will be string
+    type SerialNumber = Vec<u8>;    //not sure which type use here, for simplicity will be string
 }
 
 parameter_types! {
