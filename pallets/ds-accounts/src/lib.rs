@@ -50,8 +50,8 @@ impl<
     > Account<Moment, AccountRole, AccountManager>
 {
 
-    pub fn role_is(&self, role: u8) -> bool{
-        !(self.roles & role.into()).is_zero()
+    pub fn role_is(&self, role: AccountRole) -> bool{
+        !(self.roles & role).is_zero()
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -206,6 +206,8 @@ decl_error! {
         NotExists,
         /// Role is not allowed
         NotAllowedRole,
+        /// Pilot has already been registered
+        AlreadyRegistered,
         /// Address doesnt belong to drone
         AddressAlreadyUsed,
         // add additional errors below
@@ -235,13 +237,13 @@ decl_module! {
             let who = ensure_signed(origin)?;
             ensure!(AccountOf::<T>::is_role_correct(role), Error::<T>::InvalidData);
             ensure!(role != PILOT_ROLE.into(), Error::<T>::NotAllowedRole);
-            ensure!(Self::account_is(&who, ADMIN_ROLE), Error::<T>::NotAuthorized);
+            ensure!(Self::account_is(&who, ADMIN_ROLE.into()), Error::<T>::NotAuthorized);
             ensure!(!UAVRegistry::<T>::contains_key(&account), Error::<T>::AddressAlreadyUsed);
 
             // Update storage.
             AccountRegistry::<T>::mutate(&account, |acc|{
                 acc.roles = role;
-                if acc.create_time.is_zero(){
+                if acc.create_time.is_zero() {
                     // Get current timestamp using pallet-timestamp module
                     acc.create_time = <pallet_timestamp::Module<T>>::get();
                 }
@@ -253,23 +255,30 @@ decl_module! {
             Ok(())
         }
 
+        /// Register an entry in account registry with PILOT role.
         #[weight = <T as Trait>::WeightInfo::register_pilot()]
         pub fn register_pilot(origin, account: T::AccountId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
-            ensure!(Self::account_is(&who, REGISTRAR_ROLE), Error::<T>::NotAuthorized);
+            ensure!(Self::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             ensure!(!UAVRegistry::<T>::contains_key(&account), Error::<T>::AddressAlreadyUsed);
 
-            // Update storage.
-            AccountRegistry::<T>::mutate(&account, |acc|{
+            let update_storage_result = AccountRegistry::<T>::mutate(&account, |acc| -> dispatch::DispatchResult {
+                ensure!(!AccountOf::<T>::role_is(acc, PILOT_ROLE.into()), Error::<T>::AlreadyRegistered);
+
                 acc.roles = acc.roles | PILOT_ROLE.into();
                 if acc.create_time.is_zero() {
                     acc.create_time = <pallet_timestamp::Module<T>>::get();
                 }
                 acc.managed_by = who.clone();
+
+                Ok(())
             });
 
-            Self::deposit_event(RawEvent::PilotRegistered(who, account));
-            Ok(())
+            if update_storage_result.is_ok() {
+                Self::deposit_event(RawEvent::PilotRegistered(who, account));
+            }
+
+            update_storage_result
         }
 
         #[weight = <T as Trait>::WeightInfo::register_uav()]
@@ -278,7 +287,7 @@ decl_module! {
                              meta: T::MetaIPFS,
                              uav_address: T::AccountId, ) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
-            ensure!(Self::account_is(&who, REGISTRAR_ROLE | PILOT_ROLE), Error::<T>::NotAuthorized);
+            ensure!(Self::account_is(&who, (REGISTRAR_ROLE | PILOT_ROLE).into()), Error::<T>::NotAuthorized);
             ensure!(!AccountRegistry::<T>::contains_key(&uav_address), Error::<T>::AddressAlreadyUsed);
 
             UAVRegistry::<T>::insert(&uav_address, UAVOf::<T>::new(serial_number, meta, &who));
@@ -301,7 +310,7 @@ decl_module! {
         pub fn account_disable(origin, whom: T::AccountId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             // Ensure origin has associated account with admin privileges.
-            ensure!(Self::account_is(&who, ADMIN_ROLE), Error::<T>::NotAuthorized);
+            ensure!(Self::account_is(&who, ADMIN_ROLE.into()), Error::<T>::NotAuthorized);
             // Self disabling is prohibited.
             ensure!(who != whom, Error::<T>::InvalidAction);
             // Raise error if the account doesn't exist or has been disabled already.
@@ -321,9 +330,8 @@ decl_module! {
 impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
-
     /// Check if an account has some role
-    pub fn account_is(acc: &T::AccountId, role: u8) -> bool {
+    pub fn account_is(acc: &T::AccountId, role: T::AccountRole) -> bool {
         AccountRegistry::<T>::get(acc).role_is(role)
     }
 }
