@@ -279,6 +279,8 @@ impl pallet_ds_accounts::Trait for Runtime {
     type AccountRole = u8;
     type Currency = Balances;
     type WeightInfo = ();
+    type MetaIPFS = Vec<u8>;
+    type SerialNumber = Vec<u8>;    //guess, this should be UTF-8 encoded
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

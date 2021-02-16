@@ -6,5 +6,12 @@
 	"AccountOf": {
 	  "roles": "AccountRole",
 	  "create_date": "u64"
+	},
+	"SerialNumber": "Vec<u8>",
+	"MetaIPFS": "Vec<u8>",
+	"UAVOf": {
+		"uav_id": "SerialNumber",
+		"metadata_ipfs_hash": "MetaIPFS",
+		"managed_by": "AccountId"
 	}
 }

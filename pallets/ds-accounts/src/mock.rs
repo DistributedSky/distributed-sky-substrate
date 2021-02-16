@@ -101,6 +101,9 @@ impl crate::WeightInfo for WeightInfo {
     fn register_pilot() -> Weight {
         <() as crate::WeightInfo>::register_pilot()
     }
+    fn register_uav() -> Weight {
+        <() as crate::WeightInfo>::register_uav()
+    }
 }
 
 impl Trait for Test {
@@ -109,7 +112,8 @@ impl Trait for Test {
     type AccountRole = u8;
     type Currency = pallet_balances::Module<Self>;
     type WeightInfo = ();
-    type MetaIPFS = Vec<u8>;
+    type MetaIPFS = Vec<u8>;        
+    type SerialNumber = Vec<u8>;    //not sure which type use here, for simplicity will be string
 }
 
 parameter_types! {

@@ -15,6 +15,8 @@ const ADMIN_ACCOUNT_ID: u64 = 1;
 const REGISTRAR_1_ACCOUNT_ID: u64 = 2;
 const REGISTRAR_2_ACCOUNT_ID: u64 = 3;
 const PILOT_1_ACCOUNT_ID: u64 = 4;
+//should be changed later
+const UAV_1_ACCOUNT_ID: u64 = 4294967295 + 1;   //u32::MAX + 1
 
 #[test]
 fn it_default_pallet_transaction_payment_multiplier() {
@@ -334,4 +336,108 @@ fn it_balance() {
         assert_eq!(Balances::total_issuance(), 99990);
     });
 }
+#[test]
+fn it_try_to_add_new_uav_with_allowed_roles() {
+    new_test_ext().execute_with(|| {
 
+        let ipfs_hash_example: Vec<u8> = vec![1, 2, 3, 4];
+        assert_ok!(DSAccountsModule::account_add(
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
+            super::REGISTRAR_ROLE
+        ));
+        assert_ok!(DSAccountsModule::register_pilot(
+            Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+            PILOT_1_ACCOUNT_ID,
+        ));
+
+        assert_ok!(DSAccountsModule::register_uav(
+            Origin::signed(PILOT_1_ACCOUNT_ID),
+            b"1234-IDG-AF".to_vec(),
+            ipfs_hash_example.to_owned(),
+            UAV_1_ACCOUNT_ID,
+        ));
+        assert_ok!(DSAccountsModule::register_uav(
+            Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+            b"1234-IDG-AF".to_vec(),
+            ipfs_hash_example,
+            UAV_1_ACCOUNT_ID,
+        ));
+    });
+}
+
+#[test]
+fn it_try_register_uav_not_by_allowed_users() {
+    new_test_ext().execute_with(|| {
+        let ipfs_hash_example: Vec<u8> = vec![1, 2, 3, 4];
+
+        assert_noop!(
+            DSAccountsModule::register_uav(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                b"1234-IDG-AF".to_vec(),
+                ipfs_hash_example,
+                UAV_1_ACCOUNT_ID,
+            ),
+            Error::NotAuthorized
+        );
+    });
+}
+
+#[test]
+fn it_try_register_uav_on_wrong_addr() {
+    new_test_ext().execute_with(|| {
+        let ipfs_hash_example: Vec<u8> = vec![1, 2, 3, 4];
+        assert_ok!(DSAccountsModule::account_add(
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
+            super::REGISTRAR_ROLE
+        ));
+        assert_ok!(DSAccountsModule::register_pilot(
+            Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+            PILOT_1_ACCOUNT_ID,
+        ));
+        assert_noop!(
+            DSAccountsModule::register_uav(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                b"1234-IDG-AF".to_vec(),
+                ipfs_hash_example.to_owned(),
+                PILOT_1_ACCOUNT_ID,            
+            ),
+            Error::AddressAlreadyUsed
+        );
+        assert_noop!(
+            DSAccountsModule::register_uav(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                b"1234-IDG-AF".to_vec(),
+                ipfs_hash_example,
+                REGISTRAR_1_ACCOUNT_ID,            
+            ),
+            Error::AddressAlreadyUsed
+        );
+    });
+}
+#[test]
+fn it_try_register_user_on_uav_addr() {
+    new_test_ext().execute_with(|| {
+        let ipfs_hash_example: Vec<u8> = vec![1, 2, 3, 4];
+        assert_ok!(DSAccountsModule::account_add(
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
+            super::REGISTRAR_ROLE,
+        ));
+
+        assert_ok!(DSAccountsModule::register_uav(
+            Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+            b"1234-IDG-AF".to_vec(),
+            ipfs_hash_example,
+            UAV_1_ACCOUNT_ID,            
+        ));
+        assert_noop!(
+            DSAccountsModule::register_pilot(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                UAV_1_ACCOUNT_ID,
+            ), 
+            Error::AddressAlreadyUsed
+        );
+    });
+}
