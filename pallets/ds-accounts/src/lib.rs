@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use frame_support::{
     codec::{Decode, Encode},
-    debug, decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
+    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
     sp_runtime::{
         sp_std::ops::{BitAnd, BitOr},
         traits::{
@@ -49,16 +49,9 @@ impl<
         AccountManager: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
     > Account<Moment, AccountRole, AccountManager>
 {
-    pub fn is_admin(&self) -> bool {
-        !(self.roles & ADMIN_ROLE.into()).is_zero()
-    }
 
-    pub fn is_registrar(&self) -> bool {
-        !(self.roles & REGISTRAR_ROLE.into()).is_zero()
-    }
-
-    pub fn is_none_role(&self) -> bool {
-        self.roles.is_zero()
+    pub fn role_is(&self, role: u8) -> bool{
+        !(self.roles & role.into()).is_zero()
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -82,7 +75,33 @@ impl<
     }
 }
 
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Default)]
+pub struct UAVStruct<SerialNumber, MetaIPFS, OwnerId> { 
+    pub uav_id: SerialNumber,
+    pub metadata_ipfs_hash: MetaIPFS,
+    pub managed_by: OwnerId,
+}
+
+impl<
+    SerialNumber: Default + Clone,
+    MetaIPFS: Default + Clone,
+    OwnerId: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
+    > UAVStruct<SerialNumber, MetaIPFS, OwnerId>
+    { 
+        pub fn new(serial: SerialNumber, meta: MetaIPFS, own: &OwnerId) -> Self {
+            UAVStruct {
+                uav_id: serial,
+                metadata_ipfs_hash: meta,
+                managed_by: own.clone(),
+            }
+        }
+    }
+
+
+
 pub type AccountOf<T> = Account<<T as pallet_timestamp::Trait>::Moment, <T as Trait>::AccountRole, <T as frame_system::Trait>::AccountId>;
+pub type UAVOf<T> = UAVStruct<<T as Trait>::SerialNumber, <T as Trait>::MetaIPFS, <T as frame_system::Trait>::AccountId>;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
@@ -102,12 +121,15 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
         + BitOr<Output = Self::AccountRole>;
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
     type WeightInfo: WeightInfo;
+    type SerialNumber: Default + Parameter + Clone;
+    type MetaIPFS: Default + Parameter + Clone;  
 }
 
 pub trait WeightInfo {
     fn account_disable() -> Weight;
     fn account_add() -> Weight;
     fn register_pilot() -> Weight;
+    fn register_uav() -> Weight;
 }
 
 type BalanceOf<T> =
@@ -138,6 +160,9 @@ decl_storage! {
             config(genesis_account_registry):
             map hasher(blake2_128_concat) T::AccountId => AccountOf<T>;
 
+        UAVRegistry
+            get(fn drone_registry):
+            map hasher(blake2_128_concat) T::AccountId => UAVOf<T>;
     }
 }
 
@@ -159,6 +184,8 @@ decl_event!(
         BalanceLocked(AccountId, Balance),
         /// Pilot has been registered [who, account]
         PilotRegistered(AccountId, AccountId),
+        /// UAV has been registered [who, account] (do we need ipfs link here?)
+        UAVRegistred(AccountId, AccountId),
         // add other events here
     }
 );
@@ -179,6 +206,8 @@ decl_error! {
         NotExists,
         /// Role is not allowed
         NotAllowedRole,
+        /// Address doesnt belong to drone
+        AddressAlreadyUsed,
         // add additional errors below
     }
 }
@@ -206,11 +235,11 @@ decl_module! {
             let who = ensure_signed(origin)?;
             ensure!(AccountOf::<T>::is_role_correct(role), Error::<T>::InvalidData);
             ensure!(role != PILOT_ROLE.into(), Error::<T>::NotAllowedRole);
-            ensure!(Self::account_is_admin(&who), Error::<T>::NotAuthorized);
+            ensure!(Self::account_is(&who, ADMIN_ROLE), Error::<T>::NotAuthorized);
+            ensure!(!UAVRegistry::<T>::contains_key(&account), Error::<T>::AddressAlreadyUsed);
 
             // Update storage.
             AccountRegistry::<T>::mutate(&account, |acc|{
-                debug::info!("account_add: roles={:?} create_time={:?}", acc.roles, acc.create_time);
                 acc.roles = role;
                 if acc.create_time.is_zero(){
                     // Get current timestamp using pallet-timestamp module
@@ -226,15 +255,12 @@ decl_module! {
 
         #[weight = <T as Trait>::WeightInfo::register_pilot()]
         pub fn register_pilot(origin, account: T::AccountId) -> dispatch::DispatchResult {
-            // Check that the extrinsic was signed and get the signer.
-            // This function will return an error if the extrinsic is not signed.
-            // https://substrate.dev/docs/en/knowledgebase/runtime/origin
             let who = ensure_signed(origin)?;
-            ensure!(Self::account_is_registrar(&who), Error::<T>::NotAuthorized);
+            ensure!(Self::account_is(&who, REGISTRAR_ROLE), Error::<T>::NotAuthorized);
+            ensure!(!UAVRegistry::<T>::contains_key(&account), Error::<T>::AddressAlreadyUsed);
 
             // Update storage.
             AccountRegistry::<T>::mutate(&account, |acc|{
-                debug::info!("register_pilot: roles:{:?} create_time={:?}", acc.roles, acc.create_time);
                 acc.roles = acc.roles | PILOT_ROLE.into();
                 if acc.create_time.is_zero() {
                     acc.create_time = <pallet_timestamp::Module<T>>::get();
@@ -243,6 +269,21 @@ decl_module! {
             });
 
             Self::deposit_event(RawEvent::PilotRegistered(who, account));
+            Ok(())
+        }
+
+        #[weight = <T as Trait>::WeightInfo::register_uav()]
+        pub fn register_uav( origin, 
+                             serial_number: T::SerialNumber,
+                             meta: T::MetaIPFS,
+                             uav_address: T::AccountId, ) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin)?;
+            ensure!(Self::account_is(&who, REGISTRAR_ROLE | PILOT_ROLE), Error::<T>::NotAuthorized);
+            ensure!(!AccountRegistry::<T>::contains_key(&uav_address), Error::<T>::AddressAlreadyUsed);
+
+            UAVRegistry::<T>::insert(&uav_address, UAVOf::<T>::new(serial_number, meta, &who));
+
+            Self::deposit_event(RawEvent::UAVRegistred(who, uav_address));
             Ok(())
         }
 
@@ -260,7 +301,7 @@ decl_module! {
         pub fn account_disable(origin, whom: T::AccountId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             // Ensure origin has associated account with admin privileges.
-            ensure!(Self::account_is_admin(&who), Error::<T>::NotAuthorized);
+            ensure!(Self::account_is(&who, ADMIN_ROLE), Error::<T>::NotAuthorized);
             // Self disabling is prohibited.
             ensure!(who != whom, Error::<T>::InvalidAction);
             // Raise error if the account doesn't exist or has been disabled already.
@@ -280,17 +321,10 @@ decl_module! {
 impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
-    /// Check if an account has ADMIN role
-    pub fn account_is_admin(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::get(acc).is_admin()
-    }
-    /// Check if an account has PILOT role
-    pub fn account_is_registrar(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::get(acc).is_registrar()
-    }
-    /// Check if an account has NONE role
-    pub fn account_is_none_role(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::get(acc).is_none_role()
+
+    /// Check if an account has some role
+    pub fn account_is(acc: &T::AccountId, role: u8) -> bool {
+        AccountRegistry::<T>::get(acc).role_is(role)
     }
 }
 

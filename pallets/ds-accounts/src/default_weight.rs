@@ -13,4 +13,9 @@ impl crate::WeightInfo for () {
         (1_000_000 as Weight)
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
+    //for now I will just assume, that registers weights kinda same
+    fn register_uav() -> Weight {
+        (1_000_000 as Weight)
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }
