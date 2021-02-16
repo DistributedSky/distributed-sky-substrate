@@ -60,11 +60,14 @@ fn it_create_new_account() {
         let account = DSAccountsModule::account_registry(2);
         assert!(!account.is_enabled());
 
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         Timestamp::set_timestamp(5000);
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+            super::REGISTRAR_ROLE,
+            metadata_ipfs_hash,
         ));
 
         let account = DSAccountsModule::account_registry(REGISTRAR_1_ACCOUNT_ID);
@@ -78,10 +81,13 @@ fn it_create_new_account() {
 #[test]
 fn it_disable_account() {
     new_test_ext().execute_with(|| {
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+            super::REGISTRAR_ROLE,
+            metadata_ipfs_hash,
         ));
         assert_ok!(DSAccountsModule::account_disable(
                 Origin::signed(ADMIN_ACCOUNT_ID), 
@@ -108,11 +114,15 @@ fn it_try_disable_themself() {
 #[test]
 fn it_try_create_account_with_role_pilot() {
     new_test_ext().execute_with(|| {
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
+
         assert_noop!(
             DSAccountsModule::account_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
                 PILOT_1_ACCOUNT_ID,
                 super::PILOT_ROLE,
+                metadata_ipfs_hash,
             ),
             Error::NotAllowedRole
         );
@@ -122,16 +132,23 @@ fn it_try_create_account_with_role_pilot() {
 #[test]
 fn it_try_create_by_registrar() {
     new_test_ext().execute_with(|| {
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
+
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+            super::REGISTRAR_ROLE,
+            metadata_ipfs_hash,
         ));
+
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         assert_noop!(
             DSAccountsModule::account_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
                 REGISTRAR_2_ACCOUNT_ID, 
-                super::REGISTRAR_ROLE
+                super::REGISTRAR_ROLE,
+                metadata_ipfs_hash,
             ),
             Error::NotAuthorized
         );
@@ -141,16 +158,22 @@ fn it_try_create_by_registrar() {
 #[test]
 fn it_register_pilot_by_registrar() {
     new_test_ext().execute_with(|| {
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         Timestamp::set_timestamp(5000);
 
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+            super::REGISTRAR_ROLE,
+            metadata_ipfs_hash,
         ));
+
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         assert_ok!(DSAccountsModule::register_pilot(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
-                PILOT_1_ACCOUNT_ID
+                PILOT_1_ACCOUNT_ID,
+                metadata_ipfs_hash,
         ));
 
         let account = DSAccountsModule::account_registry(PILOT_1_ACCOUNT_ID);
@@ -164,12 +187,15 @@ fn it_register_pilot_by_registrar() {
 #[test]
 fn it_try_register_pilot_not_by_registrar() {
     new_test_ext().execute_with(|| {
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         assert_noop!(
             DSAccountsModule::register_pilot(
                 Origin::signed(ADMIN_ACCOUNT_ID), 
-                PILOT_1_ACCOUNT_ID
+                PILOT_1_ACCOUNT_ID,
+                metadata_ipfs_hash,
             ),
-            Error::NotAuthorized
+            Error::NotAuthorized,
         );
     });
 }
@@ -177,17 +203,22 @@ fn it_try_register_pilot_not_by_registrar() {
 #[test]
 fn it_try_register_same_pilot_twice() {
     new_test_ext().execute_with(|| {
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         Timestamp::set_timestamp(5000);
  
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+            super::REGISTRAR_ROLE,
+            metadata_ipfs_hash,
         ));
  
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         assert_ok!(DSAccountsModule::register_pilot(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                PILOT_1_ACCOUNT_ID
+                PILOT_1_ACCOUNT_ID,
+                metadata_ipfs_hash,
         ));
  
         let account = DSAccountsModule::account_registry(PILOT_1_ACCOUNT_ID);
@@ -195,17 +226,21 @@ fn it_try_register_same_pilot_twice() {
  
         let age = account.age(20000);
         assert_eq!(age, 15000);
- 
+
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_2_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+            super::REGISTRAR_ROLE,
+            metadata_ipfs_hash,
         ));
  
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         assert_noop!(
             DSAccountsModule::register_pilot(
                 Origin::signed(REGISTRAR_2_ACCOUNT_ID),
-                PILOT_1_ACCOUNT_ID
+                PILOT_1_ACCOUNT_ID,
+                metadata_ipfs_hash,
             ),
             Error::AlreadyRegistered,
         );
@@ -215,15 +250,21 @@ fn it_try_register_same_pilot_twice() {
 #[test]
 fn it_try_to_add_admin_account_role_pilot() {
     new_test_ext().execute_with(|| {
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+            super::REGISTRAR_ROLE,
+            metadata_ipfs_hash,
         ));
+
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         assert_ok!(
             DSAccountsModule::register_pilot(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
                 ADMIN_ACCOUNT_ID, 
+                metadata_ipfs_hash,
             )
         );
     });
@@ -237,10 +278,14 @@ fn it_account_reaped() {
                 REGISTRAR_1_ACCOUNT_ID, 
                 10000)
         );
+
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+            super::REGISTRAR_ROLE,
+            metadata_ipfs_hash,
         ));
 
         assert!(DSAccountsModule::account_registry(REGISTRAR_1_ACCOUNT_ID).is_enabled());
@@ -260,10 +305,15 @@ fn it_balance() {
         assert_eq!(Balances::total_issuance(), 100000);
         assert_eq!(Balances::free_balance(ADMIN_ACCOUNT_ID), 100000);
         assert_eq!(Balances::free_balance(REGISTRAR_1_ACCOUNT_ID), 0);
+
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
+
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(1),
             3,
-            super::REGISTRAR_ROLE
+            super::REGISTRAR_ROLE,
+            metadata_ipfs_hash,
         ));
 
         assert_ok!(Balances::transfer(

@@ -48,7 +48,7 @@ impl<
         Moment: Default + AtLeast32Bit + Copy,
         AccountRole: Zero + Copy + From<u8> + BitAnd<Output = AccountRole> + BitOr<Output = AccountRole>,
         AccountManager: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
-        MetaIPFS: Default + Clone,
+        MetaIPFS: Default + Clone + Parameter,
     > Account<Moment, AccountRole, AccountManager, MetaIPFS>
 {
     pub fn is_admin(&self) -> bool {
@@ -209,7 +209,11 @@ decl_module! {
 
         /// Create or update an entry in account registry with specific role.
         #[weight = <T as Trait>::WeightInfo::account_add()]
-        pub fn account_add(origin, account: T::AccountId, role: T::AccountRole) -> dispatch::DispatchResult {
+        pub fn account_add(
+            origin, account: T::AccountId, 
+            role: T::AccountRole,
+            metadata_ipfs_hash: T::MetaIPFS,
+        ) -> dispatch::DispatchResult {
             // Check that the extrinsic was signed and get the signer.
             // This function will return an error if the extrinsic is not signed.
             // https://substrate.dev/docs/en/knowledgebase/runtime/origin
@@ -225,6 +229,8 @@ decl_module! {
                     // Get current timestamp using pallet-timestamp module
                     acc.create_time = <pallet_timestamp::Module<T>>::get();
                 }
+
+                acc.metadata_ipfs_hash = metadata_ipfs_hash;
             });
 
             // Emit an event.
@@ -235,7 +241,10 @@ decl_module! {
 
         /// Register an entry in account registry with PILOT role.
         #[weight = <T as Trait>::WeightInfo::register_pilot()]
-        pub fn register_pilot(origin, account: T::AccountId) -> dispatch::DispatchResult {
+        pub fn register_pilot(
+            origin, account: T::AccountId, 
+            metadata_ipfs_hash: T::MetaIPFS,
+        ) -> dispatch::DispatchResult {
             // Check that the extrinsic was signed and get the signer.
             // This function will return an error if the extrinsic is not signed.
             // https://substrate.dev/docs/en/knowledgebase/runtime/origin
@@ -250,6 +259,7 @@ decl_module! {
                     acc.create_time = <pallet_timestamp::Module<T>>::get();
                 }
                 acc.managed_by = who.clone();
+                acc.metadata_ipfs_hash = metadata_ipfs_hash;
 
                 Ok(())
             });
