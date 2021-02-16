@@ -37,17 +37,19 @@ pub mod prelude {
 /// Structure, specific for each role
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default)]
-pub struct Account<Moment, AccountRole, AccountManager> {
+pub struct Account<Moment, AccountRole, AccountManager, MetaIPFS> {
     pub roles: AccountRole,
     pub create_time: Moment,
     pub managed_by: AccountManager, 
+    pub metadata_ipfs_hash: MetaIPFS,
 }
 
 impl<
         Moment: Default + AtLeast32Bit + Copy,
         AccountRole: Zero + Copy + From<u8> + BitAnd<Output = AccountRole> + BitOr<Output = AccountRole>,
         AccountManager: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
-    > Account<Moment, AccountRole, AccountManager>
+        MetaIPFS: Default + Clone,
+    > Account<Moment, AccountRole, AccountManager, MetaIPFS>
 {
     pub fn is_admin(&self) -> bool {
         !(self.roles & ADMIN_ROLE.into()).is_zero()
@@ -82,11 +84,12 @@ impl<
             roles: ADMIN_ROLE.into(),
             create_time: Default::default(),
             managed_by: Default::default(),
+            metadata_ipfs_hash: Default::default(),
         }
     }
 }
 
-pub type AccountOf<T> = Account<<T as pallet_timestamp::Trait>::Moment, <T as Trait>::AccountRole, <T as frame_system::Trait>::AccountId>;
+pub type AccountOf<T> = Account<<T as pallet_timestamp::Trait>::Moment, <T as Trait>::AccountRole, <T as frame_system::Trait>::AccountId, <T as Trait>::MetaIPFS>;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
@@ -106,6 +109,7 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
         + BitOr<Output = Self::AccountRole>;
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
     type WeightInfo: WeightInfo;
+    type MetaIPFS: Default + Parameter + Clone;
 }
 
 pub trait WeightInfo {

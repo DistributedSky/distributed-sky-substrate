@@ -109,6 +109,7 @@ impl Trait for Test {
     type AccountRole = u8;
     type Currency = pallet_balances::Module<Self>;
     type WeightInfo = ();
+    type MetaIPFS = Vec<u8>;
 }
 
 parameter_types! {
@@ -173,6 +174,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
                         roles: *role,
                         create_time: 0,
                         managed_by: Default::default(),
+                        metadata_ipfs_hash: Default::default(),
                     },
                 )
             })
