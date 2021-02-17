@@ -339,16 +339,23 @@ fn it_balance() {
 #[test]
 fn it_try_to_add_new_uav_with_allowed_roles() {
     new_test_ext().execute_with(|| {
-
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
+        // UAV IPFS hash
         let ipfs_hash_example: Vec<u8> = vec![1, 2, 3, 4];
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+            super::REGISTRAR_ROLE,
+            metadata_ipfs_hash,
         ));
+
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         assert_ok!(DSAccountsModule::register_pilot(
             Origin::signed(REGISTRAR_1_ACCOUNT_ID),
             PILOT_1_ACCOUNT_ID,
+            metadata_ipfs_hash,
         ));
 
         assert_ok!(DSAccountsModule::register_uav(
@@ -386,15 +393,22 @@ fn it_try_register_uav_not_by_allowed_users() {
 #[test]
 fn it_try_register_uav_on_wrong_addr() {
     new_test_ext().execute_with(|| {
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
+        // UAV IPFS hash
         let ipfs_hash_example: Vec<u8> = vec![1, 2, 3, 4];
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+            super::REGISTRAR_ROLE,
+            metadata_ipfs_hash,
         ));
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         assert_ok!(DSAccountsModule::register_pilot(
             Origin::signed(REGISTRAR_1_ACCOUNT_ID),
             PILOT_1_ACCOUNT_ID,
+            metadata_ipfs_hash,
         ));
         assert_noop!(
             DSAccountsModule::register_uav(
@@ -419,11 +433,15 @@ fn it_try_register_uav_on_wrong_addr() {
 #[test]
 fn it_try_register_user_on_uav_addr() {
     new_test_ext().execute_with(|| {
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
+        // UAV IPFS hash
         let ipfs_hash_example: Vec<u8> = vec![1, 2, 3, 4];
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
             REGISTRAR_1_ACCOUNT_ID,
             super::REGISTRAR_ROLE,
+            metadata_ipfs_hash,
         ));
 
         assert_ok!(DSAccountsModule::register_uav(
@@ -432,10 +450,14 @@ fn it_try_register_user_on_uav_addr() {
             ipfs_hash_example,
             UAV_1_ACCOUNT_ID,            
         ));
+
+        // Just a random IPFS hash
+        let metadata_ipfs_hash: Vec<u8> = "QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o".as_bytes().to_vec();
         assert_noop!(
             DSAccountsModule::register_pilot(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 UAV_1_ACCOUNT_ID,
+                metadata_ipfs_hash,
             ), 
             Error::AddressAlreadyUsed
         );

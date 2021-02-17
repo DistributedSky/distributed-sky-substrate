@@ -102,7 +102,7 @@ impl<
     }
 
 
-pub type AccountOf<T> = Account<<T as pallet_timestamp::Trait>::Moment, <T as Trait>::AccountRole, <T as frame_system::Trait>::AccountId>;
+pub type AccountOf<T> = Account<<T as pallet_timestamp::Trait>::Moment, <T as Trait>::AccountRole, <T as frame_system::Trait>::AccountId, <T as Trait>::MetaIPFS>;
 pub type UAVOf<T> = UAVStruct<<T as Trait>::SerialNumber, <T as Trait>::MetaIPFS, <T as frame_system::Trait>::AccountId>;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
