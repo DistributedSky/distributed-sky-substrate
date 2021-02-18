@@ -84,8 +84,8 @@ pub struct UAVStruct<SerialNumber, MetaIPFS, OwnerId> {
 }
 
 impl<
-    SerialNumber: Default + Clone,
-    MetaIPFS: Default + Clone,
+    SerialNumber: Default,
+    MetaIPFS: Default,
     OwnerId: Parameter + Member + MaybeSerializeDeserialize + Ord + Default,
     > UAVStruct<SerialNumber, MetaIPFS, OwnerId>
     { 
@@ -97,7 +97,6 @@ impl<
             }
         }
     }
-
 
 
 pub type AccountOf<T> = Account<<T as pallet_timestamp::Trait>::Moment, <T as Trait>::AccountRole, <T as frame_system::Trait>::AccountId>;
