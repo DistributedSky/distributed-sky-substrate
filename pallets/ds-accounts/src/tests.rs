@@ -177,6 +177,44 @@ fn it_try_register_pilot_not_by_registrar() {
 }
 
 #[test]
+fn it_try_register_same_pilot_twice() {
+    new_test_ext().execute_with(|| {
+        Timestamp::set_timestamp(5000);
+ 
+        assert_ok!(DSAccountsModule::account_add(
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
+            super::REGISTRAR_ROLE
+        ));
+ 
+        assert_ok!(DSAccountsModule::register_pilot(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                PILOT_1_ACCOUNT_ID
+        ));
+ 
+        let account = DSAccountsModule::account_registry(PILOT_1_ACCOUNT_ID);
+        assert!(account.is_enabled());
+ 
+        let age = account.age(20000);
+        assert_eq!(age, 15000);
+ 
+        assert_ok!(DSAccountsModule::account_add(
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_2_ACCOUNT_ID,
+            super::REGISTRAR_ROLE
+        ));
+ 
+        assert_noop!(
+            DSAccountsModule::register_pilot(
+                Origin::signed(REGISTRAR_2_ACCOUNT_ID),
+                PILOT_1_ACCOUNT_ID
+            ),
+            Error::AlreadyRegistered,
+        );
+    });
+}
+
+#[test]
 fn it_try_to_add_admin_account_role_pilot() {
     new_test_ext().execute_with(|| {
         assert_ok!(DSAccountsModule::account_add(
