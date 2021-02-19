@@ -22,9 +22,12 @@ mod payment;
 #[cfg(test)]
 mod tests;
 
+
+pub const REGISTRAR_ROLE: u8 = 0x04;
+
 //Not sure, are those derives required?
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub enum ZoneType {
     /// Forbidden type zone
     Red,
@@ -42,7 +45,7 @@ impl Default for ZoneType {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default)]
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Point<CoordinateSize> {
     pub x: CoordinateSize,
     pub y: CoordinateSize,
@@ -61,24 +64,20 @@ pub struct Zone<CoordinateSize> {
     pub zone_id: u32,
 }
 
-impl<
-    CoordinateSize,
-    > Zone<CoordinateSize>
+impl<CoordinateSize> Zone<CoordinateSize>
 {
     pub fn zone_is(&self, zone: ZoneType) -> bool{
         !(self.obstacle_type == zone)
     }
     pub fn new(id: u32, zone_type: ZoneType, 
         points: (Point<CoordinateSize>, Point<CoordinateSize>)) -> Self{
-            Zone{
+            Zone {
                 coordinates: [points.0, points.1],
                 obstacle_type: zone_type,
                 zone_id: id,
             }
     }
 }
-
-pub type ZoneOf<T> = Zone<<T as Trait>::CoordinateSize>;
 
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
@@ -89,7 +88,6 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type WeightInfo: WeightInfo;
     // new types, fixes required
-    type Coordinate: Default + Parameter;
     ///guess use u32 for representing global coords, u16 for local
     type CoordinateSize: Default + Parameter;
     //type ZoneNumber: Default + Zero + MaybeSerializeDeserialize + Parameter + Member; 
@@ -105,23 +103,24 @@ decl_storage!{
     trait Store for Module<T: Trait> as DSMapsModule {
         //MAX is 4_294_967_295. Change if required more.
         TotalBoxes get(fn total_boxes): u32;    
-
+        
         CityMap get(fn map_data): 
-            map hasher(blake2_128_concat) u32 => ZoneOf<T>;
+        map hasher(blake2_128_concat) u32 => ZoneOf<T>;
     }
 }
+pub type ZoneOf<T> = Zone<<T as Trait>::CoordinateSize>;
 
 // Pallets use events to inform users when important changes are made.
 // https://substrate.dev/docs/en/knowledgebase/runtime/events
 decl_event!(
     pub enum Event<T>
     where
-        ZoneNumber = u32,
-        ZoneType = ZoneType,
+    Point = Point<<T as Trait>::CoordinateSize>,
     {
         // Event documentation should end with an array that provides descriptive names for event parameters.
-        /// New account has been created [zone number, its type]
-        ZoneCreated(ZoneNumber, ZoneType),
+        /// New account has been created [zone number, its type], TODO later remove points from here.
+        ZoneCreated(u32),
+        AreaBlocked(Point, Point),
     }
 );
 
@@ -159,14 +158,16 @@ decl_module! {
                     zone_type: ZoneType, 
                     points: (Point<T::CoordinateSize>, Point<T::CoordinateSize>))
                      -> dispatch::DispatchResult {
-            let who = ensure_signed(origin);
-            //TODO implement call to account pallet and all checks.
+            let who = ensure_signed(origin)?;
+            //TODO implement call to account pallet and make all checks.
+            ensure!(true, Error::<T>::NotAuthorized);
             let id = <TotalBoxes>::get();
-            //<Owner<T>>::insert(id, sender.clone());
-            let zone = ZoneOf::<T>::new(id, zone_type, points);
+
+            let zone = ZoneOf::<T>::new(id, zone_type, points.clone());
             CityMap::<T>::insert(id, zone);
-            Self::deposit_event(RawEvent::ZoneCreated(id, zone_type));
+            Self::deposit_event(RawEvent::ZoneCreated(id));
             
+            Self::deposit_event(RawEvent::AreaBlocked(points.0, points.1));
             <TotalBoxes>::put(id + 1);
             Ok(())
         }
@@ -177,7 +178,7 @@ impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
 
-    /// Check if an account has some role
+    /// Check if zone have required type
     pub fn zone_is(zone: u32, zone_type: ZoneType) -> bool {
         CityMap::<T>::get(zone).zone_is(zone_type)
     }

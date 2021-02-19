@@ -94,7 +94,6 @@ impl crate::WeightInfo for WeightInfo {
 impl Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-    type Coordinate = Vec<u16>; //definetely will be changed
     type CoordinateSize = u32;
 }
 
@@ -113,5 +112,5 @@ impl pallet_balances::Trait for Test {
     type MaxLocks = MaxLocks;
 }
 
-pub type CityMap = Module<Test>;
-
+pub type DSMapsModule = Module<Test>;
+pub type Zone = super::ZoneOf<Test>;
