@@ -9,10 +9,6 @@ use frame_support::{
             Member, MaybeSerializeDeserialize, Zero
         },
     },
-    traits::{
-        Currency, Get, LockableCurrency,
-        OnKilledAccount,
-    },
     weights::{Weight},
     Parameter,
 };
@@ -27,8 +23,8 @@ mod payment;
 mod tests;
 
 //Not sure, are those derives required?
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub enum ZoneType {
     /// Forbidden type zone
     Red,
@@ -47,23 +43,42 @@ impl Default for ZoneType {
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default)]
-pub struct Zone<Coordinate, ZoneNumber> {
-    pub coordinates: Coordinate,
+pub struct Point<CoordinateSize> {
+    pub x: CoordinateSize,
+    pub y: CoordinateSize,
+    pub z: CoordinateSize,
+}
+impl<CoordinateSize> Point<CoordinateSize>{
+    pub fn new_point(x: CoordinateSize, y: CoordinateSize, z: CoordinateSize) -> Self {
+        Point{ x, y, z, }
+    }
+}
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Default)]
+pub struct Zone<CoordinateSize> {
+    pub coordinates: [Point<CoordinateSize>; 2],
     pub obstacle_type: ZoneType,
-    pub zone_id: ZoneNumber,
+    pub zone_id: u32,
 }
 
 impl<
-    Coordinate: Default,
-    ObstacleType: Default,
-    > Zone<Coordinate, ObstacleType>
+    CoordinateSize,
+    > Zone<CoordinateSize>
 {
     pub fn zone_is(&self, zone: ZoneType) -> bool{
         !(self.obstacle_type == zone)
     }
+    pub fn new(id: u32, zone_type: ZoneType, 
+        points: (Point<CoordinateSize>, Point<CoordinateSize>)) -> Self{
+            Zone{
+                coordinates: [points.0, points.1],
+                obstacle_type: zone_type,
+                zone_id: id,
+            }
+    }
 }
 
-pub type ZoneOf<T> = Zone<<T as Trait>::Coordinate, <T as Trait>::ZoneNumber>;
+pub type ZoneOf<T> = Zone<<T as Trait>::CoordinateSize>;
 
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
@@ -73,9 +88,11 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
     // Describe pallet constants.
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type WeightInfo: WeightInfo;
-    // new types,fixes required
+    // new types, fixes required
     type Coordinate: Default + Parameter;
-    type ZoneNumber: Default + Zero + MaybeSerializeDeserialize + Parameter + Member; 
+    ///guess use u32 for representing global coords, u16 for local
+    type CoordinateSize: Default + Parameter;
+    //type ZoneNumber: Default + Zero + MaybeSerializeDeserialize + Parameter + Member; 
 }    
 pub trait WeightInfo {
     fn register_zone() -> Weight;
@@ -86,8 +103,11 @@ decl_storage!{
     // This name may be updated, but each pallet in the runtime must use a unique name.
     // ---------------------------------vvvvvvvvvvvvvv
     trait Store for Module<T: Trait> as DSMapsModule {
+        //MAX is 4_294_967_295. Change if required more.
+        TotalBoxes get(fn total_boxes): u32;    
+
         CityMap get(fn map_data): 
-            map hasher(blake2_128_concat) T::ZoneNumber => ZoneOf<T>;
+            map hasher(blake2_128_concat) u32 => ZoneOf<T>;
     }
 }
 
@@ -96,12 +116,12 @@ decl_storage!{
 decl_event!(
     pub enum Event<T>
     where
-        ZoneNumber = <T as Trait>::ZoneNumber,
-        ObstacleType = ZoneType,
+        ZoneNumber = u32,
+        ZoneType = ZoneType,
     {
         // Event documentation should end with an array that provides descriptive names for event parameters.
         /// New account has been created [zone number, its type]
-        ZoneCreated(ZoneNumber, ObstacleType),
+        ZoneCreated(ZoneNumber, ZoneType),
     }
 );
 
@@ -135,7 +155,19 @@ decl_module! {
         fn deposit_event() = default;
 
         #[weight = <T as Trait>::WeightInfo::register_zone()]
-        pub fn zone_add(origin) -> dispatch::DispatchResult{
+        pub fn zone_add(origin, 
+                    zone_type: ZoneType, 
+                    points: (Point<T::CoordinateSize>, Point<T::CoordinateSize>))
+                     -> dispatch::DispatchResult {
+            let who = ensure_signed(origin);
+            //TODO implement call to account pallet and all checks.
+            let id = <TotalBoxes>::get();
+            //<Owner<T>>::insert(id, sender.clone());
+            let zone = ZoneOf::<T>::new(id, zone_type, points);
+            CityMap::<T>::insert(id, zone);
+            Self::deposit_event(RawEvent::ZoneCreated(id, zone_type));
+            
+            <TotalBoxes>::put(id + 1);
             Ok(())
         }
     }
@@ -146,8 +178,8 @@ impl<T: Trait> Module<T> {
     // Public functions can be called from other runtime modules.
 
     /// Check if an account has some role
-    pub fn zone_is(zone: &T::ZoneNumber, zone_type: ZoneType) -> bool {
-        CityMap::<T>::get(zone).zone_is(ZoneType::Green)
+    pub fn zone_is(zone: u32, zone_type: ZoneType) -> bool {
+        CityMap::<T>::get(zone).zone_is(zone_type)
     }
 }
 

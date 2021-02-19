@@ -95,7 +95,7 @@ impl Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
     type Coordinate = Vec<u16>; //definetely will be changed
-    type ZoneNumber = u32;
+    type CoordinateSize = u32;
 }
 
 parameter_types! {
