@@ -5,10 +5,7 @@ use serde::{Deserialize, Serialize};
 use frame_support::{
     codec::{Decode, Encode},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
-    sp_runtime::{traits::{
-            Member, MaybeSerializeDeserialize, Zero
-        },
-    },
+
     weights::{Weight},
     Parameter,
 };
@@ -52,7 +49,7 @@ pub struct Point<CoordinateSize> {
     pub z: CoordinateSize,
 }
 impl<CoordinateSize> Point<CoordinateSize>{
-    pub fn new_point(x: CoordinateSize, y: CoordinateSize, z: CoordinateSize) -> Self {
+    pub fn new(x: CoordinateSize, y: CoordinateSize, z: CoordinateSize) -> Self {
         Point{ x, y, z, }
     }
 }
@@ -88,9 +85,9 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type WeightInfo: WeightInfo;
     // new types, fixes required
+    type Coordinates: Parameter;
     ///guess use u32 for representing global coords, u16 for local
     type CoordinateSize: Default + Parameter;
-    //type ZoneNumber: Default + Zero + MaybeSerializeDeserialize + Parameter + Member; 
 }    
 pub trait WeightInfo {
     fn register_zone() -> Weight;
@@ -105,7 +102,7 @@ decl_storage!{
         TotalBoxes get(fn total_boxes): u32;    
         
         CityMap get(fn map_data): 
-        map hasher(blake2_128_concat) u32 => ZoneOf<T>;
+            map hasher(blake2_128_concat) u32 => ZoneOf<T>;
     }
 }
 pub type ZoneOf<T> = Zone<<T as Trait>::CoordinateSize>;

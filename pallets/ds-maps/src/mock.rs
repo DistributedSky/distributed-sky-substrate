@@ -94,7 +94,9 @@ impl crate::WeightInfo for WeightInfo {
 impl Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
+    type Coordinates = [u32, 6];
     type CoordinateSize = u32;
+    
 }
 
 parameter_types! {
@@ -114,3 +116,12 @@ impl pallet_balances::Trait for Test {
 
 pub type DSMapsModule = Module<Test>;
 pub type Zone = super::ZoneOf<Test>;
+pub type ZoneType = super::ZoneType;
+
+pub fn new_test_ext() -> sp_io::TestExternalities {
+    let mut storage = system::GenesisConfig::default()
+        .build_storage::<Test>()
+        .unwrap();
+
+    storage.into()
+}

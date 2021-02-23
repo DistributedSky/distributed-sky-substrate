@@ -25,6 +25,7 @@ pallet-timestamp = { default-features = false, version = '2.0.0' }
 #pallet-balances = { default-features = false, version = '2.0.0' }
 serde = { default-features = false, version = '1.0.116', optional=true }
 pallet-transaction-payment = { default-features = false, version = '2.0.0', optional=true }
+pallet-ds-accounts = {default-features = false, version = '2.0.0', path = "../ds-accounts"}
 
 [dev-dependencies]
 sp-core = { default-features = false, version = '2.0.0' }

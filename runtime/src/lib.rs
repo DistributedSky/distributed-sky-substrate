@@ -29,7 +29,7 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
     construct_runtime, parameter_types,
-    traits::{KeyOwnerProofSystem, Randomness},
+    traits::{KeyOwnerProofSystem, Randomness, Get},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         IdentityFee, Weight,
@@ -44,6 +44,8 @@ pub use sp_runtime::{Perbill, Permill};
 
 /// Import the DS accounts pallet.
 pub use pallet_ds_accounts;
+/// Import the DS maps pallet.
+pub use pallet_ds_maps;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -283,6 +285,13 @@ impl pallet_ds_accounts::Trait for Runtime {
     type SerialNumber = Vec<u8>;    //guess, this should be UTF-8 encoded
 }
 
+/// Configure the DS maps pallet in pallets/ds-maps.
+impl pallet_ds_maps::Trait for Runtime {
+    type Event = Event;
+    type WeightInfo = ();
+    type Coordinates = [u32; 6];
+    type CoordinateSize = u32;
+}
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub enum Runtime where
@@ -300,6 +309,7 @@ construct_runtime!(
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
         // Include the DS account management logic from ds-accounts pallet in the runtime
         DSAccountsModule: pallet_ds_accounts::{Module, Call, Storage, Config<T>, Event<T>},
+        DSMapsModule: pallet_ds_maps::{Module, Call, Storage, Config<T>, Event<T>},
     }
 );
 
@@ -337,6 +347,8 @@ pub type Executive = frame_executive::Executive<
 >;
 
 pub type DSAccount = AccountOf<Runtime>;
+
+
 
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {
