@@ -9,10 +9,10 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
-use pallet_ds_accounts::{prelude::IdentityMultiplierUpdater, AccountOf, ADMIN_ROLE, REGISTRAR_ROLE};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use pallet_ds_accounts::{prelude::IdentityMultiplierUpdater, AccountOf, ADMIN_ROLE, REGISTRAR_ROLE};
 use sp_runtime::traits::{
     BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
 };
@@ -309,7 +309,7 @@ construct_runtime!(
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
         // Include the DS account management logic from ds-accounts pallet in the runtime
         DSAccountsModule: pallet_ds_accounts::{Module, Call, Storage, Config<T>, Event<T>},
-        DSMapsModule: pallet_ds_maps::{Module, Call, Storage, Config<T>, Event<T>},
+        DSMapsModule: pallet_ds_maps::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -347,8 +347,6 @@ pub type Executive = frame_executive::Executive<
 >;
 
 pub type DSAccount = AccountOf<Runtime>;
-
-
 
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {

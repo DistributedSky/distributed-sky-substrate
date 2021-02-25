@@ -29,6 +29,6 @@ fn it_try_disable_themself() {
             ),
             Error::InvalidAction
         );
-        assert!(DSAccountsModule::account_registry(ADMIN_ACCOUNT_ID).is_enabled());
+        assert!(DSMapsModule::account_registry(ADMIN_ACCOUNT_ID).is_enabled());
     });
 }

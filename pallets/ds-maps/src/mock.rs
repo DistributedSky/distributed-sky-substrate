@@ -94,7 +94,7 @@ impl crate::WeightInfo for WeightInfo {
 impl Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-    type Coordinates = [u32, 6];
+    type Coordinates = [u32; 6];
     type CoordinateSize = u32;
     
 }

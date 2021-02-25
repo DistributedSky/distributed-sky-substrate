@@ -5,11 +5,11 @@ use serde::{Deserialize, Serialize};
 use frame_support::{
     codec::{Decode, Encode},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
-
     weights::{Weight},
     Parameter,
 };
 use frame_system::ensure_signed;
+use pallet_ds_accounts as accounts;
 
 mod default_weight;
 #[cfg(test)]
@@ -78,7 +78,7 @@ impl<CoordinateSize> Zone<CoordinateSize>
 
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
-pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
+pub trait Trait: accounts::Trait {
     /// Because this pallet emits events, it depends on the runtime's definition of an event.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     // Describe pallet constants.
@@ -156,8 +156,8 @@ decl_module! {
                     points: (Point<T::CoordinateSize>, Point<T::CoordinateSize>))
                      -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
-            //TODO implement call to account pallet and make all checks.
-            ensure!(true, Error::<T>::NotAuthorized);
+            //sooooo it works somehow, but i cant say how exactly - is it right or whatever 
+            ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             let id = <TotalBoxes>::get();
 
             let zone = ZoneOf::<T>::new(id, zone_type, points.clone());
