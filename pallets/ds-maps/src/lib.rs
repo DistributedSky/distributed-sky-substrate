@@ -24,7 +24,7 @@ pub const REGISTRAR_ROLE: u8 = 0x04;
 
 //Not sure, are those derives required?
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub enum ZoneType {
     /// Forbidden type zone
     Red,
@@ -43,35 +43,35 @@ impl Default for ZoneType {
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
-pub struct Point<CoordinateSize> {
-    pub x: CoordinateSize,
-    pub y: CoordinateSize,
-    pub z: CoordinateSize,
+pub struct BoxCoordinates<CoordinateSize> {
+    coordinates: [CoordinateSize; 6],
 }
-impl<CoordinateSize> Point<CoordinateSize>{
-    pub fn new(x: CoordinateSize, y: CoordinateSize, z: CoordinateSize) -> Self {
-        Point{ x, y, z, }
+impl<CoordinateSize> BoxCoordinates<CoordinateSize>{
+    pub fn new(coordinates: [CoordinateSize; 6]) -> Self {
+        BoxCoordinates{coordinates}
     }
 }
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default)]
 pub struct Zone<CoordinateSize> {
-    pub coordinates: [Point<CoordinateSize>; 2],
-    pub obstacle_type: ZoneType,
+    pub coordinates: BoxCoordinates<CoordinateSize>,
+    pub zone_type: ZoneType,
     pub zone_id: u32,
 }
 
 impl<CoordinateSize> Zone<CoordinateSize>
 {
     pub fn zone_is(&self, zone: ZoneType) -> bool{
-        !(self.obstacle_type == zone)
+        !(self.zone_type == zone)
     }
-    pub fn new(id: u32, zone_type: ZoneType, 
-        points: (Point<CoordinateSize>, Point<CoordinateSize>)) -> Self{
+    pub fn new( zone_id: u32, 
+                zone_type: ZoneType, 
+                coordinates: BoxCoordinates<CoordinateSize> ) -> Self {
             Zone {
-                coordinates: [points.0, points.1],
-                obstacle_type: zone_type,
-                zone_id: id,
+                coordinates,
+                zone_type,
+                zone_id,
             }
     }
 }
@@ -112,12 +112,14 @@ pub type ZoneOf<T> = Zone<<T as Trait>::CoordinateSize>;
 decl_event!(
     pub enum Event<T>
     where
-    Point = Point<<T as Trait>::CoordinateSize>,
+        AccountId = <T as frame_system::Trait>::AccountId,
+        CoordinateSize = <T as Trait>::CoordinateSize,
     {
         // Event documentation should end with an array that provides descriptive names for event parameters.
-        /// New account has been created [zone number, its type], TODO later remove points from here.
-        ZoneCreated(u32),
-        AreaBlocked(Point, Point),
+        ///TODO add more meta/remove
+        MapInitialized(CoordinateSize),
+        /// New account has been created [zone number, its type], TODO later add printing coords
+        ZoneCreated(u32, AccountId, ZoneType),
     }
 );
 
@@ -152,19 +154,18 @@ decl_module! {
 
         #[weight = <T as Trait>::WeightInfo::register_zone()]
         pub fn zone_add(origin, 
-                    zone_type: ZoneType, 
-                    points: (Point<T::CoordinateSize>, Point<T::CoordinateSize>))
-                     -> dispatch::DispatchResult {
+                        zone_type: ZoneType, 
+                        points: [T::CoordinateSize; 6]) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
-            //sooooo it works somehow, but i cant say how exactly - is it right or whatever 
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             let id = <TotalBoxes>::get();
 
-            let zone = ZoneOf::<T>::new(id, zone_type, points.clone());
+            let zone = ZoneOf::<T>::new(id, 
+                                        zone_type.clone(), 
+                                        BoxCoordinates::new(points));
             CityMap::<T>::insert(id, zone);
-            Self::deposit_event(RawEvent::ZoneCreated(id));
+            Self::deposit_event(RawEvent::ZoneCreated(id, who, zone_type));
             
-            Self::deposit_event(RawEvent::AreaBlocked(points.0, points.1));
             <TotalBoxes>::put(id + 1);
             Ok(())
         }

@@ -19,7 +19,7 @@ const UAV_1_ACCOUNT_ID: u64 = 4294967295 + 1;   //u32::MAX + 1
 //in u32 we can fit global coord w 6 numbers after comma
 const POINT_COORDINATES: [u32; 6] = [12, 23, 34, 45, 56, 67];   
 #[test]
-fn it_try_disable_themself() {
+fn it_try_add_zone_unauthorized() {
     new_test_ext().execute_with(|| {
         assert_noop!(
             DSMapsModule::zone_add(
@@ -27,8 +27,8 @@ fn it_try_disable_themself() {
                 ZoneType::Green,
                 POINT_COORDINATES,
             ),
-            Error::InvalidAction
+            Error::NotAuthorized
         );
-        assert!(DSMapsModule::account_registry(ADMIN_ACCOUNT_ID).is_enabled());
+        //assert!(DSMapsModule::account_registry(ADMIN_ACCOUNT_ID).is_enabled());
     });
 }

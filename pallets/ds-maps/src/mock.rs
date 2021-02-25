@@ -10,12 +10,16 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
+use pallet_ds_accounts::{ADMIN_ROLE, REGISTRAR_ROLE};
 
 impl_outer_origin! {
     pub enum Origin for Test {}
 }
 mod template {
     pub use crate::Event;
+}
+mod module_2_template {
+    pub use pallet_ds_accounts::Event;
 }
 mod balance {
     pub use pallet_balances::Event;
@@ -25,6 +29,7 @@ impl_outer_event! {
     pub enum TestEvent for Test {
         system<T>,
         template<T>,
+        module_2_template<T>,
         balance<T>,
     }
 }
@@ -96,7 +101,6 @@ impl Trait for Test {
     type WeightInfo = ();
     type Coordinates = [u32; 6];
     type CoordinateSize = u32;
-    
 }
 
 parameter_types! {
@@ -114,6 +118,18 @@ impl pallet_balances::Trait for Test {
     type MaxLocks = MaxLocks;
 }
 
+parameter_types! {
+    pub const AdminRole: u8 = ADMIN_ROLE;
+}
+impl pallet_ds_accounts::Trait for Test {
+    type Event = TestEvent;
+    type AdminRole = AdminRole;
+    type AccountRole = u8;
+    type Currency = pallet_balances::Module<Self>;
+    type WeightInfo = ();
+    type MetaIPFS = Vec<u8>;        
+    type SerialNumber = Vec<u8>;
+}
 pub type DSMapsModule = Module<Test>;
 pub type Zone = super::ZoneOf<Test>;
 pub type ZoneType = super::ZoneType;
