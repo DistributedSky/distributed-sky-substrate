@@ -10,6 +10,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use pallet_ds_accounts as accounts;
+use accounts::REGISTRAR_ROLE;
 
 mod default_weight;
 #[cfg(test)]
@@ -18,9 +19,6 @@ mod mock;
 mod payment;
 #[cfg(test)]
 mod tests;
-
-
-pub const REGISTRAR_ROLE: u8 = 0x04;
 
 //Not sure, are those derives required?
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -157,6 +155,7 @@ decl_module! {
                         zone_type: ZoneType, 
                         points: [T::CoordinateSize; 6]) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
+            //TODO implement inverted index, so we will not store same zones twice
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             let id = <TotalBoxes>::get();
 

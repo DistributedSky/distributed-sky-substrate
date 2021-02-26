@@ -10,7 +10,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
-use pallet_ds_accounts::{ADMIN_ROLE, REGISTRAR_ROLE};
+use pallet_ds_accounts::ADMIN_ROLE;
 
 impl_outer_origin! {
     pub enum Origin for Test {}
@@ -131,13 +131,39 @@ impl pallet_ds_accounts::Trait for Test {
     type SerialNumber = Vec<u8>;
 }
 pub type DSMapsModule = Module<Test>;
-pub type Zone = super::ZoneOf<Test>;
 pub type ZoneType = super::ZoneType;
+
+pub type DSAccountsModule = pallet_ds_accounts::Module<Test>;
+static INITIAL: [(
+    <Test as system::Trait>::AccountId,
+    <Test as pallet_ds_accounts::Trait>::AccountRole,
+); 1] = [(1, ADMIN_ROLE)];
+
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut storage = system::GenesisConfig::default()
         .build_storage::<Test>()
         .unwrap();
+
+        pallet_ds_accounts::GenesisConfig::<Test> {
+            // First account is admin
+            genesis_account_registry: INITIAL
+                .iter()
+                .map(|(acc, role)| {
+                    (
+                        *acc,
+                        pallet_ds_accounts::Account {
+                            roles: *role,
+                            create_time: 0,
+                            managed_by: Default::default(),
+                        },
+                    )
+                })
+                .collect(),
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+    
 
     storage.into()
 }

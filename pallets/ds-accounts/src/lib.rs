@@ -333,9 +333,6 @@ impl<T: Trait> Module<T> {
     pub fn account_is(acc: &T::AccountId, role: T::AccountRole) -> bool {
         AccountRegistry::<T>::get(acc).role_is(role)
     }
-    pub fn meme() -> bool {
-        true
-    }
 }
 
 impl<T: Trait> OnKilledAccount<T::AccountId> for Module<T> {
