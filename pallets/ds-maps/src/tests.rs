@@ -4,16 +4,14 @@ use frame_support::{
     assert_noop, assert_ok,
 };
 
-// Learn more about testing substrate runtime modules
-// https://substrate.dev/docs/en/knowledgebase/runtime/tests
-// type Module = super::Module<Test>;
 type Error = super::Error<Test>;
 
 // Constants to make tests more readable
 const ADMIN_ACCOUNT_ID: u64 = 1;
 const REGISTRAR_1_ACCOUNT_ID: u64 = 2;
-//in u32 we can fit global coord w 6 numbers after comma
-const POINT_COORDINATES: [u32; 6] = [12, 23, 34, 45, 56, 67];   
+//if we will stick to the global coords =>
+//55.123532 will be represented as 55123532 
+const BOX_COORDINATES: [u32; 6] = [12, 23, 34, 45, 56, 67];   
 
 #[test]
 fn it_try_add_zone_unauthorized() {

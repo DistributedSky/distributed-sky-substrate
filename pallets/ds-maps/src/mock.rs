@@ -134,6 +134,7 @@ pub type DSMapsModule = Module<Test>;
 pub type ZoneType = super::ZoneType;
 
 pub type DSAccountsModule = pallet_ds_accounts::Module<Test>;
+//Was taken from another mock, might be not best way to do
 static INITIAL: [(
     <Test as system::Trait>::AccountId,
     <Test as pallet_ds_accounts::Trait>::AccountRole,
