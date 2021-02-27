@@ -29,7 +29,7 @@ fn it_try_add_zone_unauthorized() {
             DSMapsModule::zone_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
                 ZoneType::Green,
-                POINT_COORDINATES,
+                BOX_COORDINATES,
             ),
             Error::NotAuthorized
         );
@@ -49,14 +49,14 @@ fn it_try_add_zone_by_registrar() {
             DSMapsModule::zone_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 ZoneType::Green,
-                POINT_COORDINATES,
+                BOX_COORDINATES,
             ));
 
         assert_noop!(
             DSMapsModule::zone_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
                 ZoneType::Green,
-                POINT_COORDINATES,
+                BOX_COORDINATES,
             ),
             Error::NotAuthorized
         );
@@ -77,14 +77,14 @@ fn it_try_add_different_zone_types() {
             DSMapsModule::zone_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 ZoneType::Green,
-                POINT_COORDINATES,
+                BOX_COORDINATES,
             ));
 
             assert_ok!(
                 DSMapsModule::zone_add(
                     Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                     ZoneType::Red,
-                    POINT_COORDINATES,
+                    BOX_COORDINATES,
             ));
     });
 }
