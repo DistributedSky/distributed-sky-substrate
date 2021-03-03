@@ -24,7 +24,6 @@ mod module_2_template {
 mod balance {
     pub use pallet_balances::Event;
 }
-
 impl_outer_event! {
     pub enum TestEvent for Test {
         system<T>,
@@ -91,8 +90,8 @@ impl pallet_timestamp::Trait for Test {
 
 struct WeightInfo;
 impl crate::WeightInfo for WeightInfo {
-    fn register_zone() -> Weight {
-        <() as crate::WeightInfo>::register_zone()
+    fn zone_add() -> Weight {
+        <() as crate::WeightInfo>::zone_add()
     }
 }
 
@@ -121,6 +120,7 @@ impl pallet_balances::Trait for Test {
 parameter_types! {
     pub const AdminRole: u8 = ADMIN_ROLE;
 }
+
 impl pallet_ds_accounts::Trait for Test {
     type Event = TestEvent;
     type AdminRole = AdminRole;
@@ -130,6 +130,7 @@ impl pallet_ds_accounts::Trait for Test {
     type MetaIPFS = Vec<u8>;        
     type SerialNumber = Vec<u8>;
 }
+
 pub type DSMapsModule = Module<Test>;
 pub type ZoneType = super::ZoneType;
 
@@ -140,12 +141,10 @@ static INITIAL: [(
     <Test as pallet_ds_accounts::Trait>::AccountRole,
 ); 1] = [(1, ADMIN_ROLE)];
 
-
 pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut storage = system::GenesisConfig::default()
         .build_storage::<Test>()
         .unwrap();
-
         pallet_ds_accounts::GenesisConfig::<Test> {
             // First account is admin
             genesis_account_registry: INITIAL
@@ -165,6 +164,5 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .assimilate_storage(&mut storage)
         .unwrap();
     
-
     storage.into()
 }

@@ -15,8 +15,6 @@ use accounts::REGISTRAR_ROLE;
 mod default_weight;
 #[cfg(test)]
 mod mock;
-#[cfg(feature = "payment")]
-mod payment;
 #[cfg(test)]
 mod tests;
 
@@ -30,7 +28,6 @@ pub enum ZoneType {
     Green,
     /// Owns zones
     Parent,
-    // 
 }
 
 impl Default for ZoneType {
@@ -44,7 +41,8 @@ impl Default for ZoneType {
 pub struct BoxCoordinates<CoordinateSize> {
     coordinates: [CoordinateSize; 6],
 }
-impl<CoordinateSize> BoxCoordinates<CoordinateSize>{
+
+impl<CoordinateSize> BoxCoordinates<CoordinateSize> {
     pub fn new(coordinates: [CoordinateSize; 6]) -> Self {
         BoxCoordinates{coordinates}
     }
@@ -58,10 +56,9 @@ pub struct Zone<CoordinateSize> {
     pub zone_id: u32,
 }
 
-impl<CoordinateSize> Zone<CoordinateSize>
-{
+impl<CoordinateSize> Zone<CoordinateSize> {
     pub fn zone_is(&self, zone: ZoneType) -> bool{
-        !(self.zone_type == zone)
+        self.zone_type == zone
     }
     pub fn new( zone_id: u32, 
                 zone_type: ZoneType, 
@@ -73,7 +70,6 @@ impl<CoordinateSize> Zone<CoordinateSize>
             }
     }
 }
-
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: accounts::Trait {
@@ -88,7 +84,7 @@ pub trait Trait: accounts::Trait {
     type CoordinateSize: Default + Parameter;
 }    
 pub trait WeightInfo {
-    fn register_zone() -> Weight;
+    fn zone_add() -> Weight;
 }
 
 decl_storage!{
@@ -98,7 +94,7 @@ decl_storage!{
     trait Store for Module<T: Trait> as DSMapsModule {
         //MAX is 4_294_967_295. Change if required more.
         TotalBoxes get(fn total_boxes): u32;    
-        
+
         CityMap get(fn map_data): 
             map hasher(blake2_128_concat) u32 => ZoneOf<T>;
     }
@@ -150,31 +146,30 @@ decl_module! {
         // Events must be initialized if they are used by the pallet.
         fn deposit_event() = default;
 
-        #[weight = <T as Trait>::WeightInfo::register_zone()]
+        #[weight = <T as Trait>::WeightInfo::zone_add()]
         pub fn zone_add(origin, 
                         zone_type: ZoneType, 
                         points: [T::CoordinateSize; 6]) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             //TODO implement inverted index, so we will not store same zones twice
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
+            
             let id = <TotalBoxes>::get();
-
             let zone = ZoneOf::<T>::new(id, 
                                         zone_type.clone(), 
                                         BoxCoordinates::new(points));
             CityMap::<T>::insert(id, zone);
             Self::deposit_event(RawEvent::ZoneCreated(id, who, zone_type));
-            
             <TotalBoxes>::put(id + 1);
             Ok(())
         }
     }
 }
+
 // Module allows  use  common functionality by dispatchables
 impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
-
     /// Check if zone have required type
     pub fn zone_is(zone: u32, zone_type: ZoneType) -> bool {
         CityMap::<T>::get(zone).zone_is(zone_type)
