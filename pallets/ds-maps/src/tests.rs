@@ -52,7 +52,7 @@ fn it_try_add_zone_by_registrar() {
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 ZoneType::Green,
                 construct_box(),
-            ));
+        ));
         assert_noop!(
             DSMapsModule::zone_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
@@ -77,12 +77,12 @@ fn it_try_add_different_zone_types() {
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 ZoneType::Green,
                 construct_box(),
-            ));
-            assert_ok!(
-                DSMapsModule::zone_add(
-                    Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                    ZoneType::Red,
-                    construct_box(),
-            ));
+        ));
+        assert_ok!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                ZoneType::Red,
+                construct_box(),
+        ));
     });
 }
