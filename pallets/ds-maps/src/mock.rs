@@ -1,4 +1,4 @@
-use crate::{Module, Trait};
+use crate::{Module, Trait, Point3D};
 use frame_support::{
     impl_outer_event, impl_outer_origin, parameter_types,
     weights::{constants::RocksDbWeight, Weight},
@@ -98,8 +98,8 @@ impl crate::WeightInfo for WeightInfo {
 impl Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-    type Coordinates = [u32; 6];
-    type CoordinateSize = u32;
+    type Point = Point3D<Self::Coord>;
+    type Coord = u32;
 }
 
 parameter_types! {
@@ -135,7 +135,7 @@ pub type DSMapsModule = Module<Test>;
 pub type ZoneType = super::ZoneType;
 
 pub type DSAccountsModule = pallet_ds_accounts::Module<Test>;
-//Was taken from another mock, might be not best way to do
+// Was taken from another mock, might be not best way to do
 static INITIAL: [(
     <Test as system::Trait>::AccountId,
     <Test as pallet_ds_accounts::Trait>::AccountRole,
