@@ -16,18 +16,18 @@
 	},
 	"Coord": "u32",
 	"Point3D": {
-		"x":"Coord",
-		"y":"Coord",
-		"z":"Coord"
+		"lat":"Coord",
+		"lon":"Coord",
+		"alt":"Coord"
 	},
 	"Point": "Point3D",
 	"Box3D": {
 		"point_1": "Point3D",
 		"point_2": "Point3D"
 	},
-	"ZoneType":{
-		"_enum": ["Red","Green", "Parent"]                                        
-	  },
+	"ZoneType": {
+		"_enum": ["Red", "Green", "Parent"]                                        
+	},
 	"ZoneOf": {
 		"bounding_box": "Box3D",
 		"zone_type": "ZoneType",

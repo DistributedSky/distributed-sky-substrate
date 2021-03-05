@@ -19,7 +19,7 @@ mod mock;
 mod tests;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ZoneType {
     /// Forbidden type zone
     Red,
@@ -38,13 +38,14 @@ impl Default for ZoneType {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Point3D<Coord> {
-    x: Coord,
-    y: Coord,
-    z: Coord,
+    lat: Coord,
+    lon: Coord,
+    alt: Coord,
 }
+
 impl<Coord> Point3D<Coord> {
-    pub fn new(x: Coord, y: Coord, z: Coord) -> Self {
-        Point3D{x, y, z}
+    pub fn new(lat: Coord, lon: Coord, alt: Coord) -> Self {
+        Point3D{lat, lon, alt}
     }
 }
 
@@ -99,6 +100,7 @@ pub trait Trait: accounts::Trait {
     /// guess use u32 for representing global coords, u16 for local
     type Coord: Default + Parameter;
 }    
+
 pub trait WeightInfo {
     fn zone_add() -> Weight;
 }
@@ -123,12 +125,9 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Trait>::AccountId,
-        Coord = <T as Trait>::Coord,
     {
         // Event documentation should end with an array that provides descriptive names for event parameters.
-        /// TODO add more meta/remove
-        MapInitialized(Coord),
-        /// New account has been created [zone number, its type], TODO later add printing coords
+        /// New account has been created [zone number, who, its type], TODO later add printing coords
         ZoneCreated(u32, AccountId, ZoneType),
     }
 );
@@ -171,7 +170,7 @@ decl_module! {
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             
             let id = <TotalBoxes>::get();
-            let zone = ZoneOf::<T>::new(id, zone_type.clone(), bounding_box);
+            let zone = ZoneOf::<T>::new(id, zone_type, bounding_box);
             CityMap::<T>::insert(id, zone);
             Self::deposit_event(RawEvent::ZoneCreated(id, who, zone_type));
             <TotalBoxes>::put(id + 1);
