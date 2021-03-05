@@ -25,7 +25,7 @@ impl_outer_event! {
     pub enum TestEvent for Test {
         system<T>,
         template<T>,
-        balance<T>,
+        balance<AdminRoleT>,
     }
 }
 
