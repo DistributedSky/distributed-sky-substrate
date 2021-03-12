@@ -17,58 +17,37 @@ mod default_weight;
 mod mock;
 #[cfg(test)]
 mod tests;
-
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
-pub enum ZoneType {
-    /// Forbidden type zone
-    Red,
-    /// Available for safe flights
-    Green,
-    /// Owns zones
-    Parent,
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
+pub struct Point2D<Coord> {
+    x: Coord,
+    y: Coord,
 }
 
-impl Default for ZoneType {
-    fn default() -> Self {
-        ZoneType::Green
+impl<Coord> Point2D<Coord> {
+    pub fn new(x: Coord, y: Coord) -> Self {
+        Point2D{x, y}
     }
 }
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
-pub struct Point3D<Coord> {
-    lat: Coord,
-    lon: Coord,
-    alt: Coord,
-}
-
-impl<Coord> Point3D<Coord> {
-    pub fn new(lat: Coord, lon: Coord, alt: Coord) -> Self {
-        Point3D{lat, lon, alt}
-    }
-}
-
-
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
-pub struct Box3D<Point> {
+/*
+//derives and if req by compiler
+pub struct Rect2D<Point> {
     point_1: Point,
     point_2: Point,
 }
 
-impl<Point> Box3D<Point> {
+impl<Point> Rect2D<Point> {
     pub fn new(point_1: Point, point_2: Point) -> Self {
-        Box3D{point_1, point_2}
+        Rect2D{point_1, point_2}
     }
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default)]
 pub struct Zone<Point> {
-    pub bounding_box: Box3D<Point>,
-    pub zone_type: ZoneType,
-    pub zone_id: u32,
+    pub rect: Rect2D<Point>,
+    pub height: u16,
 }
 
 impl<Point> Zone<Point> {
@@ -85,6 +64,49 @@ impl<Point> Zone<Point> {
                 zone_id,
             }
     }
+} 
+*/
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
+pub struct Point3D<Coord> {
+    lat: Coord,
+    lon: Coord,
+    alt: Coord,
+}
+
+impl<Coord> Point3D<Coord> {
+    pub fn new(lat: Coord, lon: Coord, alt: Coord) -> Self {
+        Point3D{lat, lon, alt}
+    }
+}
+
+pub struct Box3D<Point3D, Coord> {
+    pub south_west: Point3D,
+    pub north_east: Point3D,
+}
+
+impl <Point3D, Coord> Box3D<Point3D, Coord>{
+    pub fn new(south_west: Point3D, north_east: Point3D) -> Self {
+        Box3D{south_west, north_east}
+    }
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Default, Debug)]
+pub struct RootBox<BoxType, LocalCoord> {
+    pub id: u32,
+    bounding_box: BoxType,
+    pub delta: LocalCoord,
+}
+
+impl<BoxType, LocalCoord> RootBox<BoxType, LocalCoord> {
+    pub fn new(id: u32, bounding_box: BoxType, delta: LocalCoord) -> Self {
+        RootBox{id, bounding_box, delta}
+    }
+
+    pub fn detect_touch(&self, touch: Point2D) -> u16 {
+        2
+    }
 }
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
@@ -95,10 +117,14 @@ pub trait Trait: accounts::Trait {
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type WeightInfo: WeightInfo;
     // new types, consider description
-    /// representing a point in space
-    type Point: Default + Parameter;
-    /// guess use u32 for representing global coords, u16 for local
+    /// representing a box in global space
+    type BoxType: Default + Parameter;
+    /// representing a rectangle on a plane
+    type RectType: Default + Parameter;
+
+    /// use u32 for representing global coords, u16 for local
     type Coord: Default + Parameter;
+    type LocalCoord: Default + Parameter;
 }    
 
 pub trait WeightInfo {
@@ -111,13 +137,16 @@ decl_storage!{
     // ---------------------------------vvvvvvvvvvvv
     trait Store for Module<T: Trait> as DSMapsModule {
         // MAX is 4_294_967_295. Change if required more.
-        TotalBoxes get(fn total_boxes): u32;    
+        TotalRoots get(fn total_roots): u32;    
 
-        CityMap get(fn map_data): 
-            map hasher(blake2_128_concat) u32 => ZoneOf<T>;
+        RootBoxes get(fn root_box_data): 
+            map hasher(blake2_128_concat) u32 => RootBoxOf<T>;
+        // RedZones get(fn zone_data): 
+        //     map hasher(blake2_128_concat) u32 => ZoneOf<T>;
     }
 }
-pub type ZoneOf<T> = Zone<<T as Trait>::Point>;
+pub type RootBoxOf<T> = RootBox<<T as Trait>::BoxType, <T as Trait>::LocalCoord>;
+//pub type ZoneOf<T> = Zone<<T as Trait>::Point>;
 
 // Pallets use events to inform users when important changes are made.
 // https://substrate.dev/docs/en/knowledgebase/runtime/events
@@ -127,8 +156,8 @@ decl_event!(
         AccountId = <T as frame_system::Trait>::AccountId,
     {
         // Event documentation should end with an array that provides descriptive names for event parameters.
-        /// New account has been created [zone number, who, its type], TODO later add printing coords
-        ZoneCreated(u32, AccountId, ZoneType),
+        /// New root box has been created [box number, who]
+        ZoneCreated(u32, AccountId),
     }
 );
 
@@ -162,18 +191,18 @@ decl_module! {
         fn deposit_event() = default;
 
         #[weight = <T as Trait>::WeightInfo::zone_add()]
-        pub fn zone_add(origin, 
-                        zone_type: ZoneType, 
-                        bounding_box: Box3D<T::Point>) -> dispatch::DispatchResult {
+        pub fn root_add(origin, 
+                        bounding_box: BoxType,
+                        delta: u32 ) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             // TODO implement inverted index, so we will not store same zones twice
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             
-            let id = <TotalBoxes>::get();
-            let zone = ZoneOf::<T>::new(id, zone_type, bounding_box);
-            CityMap::<T>::insert(id, zone);
-            Self::deposit_event(RawEvent::ZoneCreated(id, who, zone_type));
-            <TotalBoxes>::put(id + 1);
+            let id = <TotalRoots>::get();
+            let zone = RootBoxOf::<T>::new(id, bounding_box, delta);
+            RootBoxes::<T>::insert(id, zone);
+            Self::deposit_event(RawEvent::ZoneCreated(id, who));
+            <TotalRoots>::put(id + 1);
             Ok(())
         }
     }
@@ -183,9 +212,9 @@ decl_module! {
 impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
-    /// Check if zone have required type
-    pub fn zone_is(zone: u32, zone_type: ZoneType) -> bool {
-        CityMap::<T>::get(zone).zone_is(zone_type)
-    }
+    // Check if zone have required type
+    // pub fn zone_is(zone: u32, zone_type: ZoneType) -> bool {
+    //     CityMap::<T>::get(zone).zone_is(zone_type)
+    // }
 }
 
