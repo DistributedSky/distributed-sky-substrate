@@ -80,12 +80,14 @@ impl<Coord> Point3D<Coord> {
     }
 }
 
-pub struct Box3D<Point3D, Coord> {
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq)]
+pub struct Box3D<Point3D> {
     pub south_west: Point3D,
     pub north_east: Point3D,
 }
 
-impl <Point3D, Coord> Box3D<Point3D, Coord>{
+impl <Point3D> Box3D<Point3D> {
     pub fn new(south_west: Point3D, north_east: Point3D) -> Self {
         Box3D{south_west, north_east}
     }
@@ -93,20 +95,20 @@ impl <Point3D, Coord> Box3D<Point3D, Coord>{
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug)]
-pub struct RootBox<BoxType, LocalCoord> {
+pub struct RootBox<Box3D, LocalCoord> {
     pub id: u32,
-    bounding_box: BoxType,
+    bounding_box: Box3D,
     pub delta: LocalCoord,
 }
 
-impl<BoxType, LocalCoord> RootBox<BoxType, LocalCoord> {
-    pub fn new(id: u32, bounding_box: BoxType, delta: LocalCoord) -> Self {
+impl<Box3D, LocalCoord> RootBox  <Box3D, LocalCoord> {
+    pub fn new(id: u32, bounding_box: Box3D, delta: LocalCoord) -> Self {
         RootBox{id, bounding_box, delta}
     }
 
-    pub fn detect_touch(&self, touch: Point2D) -> u16 {
-        2
-    }
+    // pub fn detect_touch(&self, touch: Point2D<Coord>) -> u16 {
+    //     2
+    // }
 }
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
@@ -117,11 +119,6 @@ pub trait Trait: accounts::Trait {
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type WeightInfo: WeightInfo;
     // new types, consider description
-    /// representing a box in global space
-    type BoxType: Default + Parameter;
-    /// representing a rectangle on a plane
-    type RectType: Default + Parameter;
-
     /// use u32 for representing global coords, u16 for local
     type Coord: Default + Parameter;
     type LocalCoord: Default + Parameter;
@@ -145,7 +142,8 @@ decl_storage!{
         //     map hasher(blake2_128_concat) u32 => ZoneOf<T>;
     }
 }
-pub type RootBoxOf<T> = RootBox<<T as Trait>::BoxType, <T as Trait>::LocalCoord>;
+pub type RootBoxOf<T> = RootBox<Box3D<Point3D<<T as Trait>::Coord>>, 
+                                <T as Trait>::LocalCoord>;
 //pub type ZoneOf<T> = Zone<<T as Trait>::Point>;
 
 // Pallets use events to inform users when important changes are made.
@@ -192,8 +190,8 @@ decl_module! {
 
         #[weight = <T as Trait>::WeightInfo::zone_add()]
         pub fn root_add(origin, 
-                        bounding_box: BoxType,
-                        delta: u32 ) -> dispatch::DispatchResult {
+                        bounding_box: Box3D<Point3D<T::Coord>>,
+                        delta: T::LocalCoord ) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             // TODO implement inverted index, so we will not store same zones twice
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
