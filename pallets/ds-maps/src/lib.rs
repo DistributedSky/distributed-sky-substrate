@@ -17,6 +17,7 @@ mod default_weight;
 mod mock;
 #[cfg(test)]
 mod tests;
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Point2D<Coord> {
@@ -30,42 +31,35 @@ impl<Coord> Point2D<Coord> {
     }
 }
 
-/*
+
 //derives and if req by compiler
-pub struct Rect2D<Point> {
-    point_1: Point,
-    point_2: Point,
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Default, Debug)]
+pub struct Rect2D<Point2D> {
+    point_1: Point2D,
+    point_2: Point2D,
 }
 
-impl<Point> Rect2D<Point> {
-    pub fn new(point_1: Point, point_2: Point) -> Self {
+impl<Point2D> Rect2D<Point2D> {
+    pub fn new(point_1: Point2D, point_2: Point2D) -> Self {
         Rect2D{point_1, point_2}
     }
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default)]
-pub struct Zone<Point> {
-    pub rect: Rect2D<Point>,
+pub struct Zone<Rect2D> {
+    pub zone_id: u32,
+    pub rect: Rect2D,
     pub height: u16,
 }
 
-impl<Point> Zone<Point> {
-    pub fn zone_is(&self, zone: ZoneType) -> bool {
-        self.zone_type == zone
-    }
-
-    pub fn new( zone_id: u32, 
-                zone_type: ZoneType, 
-                bounding_box: Box3D<Point> ) -> Self {
-            Zone {
-                bounding_box,
-                zone_type,
-                zone_id,
-            }
+impl<Rect2D> Zone<Rect2D> {
+    pub fn new(zone_id: u32, rect: Rect2D, height: u16) -> Self {
+        Zone { zone_id, rect, height}
     }
 } 
-*/
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Point3D<Coord> {
@@ -101,7 +95,7 @@ pub struct RootBox<Box3D, LocalCoord> {
     pub delta: LocalCoord,
 }
 
-impl<Box3D, LocalCoord> RootBox  <Box3D, LocalCoord> {
+impl<Box3D, LocalCoord> RootBox <Box3D, LocalCoord> {
     pub fn new(id: u32, bounding_box: Box3D, delta: LocalCoord) -> Self {
         RootBox{id, bounding_box, delta}
     }
@@ -138,12 +132,12 @@ decl_storage!{
 
         RootBoxes get(fn root_box_data): 
             map hasher(blake2_128_concat) u32 => RootBoxOf<T>;
+
         // RedZones get(fn zone_data): 
         //     map hasher(blake2_128_concat) u32 => ZoneOf<T>;
     }
 }
-pub type RootBoxOf<T> = RootBox<Box3D<Point3D<<T as Trait>::Coord>>, 
-                                <T as Trait>::LocalCoord>;
+pub type RootBoxOf<T> = RootBox<Box3D<Point3D<<T as Trait>::Coord>>, <T as Trait>::LocalCoord>;
 //pub type ZoneOf<T> = Zone<<T as Trait>::Point>;
 
 // Pallets use events to inform users when important changes are made.
@@ -204,6 +198,22 @@ decl_module! {
             Ok(())
         }
     }
+    //     #[weight = <T as Trait>::WeightInfo::zone_add()]
+    //     pub fn zone_add(origin, 
+    //                     bounding_box: Box3D<Point3D<T::Coord>>,
+    //                     delta: T::LocalCoord ) -> dispatch::DispatchResult {
+    //         let who = ensure_signed(origin)?;
+    //         // TODO implement inverted index, so we will not store same zones twice
+    //         ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
+            
+    //         let id = <TotalRoots>::get();
+    //         let zone = RootBoxOf::<T>::new(id, bounding_box, delta);
+    //         RootBoxes::<T>::insert(id, zone);
+    //         Self::deposit_event(RawEvent::ZoneCreated(id, who));
+    //         <TotalRoots>::put(id + 1);
+    //         Ok(())
+    //     }
+    // }
 }
 
 // Module allows  use  common functionality by dispatchables

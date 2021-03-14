@@ -289,8 +289,8 @@ impl pallet_ds_accounts::Trait for Runtime {
 impl pallet_ds_maps::Trait for Runtime {
     type Event = Event;
     type WeightInfo = ();
-    type Point = pallet_ds_maps::Point3D<Self::Coord>;
     type Coord = u32;
+    type LocalCoord = u16;
 }
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
