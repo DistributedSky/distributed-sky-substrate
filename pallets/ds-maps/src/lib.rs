@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use frame_support::{
     codec::{Decode, Encode},
-    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
+    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,    
     weights::{Weight},
     Parameter,
 };
@@ -34,7 +34,7 @@ impl<Coord> Point2D<Coord> {
 
 //derives and if req by compiler
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Default, Debug)]
+#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq)]
 pub struct Rect2D<Point2D> {
     point_1: Point2D,
     point_2: Point2D,
@@ -48,14 +48,14 @@ impl<Point2D> Rect2D<Point2D> {
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default)]
-pub struct Zone<Rect2D> {
-    pub zone_id: u32,
+pub struct Zone<ZoneId, Rect2D> {
+    pub zone_id: ZoneId,
     pub rect: Rect2D,
     pub height: u16,
 }
 
-impl<Rect2D> Zone<Rect2D> {
-    pub fn new(zone_id: u32, rect: Rect2D, height: u16) -> Self {
+impl<ZoneId, Rect2D> Zone<ZoneId, Rect2D> {
+    pub fn new(zone_id: ZoneId, rect: Rect2D, height: u16) -> Self {
         Zone { zone_id, rect, height}
     }
 } 
@@ -89,21 +89,32 @@ impl <Point3D> Box3D<Point3D> {
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug)]
-pub struct RootBox<Box3D, LocalCoord> {
-    pub id: u32,
-    bounding_box: Box3D,
+pub struct RootBox<RootId, Box3D, LocalCoord> {
+    pub id: RootId,
+    pub bounding_box: Box3D,
     pub delta: LocalCoord,
 }
 
-impl<Box3D, LocalCoord> RootBox <Box3D, LocalCoord> {
-    pub fn new(id: u32, bounding_box: Box3D, delta: LocalCoord) -> Self {
+impl<RootId, Box3D, LocalCoord> RootBox <RootId, Box3D, LocalCoord> {
+    pub fn new(id: RootId, bounding_box: Box3D, delta: LocalCoord) -> Self {
         RootBox{id, bounding_box, delta}
     }
 
-    // pub fn detect_touch(&self, touch: Point2D<Coord>) -> u16 {
+    // pub fn detect_touch(&self, touch: Point2D<Coord>) -> AreaId {
     //     2
     // }
+
+
+    // pub fn generate_zone_id(&self,){
+
+    // }
 }
+
+// types to make pallet more readable
+// TODO later move it to trait w all bounds 
+type RootId = u32;
+type ZoneId = u64;
+type AreaId = u16;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: accounts::Trait {
@@ -113,12 +124,14 @@ pub trait Trait: accounts::Trait {
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type WeightInfo: WeightInfo;
     // new types, consider description
+
     /// use u32 for representing global coords, u16 for local
     type Coord: Default + Parameter;
     type LocalCoord: Default + Parameter;
 }    
 
 pub trait WeightInfo {
+    fn root_add() -> Weight;
     fn zone_add() -> Weight;
 }
 
@@ -128,17 +141,22 @@ decl_storage!{
     // ---------------------------------vvvvvvvvvvvv
     trait Store for Module<T: Trait> as DSMapsModule {
         // MAX is 4_294_967_295. Change if required more.
-        TotalRoots get(fn total_roots): u32;    
+        TotalRoots get(fn total_roots): RootId;    
 
         RootBoxes get(fn root_box_data): 
-            map hasher(blake2_128_concat) u32 => RootBoxOf<T>;
+            map hasher(blake2_128_concat) RootId => RootBoxOf<T>;
 
-        // RedZones get(fn zone_data): 
-        //     map hasher(blake2_128_concat) u32 => ZoneOf<T>;
+        AreaData get(fn zone_index): 
+            double_map hasher(blake2_128_concat) RootId, 
+                       hasher(blake2_128_concat) AreaId => ZoneId;    
+
+        RedZones get(fn zone_data): 
+            map hasher(blake2_128_concat) ZoneId => ZoneOf<T>;
     }
 }
-pub type RootBoxOf<T> = RootBox<Box3D<Point3D<<T as Trait>::Coord>>, <T as Trait>::LocalCoord>;
-//pub type ZoneOf<T> = Zone<<T as Trait>::Point>;
+
+pub type RootBoxOf<T> = RootBox<RootId, Box3D<Point3D<<T as Trait>::Coord>>, <T as Trait>::LocalCoord>;
+pub type ZoneOf<T> = Zone<ZoneId, Rect2D<Point2D<<T as Trait>::Coord>>>;
 
 // Pallets use events to inform users when important changes are made.
 // https://substrate.dev/docs/en/knowledgebase/runtime/events
@@ -149,7 +167,9 @@ decl_event!(
     {
         // Event documentation should end with an array that provides descriptive names for event parameters.
         /// New root box has been created [box number, who]
-        ZoneCreated(u32, AccountId),
+        RootCreated(u32, AccountId),
+        //TODO add double mapping and declare here root and area
+        ZoneCreated(AccountId),
     }
 );
 
@@ -182,38 +202,48 @@ decl_module! {
         // Events must be initialized if they are used by the pallet.
         fn deposit_event() = default;
 
-        #[weight = <T as Trait>::WeightInfo::zone_add()]
+        #[weight = <T as Trait>::WeightInfo::root_add()]
         pub fn root_add(origin, 
                         bounding_box: Box3D<Point3D<T::Coord>>,
-                        delta: T::LocalCoord ) -> dispatch::DispatchResult {
+                        delta: T::LocalCoord) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
-            // TODO implement inverted index, so we will not store same zones twice
+            // TODO implement inverted index, so we will not store same roots twice
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             
-            let id = <TotalRoots>::get();
-            let zone = RootBoxOf::<T>::new(id, bounding_box, delta);
-            RootBoxes::<T>::insert(id, zone);
-            Self::deposit_event(RawEvent::ZoneCreated(id, who));
-            <TotalRoots>::put(id + 1);
+            let id = TotalRoots::get();
+            let root = RootBoxOf::<T>::new(id, bounding_box, delta);
+            RootBoxes::<T>::insert(id, root);
+            Self::deposit_event(RawEvent::RootCreated(id, who));
+            TotalRoots::put(id + 1);
+            Ok(())
+        }
+
+        // #[weight = <T as Trait>::WeightInfo::zone_add()]
+        // pub fn touch(origin, id: u32, Point2D) -> dispatch::DispatchResult {
+        //     let who = ensure_signed(origin)?;
+        //     let root = <TotalRoots>::get();
+            
+
+        // }
+
+        #[weight = <T as Trait>::WeightInfo::zone_add()]
+        pub fn zone_add(origin, 
+                        rect: Rect2D<Point2D<T::Coord>>,
+                        height: u16,
+                        // TODO change to calc required area & root from rect(GL Daniil)
+                        root_id: RootId,
+                        area_id: AreaId) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin)?;
+            ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
+            let id = <AreaData>::get(root_id, area_id);
+            let zone = ZoneOf::<T>::new(id, rect, height);
+            RedZones::<T>::insert(id, zone);
+            // TODO create struct for 
+            AreaData::insert(root_id, area_id, id + 1);
+            Self::deposit_event(RawEvent::ZoneCreated(who));
             Ok(())
         }
     }
-    //     #[weight = <T as Trait>::WeightInfo::zone_add()]
-    //     pub fn zone_add(origin, 
-    //                     bounding_box: Box3D<Point3D<T::Coord>>,
-    //                     delta: T::LocalCoord ) -> dispatch::DispatchResult {
-    //         let who = ensure_signed(origin)?;
-    //         // TODO implement inverted index, so we will not store same zones twice
-    //         ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
-            
-    //         let id = <TotalRoots>::get();
-    //         let zone = RootBoxOf::<T>::new(id, bounding_box, delta);
-    //         RootBoxes::<T>::insert(id, zone);
-    //         Self::deposit_event(RawEvent::ZoneCreated(id, who));
-    //         <TotalRoots>::put(id + 1);
-    //         Ok(())
-    //     }
-    // }
 }
 
 // Module allows  use  common functionality by dispatchables
