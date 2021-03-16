@@ -110,6 +110,19 @@ impl<RootId, Box3D, LocalCoord> RootBox <RootId, Box3D, LocalCoord> {
     // }
 }
 
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Default, Debug)]
+pub struct Area {
+    pub area_type: u8,
+    pub child_amount: u16,
+}
+
+impl Area {
+    pub fn new(area_type: u8, child_amount: u16) -> Self {
+        Area{area_type, child_amount}
+    } 
+}
+
 // types to make pallet more readable
 // TODO later move it to trait w all bounds 
 type RootId = u32;
@@ -135,20 +148,20 @@ pub trait WeightInfo {
     fn zone_add() -> Weight;
 }
 
-decl_storage!{
+decl_storage! {
     // A unique name is used to ensure that the pallet's storage items are isolated.
     // This name may be updated, but each pallet in the runtime must use a unique name.
     // ---------------------------------vvvvvvvvvvvv
     trait Store for Module<T: Trait> as DSMapsModule {
         // MAX is 4_294_967_295. Change if required more.
-        TotalRoots get(fn total_roots): RootId;    
+        TotalRoots get(fn total_roots): RootId = 0;    
 
         RootBoxes get(fn root_box_data): 
             map hasher(blake2_128_concat) RootId => RootBoxOf<T>;
 
         AreaData get(fn zone_index): 
             double_map hasher(blake2_128_concat) RootId, 
-                       hasher(blake2_128_concat) AreaId => ZoneId;    
+                       hasher(blake2_128_concat) AreaId => Area;    
 
         RedZones get(fn zone_data): 
             map hasher(blake2_128_concat) ZoneId => ZoneOf<T>;
@@ -168,7 +181,7 @@ decl_event!(
         // Event documentation should end with an array that provides descriptive names for event parameters.
         /// New root box has been created [box number, who]
         RootCreated(u32, AccountId),
-        //TODO add double mapping and declare here root and area
+        // TODO add double mapping and declare here root and area
         ZoneCreated(AccountId, ZoneId),
     }
 );
@@ -187,6 +200,8 @@ decl_error! {
         NotAuthorized,
         /// Account doesn't exist
         NotExists,
+        /// Area is unavailable for operation
+        ForbiddenArea,
         // add additional errors below
     }
 }
@@ -235,11 +250,18 @@ decl_module! {
                         area_id: AreaId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
-            let id = <AreaData>::get(root_id, area_id);
+            
+            // form index and store input to redzones
+            // increase area counter by 1
+            let area = <AreaData>::get(root_id, area_id);
+            ensure!(area.area_type == 0b00000001, Error::<T>::ForbiddenArea);
+            let id = Self::form_index(root_id, area_id, area.child_amount); 
             let zone = ZoneOf::<T>::new(id, rect, height);
             RedZones::<T>::insert(id, zone);
-            // TODO create struct for area w u8 flag 
-            AreaData::insert(root_id, area_id, id + 1);
+            AreaData::mutate(root_id, area_id, |ar| {
+                ar.child_amount += 1;
+            });
+
             Self::deposit_event(RawEvent::ZoneCreated(who, id));
             Ok(())
         }
@@ -252,7 +274,17 @@ impl<T: Trait> Module<T> {
     // Public functions can be called from other runtime modules.
     // Check if zone have required type
     // pub fn zone_is(zone: u32, zone_type: ZoneType) -> bool {
-    //     CityMap::<T>::get(zone).zone_is(zone_type)
-    // }
+        //     CityMap::<T>::get(zone).zone_is(zone_type)
+        // }
+
+        // v.............root id here............v v.....area id.....v v..child objects..v
+        // 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+        fn form_index(root: u32, area: u16, childs: u16) -> u64 {
+            // consider refactoring this function?
+            let area_expanded: u64 = (area as u64) << 16;
+            let root_expanded: u64 = (root as u64) << 32;
+            
+            (childs as u64) | area_expanded | root_expanded
+        }
 }
 
