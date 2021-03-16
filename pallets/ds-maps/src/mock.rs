@@ -90,6 +90,9 @@ impl pallet_timestamp::Trait for Test {
 
 struct WeightInfo;
 impl crate::WeightInfo for WeightInfo {
+    fn root_add() -> Weight {
+        <() as crate::WeightInfo>::root_add()
+    }
     fn zone_add() -> Weight {
         <() as crate::WeightInfo>::zone_add()
     }
@@ -98,8 +101,8 @@ impl crate::WeightInfo for WeightInfo {
 impl Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-    type Point = Point3D<Self::Coord>;
     type Coord = u32;
+    type LocalCoord = u16;
 }
 
 parameter_types! {
@@ -132,7 +135,6 @@ impl pallet_ds_accounts::Trait for Test {
 }
 
 pub type DSMapsModule = Module<Test>;
-pub type ZoneType = super::ZoneType;
 
 pub type DSAccountsModule = pallet_ds_accounts::Module<Test>;
 // Was taken from another mock, might be not best way to do

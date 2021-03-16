@@ -169,7 +169,7 @@ decl_event!(
         /// New root box has been created [box number, who]
         RootCreated(u32, AccountId),
         //TODO add double mapping and declare here root and area
-        ZoneCreated(AccountId),
+        ZoneCreated(AccountId, ZoneId),
     }
 );
 
@@ -238,9 +238,9 @@ decl_module! {
             let id = <AreaData>::get(root_id, area_id);
             let zone = ZoneOf::<T>::new(id, rect, height);
             RedZones::<T>::insert(id, zone);
-            // TODO create struct for 
+            // TODO create struct for area w u8 flag 
             AreaData::insert(root_id, area_id, id + 1);
-            Self::deposit_event(RawEvent::ZoneCreated(who));
+            Self::deposit_event(RawEvent::ZoneCreated(who, id));
             Ok(())
         }
     }
