@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use frame_support::{
     codec::{Decode, Encode},
+    sp_runtime::sp_std::ops::{Add, Sub},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,    
     weights::{Weight},
     Parameter,
@@ -21,13 +22,13 @@ mod tests;
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Point2D<Coord> {
-    x: Coord,
-    y: Coord,
+    lon: Coord,
+    lat: Coord,
 }
 
 impl<Coord> Point2D<Coord> {
-    pub fn new(x: Coord, y: Coord) -> Self {
-        Point2D{x, y}
+    pub fn new(lon: Coord, lat: Coord) -> Self {
+        Point2D{lon, lat}
     }
 }
 
@@ -99,15 +100,6 @@ impl<RootId, Box3D, LocalCoord> RootBox <RootId, Box3D, LocalCoord> {
     pub fn new(id: RootId, bounding_box: Box3D, delta: LocalCoord) -> Self {
         RootBox{id, bounding_box, delta}
     }
-
-    // pub fn detect_touch(&self, touch: Point2D<Coord>) -> AreaId {
-    //     2
-    // }
-
-
-    // pub fn generate_zone_id(&self,){
-
-    // }
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -139,8 +131,8 @@ pub trait Trait: accounts::Trait {
     // new types, consider description
 
     /// use u32 for representing global coords, u16 for local
-    type Coord: Default + Parameter;
-    type LocalCoord: Default + Parameter;
+    type Coord: Default + Parameter + Copy + PartialOrd + Sub;
+    type LocalCoord: Default + Parameter + Copy;
 }    
 
 pub trait WeightInfo {
@@ -245,7 +237,7 @@ decl_module! {
         pub fn zone_add(origin, 
                         rect: Rect2D<Point2D<T::Coord>>,
                         height: u16,
-                        // TODO change to calc required area & root from rect(GL Daniil)
+                        // TODO change to calc required area & root from rect
                         root_id: RootId,
                         area_id: AreaId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
@@ -267,24 +259,56 @@ decl_module! {
         }
     }
 }
-
 // Module allows  use  common functionality by dispatchables
 impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
-    // Check if zone have required type
-    // pub fn zone_is(zone: u32, zone_type: ZoneType) -> bool {
-        //     CityMap::<T>::get(zone).zone_is(zone_type)
-        // }
+    
+    pub fn detect_touch(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> AreaId {
+        // let root_rect: Point2D<T::Coord> = Point2D::new(root_box.bounding_box.south_west,
+        //                                root_box.bounding_box.north_east); 
+        // let difference_vector: Point2D = Self::get_vector(root_rect, touch);
+        
+        2
+    }
 
-        // v.............root id here............v v.....area id.....v v..child objects..v
-        // 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
-        fn form_index(root: u32, area: u16, childs: u16) -> u64 {
-            // consider refactoring this function?
-            let area_expanded: u64 = (area as u64) << 16;
-            let root_expanded: u64 = (root as u64) << 32;
-            
-            (childs as u64) | area_expanded | root_expanded
+    fn get_vector(first_point: Point2D<T::Coord>, 
+                  second_point: Point2D<T::Coord>) -> Point2D<T::Coord> {
+        let lat_length: T::Coord;
+        if first_point.lat > second_point.lat {
+            lat_length = first_point.lat - second_point.lat;
+        } else {
+            lat_length = second_point.lat - first_point.lat;
         }
+        let long_length: T::Coord; 
+        if first_point.lon > second_point.lon {
+            long_length = first_point.lon - second_point.lon;
+        } else {
+            long_length = second_point.lon - first_point.lon;
+        }
+        Point2D::new(lat_length, long_length)
+    }
+    
+    /// form index for storing zones, wrapped in u64
+    // v.............root id here............v v.....area id.....v v..child objects..v
+    // 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+    fn form_index(root: u32, area: u16, childs: u16) -> u64 {
+        // is refactoring possible?
+        (root as u64) << 32 |
+        (area as u64) << 16 | 
+        (childs as u64)      
+    }
+    
+    // gets info from zone index
+    fn unwrap_index(index: u64) -> (u32, u16, u16) {
+        let mask_u16: u64 = 0x0000_0000_0000_0000_0000_0000_ffff_ffff;
+        // is refactoring possible?
+        let root: u32 = (index >> 32) as u32;
+        let area: u16 = ((index >> 16) & mask_u16) as u16;
+        let childs: u16 = (index & !mask_u16) as u16;
+        
+        (root, area, childs)
+    }
+
 }
 
