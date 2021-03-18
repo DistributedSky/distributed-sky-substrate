@@ -4,9 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use frame_support::{
     codec::{Decode, Encode},
-    sp_runtime::sp_std::ops::{Add, Sub},
+    sp_runtime::sp_std::ops::{Add, Sub, Div, Mul},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,    
-    weights::{Weight},
+    traits::Get,
+    weights::Weight,
     Parameter,
 };
 use frame_system::ensure_signed;
@@ -90,14 +91,14 @@ impl <Point3D> Box3D<Point3D> {
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug)]
-pub struct RootBox<RootId, Box3D, LocalCoord> {
+pub struct RootBox<RootId, Box3D, Coord> {
     pub id: RootId,
     pub bounding_box: Box3D,
-    pub delta: LocalCoord,
+    pub delta: Coord,
 }
 
-impl<RootId, Box3D, LocalCoord> RootBox <RootId, Box3D, LocalCoord> {
-    pub fn new(id: RootId, bounding_box: Box3D, delta: LocalCoord) -> Self {
+impl<RootId, Box3D, Coord> RootBox <RootId, Box3D, Coord> {
+    pub fn new(id: RootId, bounding_box: Box3D, delta: Coord) -> Self {
         RootBox{id, bounding_box, delta}
     }
 }
@@ -131,8 +132,21 @@ pub trait Trait: accounts::Trait {
     // new types, consider description
 
     /// use u32 for representing global coords, u16 for local
-    type Coord: Default + Parameter + Copy + PartialOrd + Sub;
-    type LocalCoord: Default + Parameter + Copy;
+    type Coord: Default 
+    + Parameter
+    + Copy
+    + PartialOrd
+    + From<AreaId>
+    + Sub<Output = Self::Coord>
+    + Div<Output = Self::Coord>
+    + Add<Output = Self::Coord>
+    + Mul<Output = Self::Coord>;
+    
+    type LocalCoord: Default 
+    + Parameter
+    + Copy
+    + PartialOrd
+    + Div<Output = Self::Coord>; 
 }    
 
 pub trait WeightInfo {
@@ -160,7 +174,7 @@ decl_storage! {
     }
 }
 
-pub type RootBoxOf<T> = RootBox<RootId, Box3D<Point3D<<T as Trait>::Coord>>, <T as Trait>::LocalCoord>;
+pub type RootBoxOf<T> = RootBox<RootId, Box3D<Point3D<<T as Trait>::Coord>>, <T as Trait>::Coord>;
 pub type ZoneOf<T> = Zone<ZoneId, Rect2D<Point2D<<T as Trait>::Coord>>>;
 
 // Pallets use events to inform users when important changes are made.
@@ -212,7 +226,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::root_add()]
         pub fn root_add(origin, 
                         bounding_box: Box3D<Point3D<T::Coord>>,
-                        delta: T::LocalCoord) -> dispatch::DispatchResult {
+                        delta: T::Coord) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             // TODO implement inverted index, so we will not store same roots twice
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
@@ -265,15 +279,25 @@ impl<T: Trait> Module<T> {
     // Public functions can be called from other runtime modules.
     
     pub fn detect_touch(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> AreaId {
-        // let root_rect: Point2D<T::Coord> = Point2D::new(root_box.bounding_box.south_west,
-        //                                root_box.bounding_box.north_east); 
-        // let difference_vector: Point2D = Self::get_vector(root_rect, touch);
+        let root_base_point: Point2D<T::Coord> = 
+        Point2D::new(root_box.bounding_box.north_east.lat,
+                     root_box.bounding_box.north_east.lon); 
+        let root_secondary_point: Point2D<T::Coord> = 
+        Point2D::new(root_box.bounding_box.south_west.lat,
+                    root_box.bounding_box.south_west.lon); 
+        let root_dimensions = Self::get_distance_vector(root_base_point, root_secondary_point);
+        let distance_vector = Self::get_distance_vector(root_base_point, touch);
         
-        2
+        let row = (distance_vector.lat / root_box.delta) + 1;
+        let column = (distance_vector.lon / root_box.delta) + 1;
+        let total_rows = root_dimensions.lat / root_box.delta;
+        
+        ((total_rows * (column - 1)) + row).into()
     }
 
-    fn get_vector(first_point: Point2D<T::Coord>, 
-                  second_point: Point2D<T::Coord>) -> Point2D<T::Coord> {
+    fn get_distance_vector( first_point: Point2D<T::Coord>, 
+                            second_point: Point2D<T::Coord>) -> Point2D<T::Coord> {
+        // guess, this code is clumsy, may be simplified
         let lat_length: T::Coord;
         if first_point.lat > second_point.lat {
             lat_length = first_point.lat - second_point.lat;
@@ -282,7 +306,7 @@ impl<T: Trait> Module<T> {
         }
         let long_length: T::Coord; 
         if first_point.lon > second_point.lon {
-            long_length = first_point.lon - second_point.lon;
+            long_length = first_point.lon - second_point.lon; 
         } else {
             long_length = second_point.lon - first_point.lon;
         }
