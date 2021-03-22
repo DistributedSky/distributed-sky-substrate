@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use frame_support::{
     codec::{Decode, Encode},
-    sp_runtime::sp_std::ops::{Add, Sub, Div, Mul},
+    sp_runtime::sp_std::ops::{Add, Sub, Div, Mul, Shl, BitOr},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,    
     traits::Get,
     weights::Weight,
@@ -21,7 +21,7 @@ mod mock;
 mod tests;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub struct Point2D<Coord> {
     lon: Coord,
     lat: Coord,
@@ -94,6 +94,7 @@ impl <Point3D> Box3D<Point3D> {
 pub struct RootBox<RootId, Box3D, Coord> {
     pub id: RootId,
     pub bounding_box: Box3D,
+    // TODO change Coord to LocalCoord, fix type errors
     pub delta: Coord,
 }
 
@@ -104,7 +105,7 @@ impl<RootId, Box3D, Coord> RootBox <RootId, Box3D, Coord> {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Default, Debug)]
+#[derive(Encode, Decode, Default, Debug, PartialEq)]
 pub struct Area {
     pub area_type: u8,
     pub child_amount: u16,
@@ -116,12 +117,6 @@ impl Area {
     } 
 }
 
-// types to make pallet more readable
-// TODO later move it to trait w all bounds 
-type RootId = u32;
-type ZoneId = u64;
-type AreaId = u16;
-
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: accounts::Trait {
     /// Because this pallet emits events, it depends on the runtime's definition of an event.
@@ -130,22 +125,60 @@ pub trait Trait: accounts::Trait {
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type WeightInfo: WeightInfo;
     // new types, consider description
-
+    
     /// use u32 for representing global coords, u16 for local
     type Coord: Default 
     + Parameter
     + Copy
     + PartialOrd
-    + From<AreaId>
+    + From<u32>
+    + Get<u32>
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>
     + Add<Output = Self::Coord>
     + Mul<Output = Self::Coord>;
     
+    type AreaId: Default 
+    + Parameter
+    + Copy
+    + PartialOrd
+    + From<u32>
+    + Into<u32>
+    + From<Self::AreaId>
+    + From<Self::RootId>
+    + From<Self::ZoneId>
+    + From<Self::Coord>;
+    
+    type RootId: Default 
+    + Parameter
+    + Copy
+    + PartialOrd
+    + From<u32>
+    + Into<u32>
+    + Add<Output = Self::RootId>
+    + From<Self::AreaId>
+    + From<Self::RootId>
+    + From<Self::ZoneId>
+    + From<Self::Coord>;
+    
+    type ZoneId: Default 
+    + Parameter
+    + Copy
+    + PartialOrd
+    + Shl
+    + From<u64>
+    + From<u16>
+    + Into<u32>
+    + BitOr<Output = Self::ZoneId>
+    + From<Self::AreaId>
+    + From<Self::RootId>
+    + From<Self::Coord>;
+    
     type LocalCoord: Default 
     + Parameter
     + Copy
     + PartialOrd
+    + Get<u16>
     + Div<Output = Self::Coord>; 
 }    
 
@@ -160,22 +193,22 @@ decl_storage! {
     // ---------------------------------vvvvvvvvvvvv
     trait Store for Module<T: Trait> as DSMapsModule {
         // MAX is 4_294_967_295. Change if required more.
-        TotalRoots get(fn total_roots): RootId = 0;    
+        TotalRoots get(fn total_roots): T::RootId = 0.into();    
 
         RootBoxes get(fn root_box_data): 
-            map hasher(blake2_128_concat) RootId => RootBoxOf<T>;
+            map hasher(blake2_128_concat) T::RootId => RootBoxOf<T>;
 
         AreaData get(fn zone_index): 
-            double_map hasher(blake2_128_concat) RootId, 
-                       hasher(blake2_128_concat) AreaId => Area;    
+            double_map hasher(blake2_128_concat) T::RootId, 
+                       hasher(blake2_128_concat) T::AreaId => Area;    
 
         RedZones get(fn zone_data): 
-            map hasher(blake2_128_concat) ZoneId => ZoneOf<T>;
+            map hasher(blake2_128_concat) T::ZoneId => ZoneOf<T>;
     }
 }
 
-pub type RootBoxOf<T> = RootBox<RootId, Box3D<Point3D<<T as Trait>::Coord>>, <T as Trait>::Coord>;
-pub type ZoneOf<T> = Zone<ZoneId, Rect2D<Point2D<<T as Trait>::Coord>>>;
+pub type RootBoxOf<T> = RootBox<<T as Trait>::RootId, Box3D<Point3D<<T as Trait>::Coord>>, <T as Trait>::Coord>;
+pub type ZoneOf<T> = Zone<<T as Trait>::ZoneId, Rect2D<Point2D<<T as Trait>::Coord>>>;
 
 // Pallets use events to inform users when important changes are made.
 // https://substrate.dev/docs/en/knowledgebase/runtime/events
@@ -183,12 +216,16 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Trait>::AccountId,
-    {
+        RootId = <T as Trait>::RootId,
+        // AreaId = <T as Trait>::AreaId,
+        ZoneId = <T as Trait>::ZoneId,
+
+        {
         // Event documentation should end with an array that provides descriptive names for event parameters.
         /// New root box has been created [box number, who]
-        RootCreated(u32, AccountId),
+        RootCreated(RootId, AccountId),
         // TODO add double mapping and declare here root and area
-        ZoneCreated(AccountId, ZoneId),
+        ZoneCreated(ZoneId, AccountId),
     }
 );
 
@@ -231,44 +268,36 @@ decl_module! {
             // TODO implement inverted index, so we will not store same roots twice
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             
-            let id = TotalRoots::get();
+            let id = TotalRoots::<T>::get();
             let root = RootBoxOf::<T>::new(id, bounding_box, delta);
             RootBoxes::<T>::insert(id, root);
             Self::deposit_event(RawEvent::RootCreated(id, who));
-            TotalRoots::put(id + 1);
+            TotalRoots::<T>::put(id + 1.into());
             Ok(())
         }
-
-        // #[weight = <T as Trait>::WeightInfo::zone_add()]
-        // pub fn touch(origin, id: u32, Point2D) -> dispatch::DispatchResult {
-        //     let who = ensure_signed(origin)?;
-        //     let root = <TotalRoots>::get();
-            
-
-        // }
 
         #[weight = <T as Trait>::WeightInfo::zone_add()]
         pub fn zone_add(origin, 
                         rect: Rect2D<Point2D<T::Coord>>,
                         height: u16,
                         // TODO change to calc required area & root from rect
-                        root_id: RootId,
-                        area_id: AreaId) -> dispatch::DispatchResult {
+                        root_id: T::RootId,
+                        area_id: T::AreaId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             
             // form index and store input to redzones
             // increase area counter by 1
-            let area = <AreaData>::get(root_id, area_id);
+            let area = AreaData::<T>::get(root_id, area_id);
             ensure!(area.area_type == 0b00000001, Error::<T>::ForbiddenArea);
             let id = Self::form_index(root_id, area_id, area.child_amount); 
             let zone = ZoneOf::<T>::new(id, rect, height);
             RedZones::<T>::insert(id, zone);
-            AreaData::mutate(root_id, area_id, |ar| {
+            AreaData::<T>::mutate(root_id, area_id, |ar| {
                 ar.child_amount += 1;
             });
 
-            Self::deposit_event(RawEvent::ZoneCreated(who, id));
+            Self::deposit_event(RawEvent::ZoneCreated(id, who));
             Ok(())
         }
     }
@@ -278,7 +307,7 @@ impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
     
-    pub fn detect_touch(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> AreaId {
+    pub fn detect_touch(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> T::AreaId {
         let root_base_point: Point2D<T::Coord> = 
         Point2D::new(root_box.bounding_box.north_east.lat,
                      root_box.bounding_box.north_east.lon); 
@@ -288,16 +317,17 @@ impl<T: Trait> Module<T> {
         let root_dimensions = Self::get_distance_vector(root_base_point, root_secondary_point);
         let distance_vector = Self::get_distance_vector(root_base_point, touch);
         
-        let row = (distance_vector.lat / root_box.delta) + 1;
-        let column = (distance_vector.lon / root_box.delta) + 1;
+        let one: T::Coord = 1.into();
+        let row = (distance_vector.lat / root_box.delta) + one;
+        let column = (distance_vector.lon / root_box.delta) + one;
         let total_rows = root_dimensions.lat / root_box.delta;
         
-        ((total_rows * (column - 1)) + row).into()
+        ((total_rows * (column - one)) + row).into()
     }
 
     fn get_distance_vector( first_point: Point2D<T::Coord>, 
                             second_point: Point2D<T::Coord>) -> Point2D<T::Coord> {
-        // guess, this code is clumsy, may be simplified
+        // guess code is clumsy, may be simplified
         let lat_length: T::Coord;
         if first_point.lat > second_point.lat {
             lat_length = first_point.lat - second_point.lat;
@@ -316,11 +346,14 @@ impl<T: Trait> Module<T> {
     /// form index for storing zones, wrapped in u64
     // v.............root id here............v v.....area id.....v v..child objects..v
     // 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
-    fn form_index(root: u32, area: u16, childs: u16) -> u64 {
-        // is refactoring possible?
-        (root as u64) << 32 |
-        (area as u64) << 16 | 
-        (childs as u64)      
+    fn form_index(root: T::RootId, area: T::AreaId, childs: u16) -> T::ZoneId {
+        // possible refactoring here
+        let root: u32 = root.into();
+        let area: u32 = area.into();
+
+        ((root as u64) << 32 |
+         (area as u64) << 16 | 
+         childs as u64).into()      
     }
     
     // gets info from zone index
