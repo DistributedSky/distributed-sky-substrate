@@ -103,6 +103,9 @@ impl Trait for Test {
     type WeightInfo = ();
     type Coord = u32;
     type LocalCoord = u16;
+    type AreaId = u16;
+    type RootId = u32;
+    type ZoneId = u64;
 }
 
 parameter_types! {

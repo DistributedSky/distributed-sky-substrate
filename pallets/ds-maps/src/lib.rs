@@ -6,7 +6,6 @@ use frame_support::{
     codec::{Decode, Encode},
     sp_runtime::sp_std::ops::{Add, Sub, Div, Mul, Shl, BitOr},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,    
-    traits::Get,
     weights::Weight,
     Parameter,
 };
@@ -132,22 +131,24 @@ pub trait Trait: accounts::Trait {
     + Copy
     + PartialOrd
     + From<u32>
-    + Get<u32>
+    + Into<u32>
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>
     + Add<Output = Self::Coord>
     + Mul<Output = Self::Coord>;
     
+    type LocalCoord: Default 
+    + Parameter
+    + Copy
+    + PartialOrd;
+
     type AreaId: Default 
     + Parameter
     + Copy
     + PartialOrd
-    + From<u32>
-    + Into<u32>
-    + From<Self::AreaId>
-    + From<Self::RootId>
-    + From<Self::ZoneId>
-    + From<Self::Coord>;
+    + From<u16>
+    + Into<u16>;
+
     
     type RootId: Default 
     + Parameter
@@ -156,9 +157,6 @@ pub trait Trait: accounts::Trait {
     + From<u32>
     + Into<u32>
     + Add<Output = Self::RootId>
-    + From<Self::AreaId>
-    + From<Self::RootId>
-    + From<Self::ZoneId>
     + From<Self::Coord>;
     
     type ZoneId: Default 
@@ -167,19 +165,8 @@ pub trait Trait: accounts::Trait {
     + PartialOrd
     + Shl
     + From<u64>
-    + From<u16>
-    + Into<u32>
-    + BitOr<Output = Self::ZoneId>
-    + From<Self::AreaId>
-    + From<Self::RootId>
-    + From<Self::Coord>;
-    
-    type LocalCoord: Default 
-    + Parameter
-    + Copy
-    + PartialOrd
-    + Get<u16>
-    + Div<Output = Self::Coord>; 
+    + Into<u64>
+    + BitOr<Output = Self::ZoneId>;
 }    
 
 pub trait WeightInfo {
@@ -306,7 +293,7 @@ decl_module! {
 impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
-    
+    // TODO implement safe math
     pub fn detect_touch(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> T::AreaId {
         let root_base_point: Point2D<T::Coord> = 
         Point2D::new(root_box.bounding_box.north_east.lat,
@@ -317,12 +304,11 @@ impl<T: Trait> Module<T> {
         let root_dimensions = Self::get_distance_vector(root_base_point, root_secondary_point);
         let distance_vector = Self::get_distance_vector(root_base_point, touch);
         
-        let one: T::Coord = 1.into();
-        let row = (distance_vector.lat / root_box.delta) + one;
-        let column = (distance_vector.lon / root_box.delta) + one;
-        let total_rows = root_dimensions.lat / root_box.delta;
+        let row: u16 = ((distance_vector.lat / root_box.delta).into() + 1) as u16;
+        let column: u16 = ((distance_vector.lon / root_box.delta).into() + 1) as u16;
+        let total_rows: u16 = ((root_dimensions.lat/root_box.delta).into()) as u16;
         
-        ((total_rows * (column - one)) + row).into()
+        ((total_rows * (column - 1)) + row).into()
     }
 
     fn get_distance_vector( first_point: Point2D<T::Coord>, 
@@ -349,20 +335,20 @@ impl<T: Trait> Module<T> {
     fn form_index(root: T::RootId, area: T::AreaId, childs: u16) -> T::ZoneId {
         // possible refactoring here
         let root: u32 = root.into();
-        let area: u32 = area.into();
+        let area: u16 = area.into();
 
         ((root as u64) << 32 |
          (area as u64) << 16 | 
          childs as u64).into()      
     }
     
-    // gets info from zone index
-    fn unwrap_index(index: u64) -> (u32, u16, u16) {
+    fn unwrap_index(index: T::ZoneId) -> (T::RootId, T::AreaId, u16) {
         let mask_u16: u64 = 0x0000_0000_0000_0000_0000_0000_ffff_ffff;
+        let index: u64 = index.into();
         // is refactoring possible?
-        let root: u32 = (index >> 32) as u32;
-        let area: u16 = ((index >> 16) & mask_u16) as u16;
-        let childs: u16 = (index & !mask_u16) as u16;
+        let root: T::RootId = ((index >> 32) as u32).into();
+        let area: T::AreaId = (((index >> 16) & mask_u16) as u16).into();
+        let childs: u16 = (index & mask_u16) as u16;
         
         (root, area, childs)
     }

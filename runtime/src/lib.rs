@@ -291,6 +291,9 @@ impl pallet_ds_maps::Trait for Runtime {
     type WeightInfo = ();
     type Coord = u32;
     type LocalCoord = u16;
+    type AreaId = u16;
+    type RootId = u32;
+    type ZoneId = u64;
 }
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
