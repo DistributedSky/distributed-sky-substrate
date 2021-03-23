@@ -1,16 +1,12 @@
 use crate::mock::*;
-use crate::{Point3D, Box3D, RootBox, 
-            Point2D, Rect2D, Zone, 
-            Area, GREEN_AREA};
+use crate::{Point3D, Box3D, 
+            Point2D, Rect2D, };
 use frame_support::{
     assert_noop, assert_ok,
 };
 
 type Error = super::Error<Test>;
 type Coord = u32;
-type LocalCoord = u16;
-type RootId = u32;
-type AreaId = u16;
 
 // Constants to make tests more readable
 const ADMIN_ACCOUNT_ID: u64 = 1;
@@ -94,7 +90,6 @@ fn it_try_add_zone_unauthorized() {
                 construct_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
-                AREA_ID
             ),
             Error::NotAuthorized
         );
@@ -115,7 +110,6 @@ fn it_try_add_zone_by_registrar() {
                 construct_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
-                AREA_ID
         ));
         assert_noop!(
             DSMapsModule::zone_add(
@@ -123,7 +117,6 @@ fn it_try_add_zone_by_registrar() {
                 construct_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
-                AREA_ID
             ),
             Error::NotAuthorized
         );
@@ -146,7 +139,6 @@ fn it_increment_zone_counter_in_area() {
                 construct_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
-                AREA_ID
         ));
         let area = DSMapsModule::area_info(ROOT_ID, AREA_ID);
         assert!(area.child_amount == 1);
@@ -167,7 +159,7 @@ fn it_changes_not_existing_area_type() {
                 ROOT_ID,
                 AREA_ID,
                 0
-            )
+            ),
         Error::NotExists
         );
     });
@@ -187,7 +179,6 @@ fn it_changes_existing_area_type() {
                 construct_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
-                AREA_ID
         ));
         assert_ok!(
             DSMapsModule::change_area_role(
@@ -202,10 +193,8 @@ fn it_changes_existing_area_type() {
                 construct_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
-                AREA_ID
                 ), 
             Error::ForbiddenArea
         );
-
     });
 }

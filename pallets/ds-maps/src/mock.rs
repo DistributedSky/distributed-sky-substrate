@@ -1,4 +1,4 @@
-use crate::{Module, Trait, Point3D};
+use crate::{Module, Trait};
 use frame_support::{
     impl_outer_event, impl_outer_origin, parameter_types,
     weights::{constants::RocksDbWeight, Weight},

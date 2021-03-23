@@ -238,6 +238,8 @@ decl_error! {
         NotExists,
         /// Area is unavailable for operation
         ForbiddenArea,
+        /// Trying to add zone in non-existing root
+        RootDoesNotExist
         // add additional errors below
     }
 }
@@ -269,17 +271,18 @@ decl_module! {
             Ok(())
         }
         
-        /// Form index and store input to redzones, creates area struct if req
+        /// Form index and store input to redzones, creates area struct if it doesnt exist
         #[weight = <T as Trait>::WeightInfo::zone_add()]
         pub fn zone_add(origin, 
                         rect: Rect2D<Point2D<T::Coord>>,
                         height: u16,
-                        // TODO change to calc required area & root from rect
-                        root_id: T::RootId,
-                        area_id: T::AreaId) -> dispatch::DispatchResult {
+                        root_id: T::RootId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
-            
+            ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
+            // calc required area in root from rect, rn no overlap checks
+            let area_id = Self::detect_touch(RootBoxes::<T>::get(root_id), rect.point_1);
+
             let area = if AreaData::<T>::contains_key(root_id, area_id) {
                 AreaData::<T>::get(root_id, area_id)
             } else {
@@ -320,7 +323,7 @@ impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
     // TODO implement safe math
-    pub fn detect_touch(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> T::AreaId {
+    fn detect_touch(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> T::AreaId {
         let root_base_point: Point2D<T::Coord> = 
         Point2D::new(root_box.bounding_box.north_east.lat,
                      root_box.bounding_box.north_east.lon); 
@@ -367,7 +370,8 @@ impl<T: Trait> Module<T> {
          (area as u64) << 16 | 
          childs as u64).into()      
     }
-    
+
+    #[allow(dead_code)]
     fn unwrap_index(index: T::ZoneId) -> (T::RootId, T::AreaId, u16) {
         let mask_u16: u64 = 0x0000_0000_0000_0000_0000_0000_ffff_ffff;
         let index: u64 = index.into();
