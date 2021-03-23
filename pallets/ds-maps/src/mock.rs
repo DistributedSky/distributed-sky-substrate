@@ -96,6 +96,10 @@ impl crate::WeightInfo for WeightInfo {
     fn zone_add() -> Weight {
         <() as crate::WeightInfo>::zone_add()
     }
+    fn change_area_role() -> Weight {
+        <() as crate::WeightInfo>::change_area_role()
+    }
+
 }
 
 impl Trait for Test {

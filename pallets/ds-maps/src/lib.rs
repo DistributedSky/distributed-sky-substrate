@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use frame_support::{
     codec::{Decode, Encode},
+    storage::StorageDoubleMap,
     sp_runtime::sp_std::ops::{Add, Sub, Div, Mul, Shl, BitOr},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,    
     weights::Weight,
@@ -18,6 +19,7 @@ mod default_weight;
 mod mock;
 #[cfg(test)]
 mod tests;
+pub const GREEN_AREA: u8 = 0b00000001;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Copy, Default, Debug, PartialEq, Eq)]
@@ -172,6 +174,7 @@ pub trait Trait: accounts::Trait {
 pub trait WeightInfo {
     fn root_add() -> Weight;
     fn zone_add() -> Weight;
+    fn change_area_role() -> Weight;
 }
 
 decl_storage! {
@@ -185,7 +188,7 @@ decl_storage! {
         RootBoxes get(fn root_box_data): 
             map hasher(blake2_128_concat) T::RootId => RootBoxOf<T>;
 
-        AreaData get(fn zone_index): 
+        AreaData get(fn area_info): 
             double_map hasher(blake2_128_concat) T::RootId, 
                        hasher(blake2_128_concat) T::AreaId => Area;    
 
@@ -204,7 +207,7 @@ decl_event!(
     where
         AccountId = <T as frame_system::Trait>::AccountId,
         RootId = <T as Trait>::RootId,
-        // AreaId = <T as Trait>::AreaId,
+        AreaId = <T as Trait>::AreaId,
         ZoneId = <T as Trait>::ZoneId,
 
         {
@@ -213,6 +216,9 @@ decl_event!(
         RootCreated(RootId, AccountId),
         // TODO add double mapping and declare here root and area
         ZoneCreated(ZoneId, AccountId),
+        /// area type changed [role, area, root, who]
+        AreaTypeChanged(u8, AreaId, RootId, AccountId),
+
     }
 );
 
@@ -262,7 +268,8 @@ decl_module! {
             TotalRoots::<T>::put(id + 1.into());
             Ok(())
         }
-
+        
+        /// Form index and store input to redzones, creates area struct if req
         #[weight = <T as Trait>::WeightInfo::zone_add()]
         pub fn zone_add(origin, 
                         rect: Rect2D<Point2D<T::Coord>>,
@@ -273,10 +280,14 @@ decl_module! {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             
-            // form index and store input to redzones
-            // increase area counter by 1
-            let area = AreaData::<T>::get(root_id, area_id);
-            ensure!(area.area_type == 0b00000001, Error::<T>::ForbiddenArea);
+            let area = if AreaData::<T>::contains_key(root_id, area_id) {
+                AreaData::<T>::get(root_id, area_id)
+            } else {
+                AreaData::<T>::insert(root_id, area_id, Area::new(GREEN_AREA, 0));
+                Area::new(GREEN_AREA, 0)
+            };
+
+            ensure!(area.area_type == GREEN_AREA, Error::<T>::ForbiddenArea); 
             let id = Self::form_index(root_id, area_id, area.child_amount); 
             let zone = ZoneOf::<T>::new(id, rect, height);
             RedZones::<T>::insert(id, zone);
@@ -285,6 +296,21 @@ decl_module! {
             });
 
             Self::deposit_event(RawEvent::ZoneCreated(id, who));
+            Ok(())
+        }
+        /// Changes area type
+        #[weight = <T as Trait>::WeightInfo::change_area_role()]
+        pub fn change_area_role(origin, 
+                                root_id: T::RootId, 
+                                area_id: T::AreaId, 
+                                area_type: u8) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin)?;
+            ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
+            ensure!(AreaData::<T>::contains_key(root_id, area_id), Error::<T>::NotExists);
+            AreaData::<T>::mutate(root_id, area_id, |ar| {
+                ar.area_type = area_type;
+            });
+            Self::deposit_event(RawEvent::AreaTypeChanged(area_type, area_id, root_id, who));
             Ok(())
         }
     }
@@ -326,6 +352,7 @@ impl<T: Trait> Module<T> {
         } else {
             long_length = second_point.lon - first_point.lon;
         }
+
         Point2D::new(lat_length, long_length)
     }
     
@@ -333,7 +360,6 @@ impl<T: Trait> Module<T> {
     // v.............root id here............v v.....area id.....v v..child objects..v
     // 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
     fn form_index(root: T::RootId, area: T::AreaId, childs: u16) -> T::ZoneId {
-        // possible refactoring here
         let root: u32 = root.into();
         let area: u16 = area.into();
 

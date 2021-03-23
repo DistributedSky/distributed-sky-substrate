@@ -1,6 +1,7 @@
 use crate::mock::*;
 use crate::{Point3D, Box3D, RootBox, 
-            Point2D, Rect2D, Zone, };
+            Point2D, Rect2D, Zone, 
+            Area, GREEN_AREA};
 use frame_support::{
     assert_noop, assert_ok,
 };
@@ -14,6 +15,9 @@ type AreaId = u16;
 // Constants to make tests more readable
 const ADMIN_ACCOUNT_ID: u64 = 1;
 const REGISTRAR_1_ACCOUNT_ID: u64 = 2;
+const ROOT_ID: u32 = 1;
+const AREA_ID: u16 = 1;
+const DEFAULT_HEIGHT: u16 = 30;
 
 fn construct_box() -> Box3D<Point3D<Coord>> {
     let point_1: Point3D<Coord> = Point3D::new(10, 20, 30);
@@ -88,9 +92,9 @@ fn it_try_add_zone_unauthorized() {
             DSMapsModule::zone_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
                 construct_rect(),
-                234, 
-                0,
-                0
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+                AREA_ID
             ),
             Error::NotAuthorized
         );
@@ -109,19 +113,99 @@ fn it_try_add_zone_by_registrar() {
             DSMapsModule::zone_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_rect(),
-                234, 
-                0,
-                0
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+                AREA_ID
         ));
         assert_noop!(
             DSMapsModule::zone_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
                 construct_rect(),
-                234, 
-                0,
-                0
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+                AREA_ID
             ),
             Error::NotAuthorized
         );
+    });
+}
+
+#[test]
+fn it_increment_zone_counter_in_area() {    
+    new_test_ext().execute_with(|| {
+        assert_ok!(DSAccountsModule::account_add(
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
+            super::REGISTRAR_ROLE
+        ));
+        let area = DSMapsModule::area_info(ROOT_ID, AREA_ID);
+        assert!(area.child_amount == 0);
+        assert_ok!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_rect(),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+                AREA_ID
+        ));
+        let area = DSMapsModule::area_info(ROOT_ID, AREA_ID);
+        assert!(area.child_amount == 1);
+    });
+}
+
+#[test]
+fn it_changes_not_existing_area_type() {    
+    new_test_ext().execute_with(|| {
+        assert_ok!(DSAccountsModule::account_add(
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
+            super::REGISTRAR_ROLE
+        ));
+        assert_noop!(
+            DSMapsModule::change_area_role(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
+                ROOT_ID,
+                AREA_ID,
+                0
+            )
+        Error::NotExists
+        );
+    });
+}
+
+#[test]
+fn it_changes_existing_area_type() {    
+    new_test_ext().execute_with(|| {
+        assert_ok!(DSAccountsModule::account_add(
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
+            super::REGISTRAR_ROLE
+        ));
+        assert_ok!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_rect(),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+                AREA_ID
+        ));
+        assert_ok!(
+            DSMapsModule::change_area_role(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
+                ROOT_ID,
+                AREA_ID,
+                0
+        ));
+        assert_noop!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_rect(),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+                AREA_ID
+                ), 
+            Error::ForbiddenArea
+        );
+
     });
 }
