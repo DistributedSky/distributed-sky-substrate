@@ -39,13 +39,13 @@ impl<Coord> Point2D<Coord> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq)]
 pub struct Rect2D<Point2D> {
-    point_1: Point2D,
-    point_2: Point2D,
+    north_west: Point2D,
+    south_east: Point2D,
 }
 
 impl<Point2D> Rect2D<Point2D> {
-    pub fn new(point_1: Point2D, point_2: Point2D) -> Self {
-        Rect2D{point_1, point_2}
+    pub fn new(north_west: Point2D, south_east: Point2D) -> Self {
+        Rect2D{north_west, south_east}
     }
 }
 
@@ -80,13 +80,13 @@ impl<Coord> Point3D<Coord> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq)]
 pub struct Box3D<Point3D> {
-    pub south_west: Point3D,
-    pub north_east: Point3D,
+    pub north_west: Point3D,
+    pub south_east: Point3D,
 }
 
 impl <Point3D> Box3D<Point3D> {
-    pub fn new(south_west: Point3D, north_east: Point3D) -> Self {
-        Box3D{south_west, north_east}
+    pub fn new(north_west: Point3D, south_east: Point3D) -> Self {
+        Box3D{north_west, south_east}
     }
 }
 
@@ -281,8 +281,8 @@ decl_module! {
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
             // calc required area in root from rect, rn no overlap checks
-            let area_id = Self::detect_touch(RootBoxes::<T>::get(root_id), rect.point_1);
-
+            let area_id = Self::detect_touch(RootBoxes::<T>::get(root_id), rect.north_west);
+                        
             let area = if AreaData::<T>::contains_key(root_id, area_id) {
                 AreaData::<T>::get(root_id, area_id)
             } else {
@@ -325,24 +325,24 @@ impl<T: Trait> Module<T> {
     // TODO implement safe math
     fn detect_touch(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> T::AreaId {
         let root_base_point: Point2D<T::Coord> = 
-        Point2D::new(root_box.bounding_box.north_east.lat,
-                     root_box.bounding_box.north_east.lon); 
+        Point2D::new(root_box.bounding_box.north_west.lat,
+                     root_box.bounding_box.north_west.lon); 
         let root_secondary_point: Point2D<T::Coord> = 
-        Point2D::new(root_box.bounding_box.south_west.lat,
-                    root_box.bounding_box.south_west.lon); 
+        Point2D::new(root_box.bounding_box.south_east.lat,
+                    root_box.bounding_box.south_east.lon); 
         let root_dimensions = Self::get_distance_vector(root_base_point, root_secondary_point);
         let distance_vector = Self::get_distance_vector(root_base_point, touch);
         
         let row: u16 = ((distance_vector.lat / root_box.delta).into() + 1) as u16;
         let column: u16 = ((distance_vector.lon / root_box.delta).into() + 1) as u16;
-        let total_rows: u16 = ((root_dimensions.lat/root_box.delta).into()) as u16;
+        let total_rows: u16 = ((root_dimensions.lat / root_box.delta).into()) as u16;
         
         ((total_rows * (column - 1)) + row).into()
     }
 
     fn get_distance_vector( first_point: Point2D<T::Coord>, 
                             second_point: Point2D<T::Coord>) -> Point2D<T::Coord> {
-        // guess code is clumsy, may be simplified
+        // code is clumsy, guess may be simplified
         let lat_length: T::Coord;
         if first_point.lat > second_point.lat {
             lat_length = first_point.lat - second_point.lat;
@@ -382,6 +382,5 @@ impl<T: Trait> Module<T> {
         
         (root, area, childs)
     }
-
 }
 
