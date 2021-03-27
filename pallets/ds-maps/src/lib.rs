@@ -19,6 +19,7 @@ mod default_weight;
 mod mock;
 #[cfg(test)]
 mod tests;
+
 pub const GREEN_AREA: u8 = 0b00000001;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -59,7 +60,7 @@ pub struct Zone<ZoneId, Rect2D> {
 
 impl<ZoneId, Rect2D> Zone<ZoneId, Rect2D> {
     pub fn new(zone_id: ZoneId, rect: Rect2D, height: u16) -> Self {
-        Zone { zone_id, rect, height}
+        Zone {zone_id, rect, height}
     }
 } 
 
@@ -125,9 +126,8 @@ pub trait Trait: accounts::Trait {
     // Describe pallet constants.
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type WeightInfo: WeightInfo;
-    // new types, consider description
-    
-    /// use u32 for representing global coords, u16 for local
+    // new types, consider descriptions
+
     type Coord: Default 
     + Parameter
     + Copy
@@ -174,7 +174,7 @@ pub trait Trait: accounts::Trait {
 pub trait WeightInfo {
     fn root_add() -> Weight;
     fn zone_add() -> Weight;
-    fn change_area_role() -> Weight;
+    fn change_area_type() -> Weight;
 }
 
 decl_storage! {
@@ -209,7 +209,6 @@ decl_event!(
         RootId = <T as Trait>::RootId,
         AreaId = <T as Trait>::AreaId,
         ZoneId = <T as Trait>::ZoneId,
-
         {
         // Event documentation should end with an array that provides descriptive names for event parameters.
         /// New root box has been created [box number, who]
@@ -218,7 +217,6 @@ decl_event!(
         ZoneCreated(ZoneId, AccountId),
         /// area type changed [role, area, root, who]
         AreaTypeChanged(u8, AreaId, RootId, AccountId),
-
     }
 );
 
@@ -262,12 +260,14 @@ decl_module! {
             let who = ensure_signed(origin)?;
             // TODO implement inverted index, so we will not store same roots twice
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
-            
+            // TODO consider more complex calculation for root dimensions?
+            ensure!(delta >= 20.into(), Error::<T>::InvalidData);
+
             let id = TotalRoots::<T>::get();
             let root = RootBoxOf::<T>::new(id, bounding_box, delta);
             RootBoxes::<T>::insert(id, root);
-            Self::deposit_event(RawEvent::RootCreated(id, who));
             TotalRoots::<T>::put(id + 1.into());
+            Self::deposit_event(RawEvent::RootCreated(id, who));
             Ok(())
         }
         
@@ -280,6 +280,7 @@ decl_module! {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
+            ensure!(height > 1, Error::<T>::InvalidData);
             // calc required area in root from rect, rn no overlap checks
             let area_id = Self::detect_touch(RootBoxes::<T>::get(root_id), rect.north_west);
                         
@@ -297,13 +298,13 @@ decl_module! {
             AreaData::<T>::mutate(root_id, area_id, |ar| {
                 ar.child_amount += 1;
             });
-
             Self::deposit_event(RawEvent::ZoneCreated(id, who));
             Ok(())
         }
+
         /// Changes area type
-        #[weight = <T as Trait>::WeightInfo::change_area_role()]
-        pub fn change_area_role(origin, 
+        #[weight = <T as Trait>::WeightInfo::change_area_type()]
+        pub fn change_area_type(origin, 
                                 root_id: T::RootId, 
                                 area_id: T::AreaId, 
                                 area_type: u8) -> dispatch::DispatchResult {
@@ -318,6 +319,7 @@ decl_module! {
         }
     }
 }
+
 // Module allows  use  common functionality by dispatchables
 impl<T: Trait> Module<T> {
     // Implement module function.

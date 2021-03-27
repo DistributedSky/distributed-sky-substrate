@@ -10,6 +10,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
+
 use pallet_ds_accounts::ADMIN_ROLE;
 
 impl_outer_origin! {
@@ -18,7 +19,7 @@ impl_outer_origin! {
 mod template {
     pub use crate::Event;
 }
-mod module_2_template {
+mod ds_accounts_template {
     pub use pallet_ds_accounts::Event;
 }
 mod balance {
@@ -28,7 +29,7 @@ impl_outer_event! {
     pub enum TestEvent for Test {
         system<T>,
         template<T>,
-        module_2_template<T>,
+        ds_accounts_template<T>,
         balance<T>,
     }
 }
@@ -96,8 +97,8 @@ impl crate::WeightInfo for WeightInfo {
     fn zone_add() -> Weight {
         <() as crate::WeightInfo>::zone_add()
     }
-    fn change_area_role() -> Weight {
-        <() as crate::WeightInfo>::change_area_role()
+    fn change_area_type() -> Weight {
+        <() as crate::WeightInfo>::change_area_type()
     }
 
 }

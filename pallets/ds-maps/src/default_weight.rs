@@ -7,7 +7,7 @@ impl crate::WeightInfo for () {
     fn zone_add() -> Weight {
         (1_000_000 as Weight).saturating_add(DbWeight::get().writes(1))
     }   
-    fn change_area_role() -> Weight {
+    fn change_area_type() -> Weight {
         (100_000 as Weight).saturating_add(DbWeight::get().writes(1))
     }   
 }

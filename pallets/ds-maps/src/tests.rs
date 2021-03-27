@@ -34,11 +34,6 @@ fn it_try_add_root_unauthorized() {
         let account = DSAccountsModule::account_registry(2);
         assert!(!account.is_enabled());
 
-        assert_ok!(DSAccountsModule::account_add(
-            Origin::signed(ADMIN_ACCOUNT_ID),
-            REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
-        ));
         assert_noop!(
             DSMapsModule::root_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
@@ -81,11 +76,6 @@ fn it_try_add_zone_unauthorized() {
         let account = DSAccountsModule::account_registry(2);
         assert!(!account.is_enabled());
 
-        assert_ok!(DSAccountsModule::account_add(
-            Origin::signed(ADMIN_ACCOUNT_ID),
-            REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
-        ));
         assert_noop!(
             DSMapsModule::zone_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
@@ -197,7 +187,7 @@ fn it_changes_not_existing_area_type() {
                 DELTA
         ));
         assert_noop!(
-            DSMapsModule::change_area_role(
+            DSMapsModule::change_area_type(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),  
                 ROOT_ID,
                 AREA_ID,
@@ -230,7 +220,7 @@ fn it_changes_existing_area_type() {
                 ROOT_ID,
         ));
         assert_ok!(
-            DSMapsModule::change_area_role(
+            DSMapsModule::change_area_type(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
                 ROOT_ID,
                 AREA_ID,
