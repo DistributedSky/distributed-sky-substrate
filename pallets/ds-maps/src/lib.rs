@@ -10,6 +10,8 @@ use frame_support::{
     weights::Weight,
     Parameter,
 };
+use substrate_fixed::types::U16F16;
+
 use frame_system::ensure_signed;
 use pallet_ds_accounts as accounts;
 use accounts::REGISTRAR_ROLE;
@@ -126,14 +128,14 @@ pub trait Trait: accounts::Trait {
     // Describe pallet constants.
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type WeightInfo: WeightInfo;
-    // new types, consider descriptions
 
+    // new types, consider descriptions
     type Coord: Default 
     + Parameter
     + Copy
     + PartialOrd
-    + From<u32>
-    + Into<u32>
+    + From<U16F16>
+    + Into<U16F16>
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>
     + Add<Output = Self::Coord>
@@ -151,15 +153,13 @@ pub trait Trait: accounts::Trait {
     + From<u16>
     + Into<u16>;
 
-    
     type RootId: Default 
     + Parameter
     + Copy
     + PartialOrd
     + From<u32>
     + Into<u32>
-    + Add<Output = Self::RootId>
-    + From<Self::Coord>;
+    + Add<Output = Self::RootId>;
     
     type ZoneId: Default 
     + Parameter
