@@ -10,7 +10,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
-use substrate_fixed::types::U16F16;
+use substrate_fixed::types::U9F23;
 
 use pallet_ds_accounts::ADMIN_ROLE;
 
@@ -107,7 +107,7 @@ impl crate::WeightInfo for WeightInfo {
 impl Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-    type Coord = U16F16;
+    type Coord = U9F23;
     type LocalCoord = u16;
     type AreaId = u16;
     type RootId = u32;
