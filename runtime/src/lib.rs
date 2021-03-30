@@ -46,6 +46,8 @@ pub use sp_runtime::{Perbill, Permill};
 pub use pallet_ds_accounts;
 /// Import the DS maps pallet.
 pub use pallet_ds_maps;
+/// Import fixed point for GPS coords
+use substrate_fixed::types::U9F23;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -289,7 +291,7 @@ impl pallet_ds_accounts::Trait for Runtime {
 impl pallet_ds_maps::Trait for Runtime {
     type Event = Event;
     type WeightInfo = ();
-    type Coord = u32;
+    type Coord = U9F23;
     type LocalCoord = u16;
     type AreaId = u16;
     type RootId = u32;

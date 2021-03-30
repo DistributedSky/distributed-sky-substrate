@@ -10,6 +10,8 @@ use frame_support::{
     weights::Weight,
     Parameter,
 };
+use substrate_fixed::types::U9F23;
+
 use frame_system::ensure_signed;
 use pallet_ds_accounts as accounts;
 use accounts::REGISTRAR_ROLE;
@@ -96,7 +98,6 @@ impl <Point3D> Box3D<Point3D> {
 pub struct RootBox<RootId, Box3D, Coord> {
     pub id: RootId,
     pub bounding_box: Box3D,
-    // TODO change Coord to LocalCoord, fix type errors
     pub delta: Coord,
 }
 
@@ -126,14 +127,14 @@ pub trait Trait: accounts::Trait {
     // Describe pallet constants.
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type WeightInfo: WeightInfo;
-    // new types, consider descriptions
 
+    // new types, consider descriptions
     type Coord: Default 
     + Parameter
     + Copy
     + PartialOrd
-    + From<u32>
-    + Into<u32>
+    + From<U9F23>
+    + Into<U9F23>
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>
     + Add<Output = Self::Coord>
@@ -151,15 +152,13 @@ pub trait Trait: accounts::Trait {
     + From<u16>
     + Into<u16>;
 
-    
     type RootId: Default 
     + Parameter
     + Copy
     + PartialOrd
     + From<u32>
     + Into<u32>
-    + Add<Output = Self::RootId>
-    + From<Self::Coord>;
+    + Add<Output = Self::RootId>;
     
     type ZoneId: Default 
     + Parameter
@@ -213,8 +212,8 @@ decl_event!(
         // Event documentation should end with an array that provides descriptive names for event parameters.
         /// New root box has been created [box number, who]
         RootCreated(RootId, AccountId),
-        // TODO add double mapping and declare here root and area
-        ZoneCreated(ZoneId, AccountId),
+        /// New zone added [root, area, zone number, who]
+        ZoneCreated(RootId, AreaId, ZoneId, AccountId),
         /// area type changed [role, area, root, who]
         AreaTypeChanged(u8, AreaId, RootId, AccountId),
     }
@@ -237,7 +236,9 @@ decl_error! {
         /// Area is unavailable for operation
         ForbiddenArea,
         /// Trying to add zone in non-existing root
-        RootDoesNotExist
+        RootDoesNotExist,
+        /// Sizes are off bounds
+        BadDimesions
         // add additional errors below
     }
 }
@@ -258,10 +259,13 @@ decl_module! {
                         bounding_box: Box3D<Point3D<T::Coord>>,
                         delta: T::Coord) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
-            // TODO implement inverted index, so we will not store same roots twice
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
-            // TODO consider more complex calculation for root dimensions?
-            ensure!(delta >= 20.into(), Error::<T>::InvalidData);
+            // Here more complex calculation for root dimensions and delta needed
+            let lat_dim = bounding_box.south_east.lat - bounding_box.north_west.lat;
+            ensure!(lat_dim.into() <= U9F23::from_num(1f64), Error::<T>::BadDimesions);
+            let lon_dim = bounding_box.south_east.lon- bounding_box.north_west.lon;
+            ensure!(lon_dim.into() <= U9F23::from_num(1f64), Error::<T>::BadDimesions);
+            ensure!(delta.into() <= U9F23::from_num(0.1f64), Error::<T>::InvalidData);
 
             let id = TotalRoots::<T>::get();
             let root = RootBoxOf::<T>::new(id, bounding_box, delta);
@@ -281,7 +285,7 @@ decl_module! {
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
             ensure!(height > 1, Error::<T>::InvalidData);
-            // calc required area in root from rect, rn no overlap checks
+            // TODO calc required area in root from rect, rn no overlap checks
             let area_id = Self::detect_touch(RootBoxes::<T>::get(root_id), rect.north_west);
                         
             let area = if AreaData::<T>::contains_key(root_id, area_id) {
@@ -298,7 +302,7 @@ decl_module! {
             AreaData::<T>::mutate(root_id, area_id, |ar| {
                 ar.child_amount += 1;
             });
-            Self::deposit_event(RawEvent::ZoneCreated(id, who));
+            Self::deposit_event(RawEvent::ZoneCreated(root_id, area_id, id, who));
             Ok(())
         }
 
@@ -334,11 +338,12 @@ impl<T: Trait> Module<T> {
                     root_box.bounding_box.south_east.lon); 
         let root_dimensions = Self::get_distance_vector(root_base_point, root_secondary_point);
         let distance_vector = Self::get_distance_vector(root_base_point, touch);
-        
-        let row: u16 = ((distance_vector.lat / root_box.delta).into() + 1) as u16;
-        let column: u16 = ((distance_vector.lon / root_box.delta).into() + 1) as u16;
-        let total_rows: u16 = ((root_dimensions.lat / root_box.delta).into()) as u16;
-        
+        // TODO handle possible overflow errors
+
+        let row: u16 = (distance_vector.lat / root_box.delta).into().to_num::<u16>() + 1;
+        let column: u16 = (distance_vector.lon / root_box.delta).into().to_num::<u16>() + 1;
+        let total_rows: u16 = (root_dimensions.lat / root_box.delta).into().to_num::<u16>();
+
         ((total_rows * (column - 1)) + row).into()
     }
 
