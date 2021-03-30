@@ -236,7 +236,7 @@ decl_error! {
         /// Area is unavailable for operation
         ForbiddenArea,
         /// Trying to add zone in non-existing root
-        RootDoesNotExist
+        RootDoesNotExist,
         /// Sizes are off bounds
         BadDimesions
         // add additional errors below
@@ -260,12 +260,12 @@ decl_module! {
                         delta: T::Coord) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
-            // Here more complex calculation for root dimensions nd delta needed
-            let lat_dim = bounding_box.north_west.lat - bounding_box.south_east.lat;
-            ensure!(lat_dim >= U9F23::from_num(0.1f64), Error::<T>::BadDimesions);
-            let lon_dim = bounding_box.north_west.lon - bounding_box.south_east.lon;
-            ensure!(lon_dim >= U9F23::from_num(0.1f64), Error::<T>::BadDimesions);
-            ensure!(delta.into() >=U9F23::from_num(0.005f64), Error::<T>::InvalidData);
+            // Here more complex calculation for root dimensions and delta needed
+            let lat_dim = bounding_box.south_east.lat - bounding_box.north_west.lat;
+            ensure!(lat_dim.into() <= U9F23::from_num(1f64), Error::<T>::BadDimesions);
+            let lon_dim = bounding_box.south_east.lon- bounding_box.north_west.lon;
+            ensure!(lon_dim.into() <= U9F23::from_num(1f64), Error::<T>::BadDimesions);
+            ensure!(delta.into() <= U9F23::from_num(0.1f64), Error::<T>::InvalidData);
 
             let id = TotalRoots::<T>::get();
             let root = RootBoxOf::<T>::new(id, bounding_box, delta);
@@ -302,7 +302,7 @@ decl_module! {
             AreaData::<T>::mutate(root_id, area_id, |ar| {
                 ar.child_amount += 1;
             });
-            Self::deposit_event(RawEvent::ZoneCreated(id, who));
+            Self::deposit_event(RawEvent::ZoneCreated(root_id, area_id, id, who));
             Ok(())
         }
 

@@ -15,12 +15,21 @@ const ROOT_ID: u32 = 0;
 // this value, and values in construct() was calculated
 const AREA_ID: u16 = 58;
 const DEFAULT_HEIGHT: u16 = 30;
-
+const DELTA: u32 = 0b0000_0000_0000_0001_0100_0111_1010_1110;
 fn construct_box() -> Box3D<Point3D<Coord>> {
     let north_west: Point3D<Coord> = Point3D::new(Coord::from_num(55.37f64),
                                                   Coord::from_num(37.37f64), 
                                                   Coord::from_num(1f64));
     let south_east: Point3D<Coord> = Point3D::new(Coord::from_num(55.92f64),
+                                                  Coord::from_num(37.90f64),       
+                                                  Coord::from_num(3f64));      
+    Box3D::new(north_west, south_east)
+}
+fn construct_huge_box() -> Box3D<Point3D<Coord>> {
+    let north_west: Point3D<Coord> = Point3D::new(Coord::from_num(55.37f64),
+                                                  Coord::from_num(37.37f64), 
+                                                  Coord::from_num(1f64));
+    let south_east: Point3D<Coord> = Point3D::new(Coord::from_num(66.92f64),
                                                   Coord::from_num(37.90f64),       
                                                   Coord::from_num(3f64));      
     Box3D::new(north_west, south_east)
@@ -43,7 +52,7 @@ fn it_try_add_root_unauthorized() {
             DSMapsModule::root_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
                 construct_box(),
-                Coord::from_num(0.01)
+                Coord::from_bits(DELTA)
             ),
             Error::NotAuthorized
         );
@@ -62,13 +71,13 @@ fn it_try_add_root_by_registrar() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_box(),
-                Coord::from_num(0.01)
+                Coord::from_bits(DELTA)
         ));
         assert_noop!(
             DSMapsModule::root_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
                 construct_box(),
-                Coord::from_num(0.01)
+                Coord::from_bits(DELTA)
             ),
             Error::NotAuthorized
         );
@@ -128,7 +137,7 @@ fn it_try_add_zone_by_registrar() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_box(),
-                Coord::from_num(0.01)
+                Coord::from_bits(DELTA)
         ));
         assert_ok!(
             DSMapsModule::zone_add(
@@ -161,7 +170,7 @@ fn it_increment_zone_counter_in_area() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_box(),
-                Coord::from_num(0.01)
+                Coord::from_bits(DELTA)
         ));
         let area = DSMapsModule::area_info(ROOT_ID, AREA_ID);
         assert!(area.child_amount == 0);
@@ -189,7 +198,7 @@ fn it_changes_not_existing_area_type() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_box(),
-                Coord::from_num(0.01)
+                Coord::from_bits(DELTA)
         ));
         assert_noop!(
             DSMapsModule::change_area_type(
@@ -199,6 +208,33 @@ fn it_changes_not_existing_area_type() {
                 0
             ),
         Error::NotExists
+        );
+    });
+}
+
+#[test]
+fn it_adds_restricted_size_root() {    
+    new_test_ext().execute_with(|| {
+        assert_ok!(DSAccountsModule::account_add(
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
+            super::REGISTRAR_ROLE
+        ));
+        assert_noop!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_huge_box(),
+                Coord::from_bits(DELTA)
+            ), 
+            Error::BadDimesions
+        );
+        assert_noop!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_box(),
+                Coord::from_num(1)
+            ), 
+            Error::InvalidData
         );
     });
 }
@@ -215,7 +251,7 @@ fn it_changes_existing_area_type() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_box(),
-                Coord::from_num(0.01)
+                Coord::from_bits(DELTA)
         ));
         assert_ok!(
             DSMapsModule::zone_add(
