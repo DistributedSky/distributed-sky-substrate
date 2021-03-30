@@ -339,7 +339,6 @@ impl<T: Trait> Module<T> {
         let root_dimensions = Self::get_distance_vector(root_base_point, root_secondary_point);
         let distance_vector = Self::get_distance_vector(root_base_point, touch);
         // TODO handle possible overflow errors
-
         let row: u16 = (distance_vector.lat / root_box.delta).into().to_num::<u16>() + 1;
         let column: u16 = (distance_vector.lon / root_box.delta).into().to_num::<u16>() + 1;
         let total_rows: u16 = (root_dimensions.lat / root_box.delta).into().to_num::<u16>();

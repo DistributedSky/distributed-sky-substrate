@@ -16,6 +16,7 @@ const ROOT_ID: u32 = 0;
 const AREA_ID: u16 = 58;
 const DEFAULT_HEIGHT: u16 = 30;
 const DELTA: u32 = 0b0000_0000_0000_0001_0100_0111_1010_1110;
+
 fn construct_box() -> Box3D<Point3D<Coord>> {
     let north_west: Point3D<Coord> = Point3D::new(Coord::from_num(55.37f64),
                                                   Coord::from_num(37.37f64), 
@@ -25,6 +26,7 @@ fn construct_box() -> Box3D<Point3D<Coord>> {
                                                   Coord::from_num(3f64));      
     Box3D::new(north_west, south_east)
 }
+
 fn construct_huge_box() -> Box3D<Point3D<Coord>> {
     let north_west: Point3D<Coord> = Point3D::new(Coord::from_num(55.37f64),
                                                   Coord::from_num(37.37f64), 
@@ -34,6 +36,7 @@ fn construct_huge_box() -> Box3D<Point3D<Coord>> {
                                                   Coord::from_num(3f64));      
     Box3D::new(north_west, south_east)
 }
+
 fn construct_rect() -> Rect2D<Point2D<Coord>> {
     let north_west: Point2D<Coord> = Point2D::new(Coord::from_num(55.395f64),
                                                   Coord::from_num(37.385f64));
@@ -89,7 +92,7 @@ fn it_try_add_zone_unauthorized() {
     new_test_ext().execute_with(|| {
         let account = DSAccountsModule::account_registry(2);
         assert!(!account.is_enabled());
-
+        
         assert_noop!(
             DSMapsModule::zone_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),

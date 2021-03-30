@@ -24,10 +24,7 @@ frame-system = { default-features = false, version = '2.0.0' }
 pallet-timestamp = { default-features = false, version = '2.0.0' }
 serde = { default-features = false, version = '1.0.116', optional=true }
 pallet-ds-accounts = {default-features = false, version = '2.0.0', path = "../ds-accounts"}
-<<<<<<< HEAD
-=======
 substrate-fixed = {default-features = false, git = "https://github.com/encointer/substrate-fixed", tag = "v0.5.5"}
->>>>>>> implementing_FPU
 
 [dev-dependencies]
 sp-core = { default-features = false, version = '2.0.0' }
