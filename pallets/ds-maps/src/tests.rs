@@ -1,12 +1,13 @@
 use crate::mock::*;
 use crate::{Point3D, Box3D, 
-            Point2D, Rect2D, U9F23};
+            Point2D, Rect2D, I9F23};
 use frame_support::{
     assert_noop, assert_ok,
 };
+use sp_std::str::FromStr;
 
 type Error = super::Error<Test>;
-type Coord = U9F23;
+type Coord = I9F23;
 
 // Constants to make tests more readable
 const ADMIN_ACCOUNT_ID: u64 = 1;
@@ -15,33 +16,34 @@ const ROOT_ID: u32 = 0;
 // this value, and values in construct() was calculated
 const AREA_ID: u16 = 58;
 const DEFAULT_HEIGHT: u16 = 30;
-const DELTA: u32 = 0b0000_0000_0000_0001_0100_0111_1010_1110;
+
+const DELTA: &str = "0.01";
 
 fn construct_box() -> Box3D<Point3D<Coord>> {
-    let north_west: Point3D<Coord> = Point3D::new(Coord::from_num(55.37f64),
-                                                  Coord::from_num(37.37f64), 
-                                                  Coord::from_num(1f64));
-    let south_east: Point3D<Coord> = Point3D::new(Coord::from_num(55.92f64),
-                                                  Coord::from_num(37.90f64),       
-                                                  Coord::from_num(3f64));      
+    let north_west: Point3D<Coord> = Point3D::new(Coord::from_str("55.37").unwrap(),
+                                                  Coord::from_str("37.37").unwrap(), 
+                                                  Coord::from_str("1").unwrap());
+    let south_east: Point3D<Coord> = Point3D::new(Coord::from_str("55.92").unwrap(),
+                                                  Coord::from_str("37.90").unwrap(),       
+                                                  Coord::from_str("3").unwrap());      
     Box3D::new(north_west, south_east)
 }
 
 fn construct_huge_box() -> Box3D<Point3D<Coord>> {
-    let north_west: Point3D<Coord> = Point3D::new(Coord::from_num(55.37f64),
-                                                  Coord::from_num(37.37f64), 
-                                                  Coord::from_num(1f64));
-    let south_east: Point3D<Coord> = Point3D::new(Coord::from_num(66.92f64),
-                                                  Coord::from_num(37.90f64),       
-                                                  Coord::from_num(3f64));      
+    let north_west: Point3D<Coord> = Point3D::new(Coord::from_str("55.37").unwrap(),
+                                                  Coord::from_str("37.37").unwrap(), 
+                                                  Coord::from_str("1").unwrap());
+    let south_east: Point3D<Coord> = Point3D::new(Coord::from_str("66.92").unwrap(),
+                                                  Coord::from_str("37.90").unwrap(),       
+                                                  Coord::from_str("3").unwrap());      
     Box3D::new(north_west, south_east)
 }
 
 fn construct_rect() -> Rect2D<Point2D<Coord>> {
-    let north_west: Point2D<Coord> = Point2D::new(Coord::from_num(55.395f64),
-                                                  Coord::from_num(37.385f64));
-    let south_east: Point2D<Coord> = Point2D::new(Coord::from_num(55.396f64),
-                                                  Coord::from_num(37.386f64));
+    let north_west: Point2D<Coord> = Point2D::new(Coord::from_str("55.395").unwrap(),
+                                                  Coord::from_str("37.385").unwrap());
+    let south_east: Point2D<Coord> = Point2D::new(Coord::from_str("55.396").unwrap(),
+                                                  Coord::from_str("37.386").unwrap());
     Rect2D::new(north_west, south_east)
 }
 
@@ -55,7 +57,7 @@ fn it_try_add_root_unauthorized() {
             DSMapsModule::root_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
                 construct_box(),
-                Coord::from_bits(DELTA)
+                Coord::from_str(DELTA).unwrap()
             ),
             Error::NotAuthorized
         );
@@ -74,13 +76,13 @@ fn it_try_add_root_by_registrar() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_box(),
-                Coord::from_bits(DELTA)
+                Coord::from_str(DELTA).unwrap()
         ));
         assert_noop!(
             DSMapsModule::root_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
                 construct_box(),
-                Coord::from_bits(DELTA)
+                Coord::from_str(DELTA).unwrap()
             ),
             Error::NotAuthorized
         );
@@ -140,7 +142,7 @@ fn it_try_add_zone_by_registrar() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_box(),
-                Coord::from_bits(DELTA)
+                Coord::from_str(DELTA).unwrap()
         ));
         assert_ok!(
             DSMapsModule::zone_add(
@@ -173,7 +175,7 @@ fn it_increment_zone_counter_in_area() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_box(),
-                Coord::from_bits(DELTA)
+                Coord::from_str(DELTA).unwrap()
         ));
         let area = DSMapsModule::area_info(ROOT_ID, AREA_ID);
         assert!(area.child_amount == 0);
@@ -201,7 +203,7 @@ fn it_changes_not_existing_area_type() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_box(),
-                Coord::from_bits(DELTA)
+                Coord::from_str(DELTA).unwrap()
         ));
         assert_noop!(
             DSMapsModule::change_area_type(
@@ -227,7 +229,7 @@ fn it_adds_restricted_size_root() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_huge_box(),
-                Coord::from_bits(DELTA)
+                Coord::from_str(DELTA).unwrap()
             ), 
             Error::BadDimesions
         );
@@ -254,7 +256,7 @@ fn it_changes_existing_area_type() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_box(),
-                Coord::from_bits(DELTA)
+                Coord::from_str(DELTA).unwrap()
         ));
         assert_ok!(
             DSMapsModule::zone_add(

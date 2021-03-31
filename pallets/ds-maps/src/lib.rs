@@ -10,7 +10,8 @@ use frame_support::{
     weights::Weight,
     Parameter,
 };
-use substrate_fixed::types::U9F23;
+use sp_std::str::FromStr;
+use substrate_fixed::types::{I9F23, I64F64};
 
 use frame_system::ensure_signed;
 use pallet_ds_accounts as accounts;
@@ -133,8 +134,8 @@ pub trait Trait: accounts::Trait {
     + Parameter
     + Copy
     + PartialOrd
-    + From<U9F23>
-    + Into<U9F23>
+    + From<I9F23>
+    + Into<I9F23>
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>
     + Add<Output = Self::Coord>
@@ -262,10 +263,11 @@ decl_module! {
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             // Here more complex calculation for root dimensions and delta needed
             let lat_dim = bounding_box.south_east.lat - bounding_box.north_west.lat;
-            ensure!(lat_dim.into() <= U9F23::from_num(1f64), Error::<T>::BadDimesions);
-            let lon_dim = bounding_box.south_east.lon- bounding_box.north_west.lon;
-            ensure!(lon_dim.into() <= U9F23::from_num(1f64), Error::<T>::BadDimesions);
-            ensure!(delta.into() <= U9F23::from_num(0.1f64), Error::<T>::InvalidData);
+            ensure!(lat_dim.into() <= I9F23::from_str("1").unwrap(), Error::<T>::BadDimesions);
+            let lon_dim = bounding_box.south_east.lon - bounding_box.north_west.lon;
+            ensure!(lon_dim.into() <= I9F23::from_str("1").unwrap(), Error::<T>::BadDimesions);
+            ensure!(delta.into() <= I9F23::from_str("0.1").unwrap() && 
+                    delta.into() >= I9F23::from_str("0.002").unwrap(), Error::<T>::InvalidData);
 
             let id = TotalRoots::<T>::get();
             let root = RootBoxOf::<T>::new(id, bounding_box, delta);
@@ -338,31 +340,25 @@ impl<T: Trait> Module<T> {
                     root_box.bounding_box.south_east.lon); 
         let root_dimensions = Self::get_distance_vector(root_base_point, root_secondary_point);
         let distance_vector = Self::get_distance_vector(root_base_point, touch);
-        // TODO handle possible overflow errors
-        let row: u16 = (distance_vector.lat / root_box.delta).into().to_num::<u16>() + 1;
-        let column: u16 = (distance_vector.lon / root_box.delta).into().to_num::<u16>() + 1;
-        let total_rows: u16 = (root_dimensions.lat / root_box.delta).into().to_num::<u16>();
+        // casts required to evade possible overflows in division
+        let delta: I64F64 = I64F64::from(root_box.delta.into());
+        let touch_lon: I64F64 = I64F64::from(distance_vector.lon.into());
+        let touch_lat: I64F64 = I64F64::from(distance_vector.lat.into());
+        let root_lat_dimension: I64F64 = I64F64::from(root_dimensions.lat.into());
+
+        let row: u16 = (touch_lat / delta).to_num::<u16>() + 1;
+        let column: u16 = (touch_lon / delta).to_num::<u16>() + 1;
+        let total_rows: u16 = (root_lat_dimension / delta).to_num::<u16>();
 
         ((total_rows * (column - 1)) + row).into()
     }
 
     fn get_distance_vector( first_point: Point2D<T::Coord>, 
                             second_point: Point2D<T::Coord>) -> Point2D<T::Coord> {
-        // code is clumsy, guess may be simplified
-        let lat_length: T::Coord;
-        if first_point.lat > second_point.lat {
-            lat_length = first_point.lat - second_point.lat;
-        } else {
-            lat_length = second_point.lat - first_point.lat;
-        }
-        let long_length: T::Coord; 
-        if first_point.lon > second_point.lon {
-            long_length = first_point.lon - second_point.lon; 
-        } else {
-            long_length = second_point.lon - first_point.lon;
-        }
-
-        Point2D::new(lat_length, long_length)
+        let lat_length = (first_point.lat - second_point.lat).into().abs();
+        let long_length = (first_point.lon - second_point.lon).into().abs(); 
+        
+        Point2D::new(lat_length.into(), long_length.into())
     }
     
     /// form index for storing zones, wrapped in u64

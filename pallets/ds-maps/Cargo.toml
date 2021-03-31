@@ -25,6 +25,7 @@ pallet-timestamp = { default-features = false, version = '2.0.0' }
 serde = { default-features = false, version = '1.0.116', optional=true }
 pallet-ds-accounts = {default-features = false, version = '2.0.0', path = "../ds-accounts"}
 substrate-fixed = {default-features = false, git = "https://github.com/encointer/substrate-fixed", tag = "v0.5.5"}
+sp-std = { default-features = false, version = '2.0.0' }
 
 [dev-dependencies]
 sp-core = { default-features = false, version = '2.0.0' }
