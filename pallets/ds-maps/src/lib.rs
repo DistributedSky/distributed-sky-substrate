@@ -110,11 +110,7 @@ pub struct RootBox<RootId, Box3D, Coord> {
     pub delta: Coord,
 }
 
-impl<
-        RootId, 
-        Box3D, 
-        Coord 
-    > RootBox <RootId, Box3D, Coord> {
+impl<RootId, Box3D, Coord> RootBox <RootId, Box3D, Coord> {
     pub fn new(id: RootId, bounding_box: Box3D, delta: Coord) -> Self {
         RootBox{id, bounding_box, delta}
     }
