@@ -32,12 +32,20 @@ pub struct Point2D<Coord> {
     lat: Coord,
 }
 
-impl<Coord> Point2D<Coord> {
+impl<
+        Coord: From<I9F23> + Into<I9F23> + Sub<Output = Coord>
+    > Point2D<Coord> 
+{
     pub fn new(lon: Coord, lat: Coord) -> Self {
         Point2D{lon, lat}
     }
-}
 
+    pub fn get_distance_vector(self, second_point: Point2D<Coord>) -> Point2D<Coord> {
+        let lat_length = (self.lat - second_point.lat).into().abs();
+        let long_length = (self.lon - second_point.lon).into().abs(); 
+        Point2D::new(lat_length.into(), long_length.into())
+    }
+}
 
 //derives and if req by compiler
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -102,7 +110,11 @@ pub struct RootBox<RootId, Box3D, Coord> {
     pub delta: Coord,
 }
 
-impl<RootId, Box3D, Coord> RootBox <RootId, Box3D, Coord> {
+impl<
+        RootId, 
+        Box3D, 
+        Coord 
+    > RootBox <RootId, Box3D, Coord> {
     pub fn new(id: RootId, bounding_box: Box3D, delta: Coord) -> Self {
         RootBox{id, bounding_box, delta}
     }
@@ -254,7 +266,7 @@ decl_module! {
 
         // Events must be initialized if they are used by the pallet.
         fn deposit_event() = default;
-
+        /// Adds new root to storage
         #[weight = <T as Trait>::WeightInfo::root_add()]
         pub fn root_add(origin, 
                         bounding_box: Box3D<Point3D<T::Coord>>,
@@ -308,7 +320,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Changes area type
+        /// Changes area type with u8 bit flag
         #[weight = <T as Trait>::WeightInfo::change_area_type()]
         pub fn change_area_type(origin, 
                                 root_id: T::RootId, 
@@ -330,7 +342,6 @@ decl_module! {
 impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
-    // TODO implement safe math
     fn detect_touch(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> T::AreaId {
         let root_base_point: Point2D<T::Coord> = 
         Point2D::new(root_box.bounding_box.north_west.lat,
@@ -338,8 +349,8 @@ impl<T: Trait> Module<T> {
         let root_secondary_point: Point2D<T::Coord> = 
         Point2D::new(root_box.bounding_box.south_east.lat,
                     root_box.bounding_box.south_east.lon); 
-        let root_dimensions = Self::get_distance_vector(root_base_point, root_secondary_point);
-        let distance_vector = Self::get_distance_vector(root_base_point, touch);
+        let root_dimensions = root_base_point.get_distance_vector(root_secondary_point);
+        let distance_vector = root_base_point.get_distance_vector(touch);
         // casts required to evade possible overflows in division
         let delta: I64F64 = I64F64::from(root_box.delta.into());
         let touch_lon: I64F64 = I64F64::from(distance_vector.lon.into());
@@ -353,14 +364,6 @@ impl<T: Trait> Module<T> {
         ((total_rows * (column - 1)) + row).into()
     }
 
-    fn get_distance_vector( first_point: Point2D<T::Coord>, 
-                            second_point: Point2D<T::Coord>) -> Point2D<T::Coord> {
-        let lat_length = (first_point.lat - second_point.lat).into().abs();
-        let long_length = (first_point.lon - second_point.lon).into().abs(); 
-        
-        Point2D::new(lat_length.into(), long_length.into())
-    }
-    
     /// form index for storing zones, wrapped in u64
     // v.............root id here............v v.....area id.....v v..child objects..v
     // 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
