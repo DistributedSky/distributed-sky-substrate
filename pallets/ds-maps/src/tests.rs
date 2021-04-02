@@ -19,7 +19,7 @@ const DEFAULT_HEIGHT: u16 = 30;
 
 const DELTA: &str = "0.01";
 
-fn construct_box() -> Box3D<Point3D<Coord>> {
+fn construct_box() -> Box3D<Coord> {
     let north_west: Point3D<Coord> = Point3D::new(Coord::from_str("55.37").unwrap(),
                                                   Coord::from_str("37.37").unwrap(), 
                                                   Coord::from_str("1").unwrap());
@@ -29,7 +29,7 @@ fn construct_box() -> Box3D<Point3D<Coord>> {
     Box3D::new(north_west, south_east)
 }
 
-fn construct_huge_box() -> Box3D<Point3D<Coord>> {
+fn construct_huge_box() -> Box3D<Coord> {
     let north_west: Point3D<Coord> = Point3D::new(Coord::from_str("55.37").unwrap(),
                                                   Coord::from_str("37.37").unwrap(), 
                                                   Coord::from_str("1").unwrap());
@@ -39,7 +39,7 @@ fn construct_huge_box() -> Box3D<Point3D<Coord>> {
     Box3D::new(north_west, south_east)
 }
 
-fn construct_rect() -> Rect2D<Point2D<Coord>> {
+fn construct_rect() -> Rect2D<Coord> {
     let north_west: Point2D<Coord> = Point2D::new(Coord::from_str("55.395").unwrap(),
                                                   Coord::from_str("37.385").unwrap());
     let south_east: Point2D<Coord> = Point2D::new(Coord::from_str("55.396").unwrap(),
@@ -178,7 +178,7 @@ fn it_increment_zone_counter_in_area() {
                 Coord::from_str(DELTA).unwrap()
         ));
         let area = DSMapsModule::area_info(ROOT_ID, AREA_ID);
-        assert!(area.child_amount == 0);
+        assert!(area.child_count == 0);
         assert_ok!(
             DSMapsModule::zone_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
@@ -187,7 +187,7 @@ fn it_increment_zone_counter_in_area() {
                 ROOT_ID,
         ));
         let area = DSMapsModule::area_info(ROOT_ID, AREA_ID);
-        assert!(area.child_amount == 1);
+        assert!(area.child_count == 1);
     });
 }
 

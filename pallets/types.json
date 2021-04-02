@@ -9,15 +9,15 @@
 	},
 	"SerialNumber": "Vec<u8>",
 	"MetaIPFS": "Vec<u8>",
-	"AreaId": "u16",
-	"RootId": "u32",
-	"ZoneId": "u64",
 	"UAVOf": {
 		"uav_id": "SerialNumber",
 		"metadata_ipfs_hash": "MetaIPFS",
 		"managed_by": "AccountId"
 	},
 	"Coord": "I9F23",
+	"AreaId": "u16",
+	"RootId": "u32",
+	"ZoneId": "u64",
 	"Point2D":{ 
 		"lon":"Coord", 
 		"lat":"Coord"

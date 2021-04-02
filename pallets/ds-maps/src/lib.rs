@@ -50,27 +50,27 @@ impl<
 //derives and if req by compiler
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq)]
-pub struct Rect2D<Point2D> {
-    north_west: Point2D,
-    south_east: Point2D,
+pub struct Rect2D<Coord> {
+    north_west: Point2D<Coord>,
+    south_east: Point2D<Coord>,
 }
 
-impl<Point2D> Rect2D<Point2D> {
-    pub fn new(north_west: Point2D, south_east: Point2D) -> Self {
+impl<Coord> Rect2D<Coord> {
+    pub fn new(north_west: Point2D<Coord>, south_east: Point2D<Coord>) -> Self {
         Rect2D{north_west, south_east}
     }
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default)]
-pub struct Zone<ZoneId, Rect2D> {
+pub struct Zone<ZoneId, Coord> {
     pub zone_id: ZoneId,
-    pub rect: Rect2D,
+    pub rect: Rect2D<Coord>,
     pub height: u16,
 }
 
-impl<ZoneId, Rect2D> Zone<ZoneId, Rect2D> {
-    pub fn new(zone_id: ZoneId, rect: Rect2D, height: u16) -> Self {
+impl<ZoneId, Coord> Zone<ZoneId, Coord> {
+    pub fn new(zone_id: ZoneId, rect: Rect2D<Coord>, height: u16) -> Self {
         Zone {zone_id, rect, height}
     }
 } 
@@ -91,27 +91,27 @@ impl<Coord> Point3D<Coord> {
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq)]
-pub struct Box3D<Point3D> {
-    pub north_west: Point3D,
-    pub south_east: Point3D,
+pub struct Box3D<Coord> {
+    pub north_west: Point3D<Coord>,
+    pub south_east: Point3D<Coord>,
 }
 
-impl <Point3D> Box3D<Point3D> {
-    pub fn new(north_west: Point3D, south_east: Point3D) -> Self {
+impl <Coord> Box3D<Coord> {
+    pub fn new(north_west: Point3D<Coord>, south_east: Point3D<Coord>) -> Self {
         Box3D{north_west, south_east}
     }
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug)]
-pub struct RootBox<RootId, Box3D, Coord> {
+pub struct RootBox<RootId, Coord> {
     pub id: RootId,
-    pub bounding_box: Box3D,
+    pub bounding_box: Box3D<Coord>,
     pub delta: Coord,
 }
 
-impl<RootId, Box3D, Coord> RootBox <RootId, Box3D, Coord> {
-    pub fn new(id: RootId, bounding_box: Box3D, delta: Coord) -> Self {
+impl<RootId, Coord> RootBox <RootId, Coord> {
+    pub fn new(id: RootId, bounding_box: Box3D<Coord>, delta: Coord) -> Self {
         RootBox{id, bounding_box, delta}
     }
 }
@@ -120,12 +120,12 @@ impl<RootId, Box3D, Coord> RootBox <RootId, Box3D, Coord> {
 #[derive(Encode, Decode, Default, Debug, PartialEq)]
 pub struct Area {
     pub area_type: u8,
-    pub child_amount: u16,
+    pub child_count: u16,
 }
 
 impl Area {
-    pub fn new(area_type: u8, child_amount: u16) -> Self {
-        Area{area_type, child_amount}
+    pub fn new(area_type: u8, child_count: u16) -> Self {
+        Area{area_type, child_count}
     } 
 }
 
@@ -205,8 +205,8 @@ decl_storage! {
     }
 }
 
-pub type RootBoxOf<T> = RootBox<<T as Trait>::RootId, Box3D<Point3D<<T as Trait>::Coord>>, <T as Trait>::Coord>;
-pub type ZoneOf<T> = Zone<<T as Trait>::ZoneId, Rect2D<Point2D<<T as Trait>::Coord>>>;
+pub type RootBoxOf<T> = RootBox<<T as Trait>::RootId, <T as Trait>::Coord>;
+pub type ZoneOf<T> = Zone<<T as Trait>::ZoneId, <T as Trait>::Coord>;
 
 // Pallets use events to inform users when important changes are made.
 // https://substrate.dev/docs/en/knowledgebase/runtime/events
@@ -217,7 +217,7 @@ decl_event!(
         RootId = <T as Trait>::RootId,
         AreaId = <T as Trait>::AreaId,
         ZoneId = <T as Trait>::ZoneId,
-        {
+    {
         // Event documentation should end with an array that provides descriptive names for event parameters.
         /// New root box has been created [box number, who]
         RootCreated(RootId, AccountId),
@@ -265,7 +265,7 @@ decl_module! {
         /// Adds new root to storage
         #[weight = <T as Trait>::WeightInfo::root_add()]
         pub fn root_add(origin, 
-                        bounding_box: Box3D<Point3D<T::Coord>>,
+                        bounding_box: Box3D<T::Coord>,
                         delta: T::Coord) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
@@ -288,7 +288,7 @@ decl_module! {
         /// Form index and store input to redzones, creates area struct if it doesnt exist
         #[weight = <T as Trait>::WeightInfo::zone_add()]
         pub fn zone_add(origin, 
-                        rect: Rect2D<Point2D<T::Coord>>,
+                        rect: Rect2D<T::Coord>,
                         height: u16,
                         root_id: T::RootId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
@@ -296,7 +296,7 @@ decl_module! {
             ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
             ensure!(height > 1, Error::<T>::InvalidData);
             // TODO calc required area in root from rect, rn no overlap checks
-            let area_id = Self::detect_touch(RootBoxes::<T>::get(root_id), rect.north_west);
+            let area_id = Self::detect_intersecting_area(RootBoxes::<T>::get(root_id), rect.north_west);
                         
             let area = if AreaData::<T>::contains_key(root_id, area_id) {
                 AreaData::<T>::get(root_id, area_id)
@@ -306,11 +306,11 @@ decl_module! {
             };
 
             ensure!(area.area_type == GREEN_AREA, Error::<T>::ForbiddenArea); 
-            let id = Self::form_index(root_id, area_id, area.child_amount); 
+            let id = Self::pack_index(root_id, area_id, area.child_count); 
             let zone = ZoneOf::<T>::new(id, rect, height);
             RedZones::<T>::insert(id, zone);
             AreaData::<T>::mutate(root_id, area_id, |ar| {
-                ar.child_amount += 1;
+                ar.child_count += 1;
             });
             Self::deposit_event(RawEvent::ZoneCreated(root_id, area_id, id, who));
             Ok(())
@@ -338,7 +338,8 @@ decl_module! {
 impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
-    fn detect_touch(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> T::AreaId {
+    /// Returns id of an area in root, in which supplied point is located
+    fn detect_intersecting_area(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> T::AreaId {
         let root_base_point: Point2D<T::Coord> = 
         Point2D::new(root_box.bounding_box.north_west.lat,
                      root_box.bounding_box.north_west.lon); 
@@ -363,25 +364,25 @@ impl<T: Trait> Module<T> {
     /// form index for storing zones, wrapped in u64
     // v.............root id here............v v.....area id.....v v..child objects..v
     // 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
-    fn form_index(root: T::RootId, area: T::AreaId, childs: u16) -> T::ZoneId {
+    fn pack_index(root: T::RootId, area: T::AreaId, children: u16) -> T::ZoneId {
         let root: u32 = root.into();
         let area: u16 = area.into();
 
         ((root as u64) << 32 |
          (area as u64) << 16 | 
-         childs as u64).into()      
+         children as u64).into()      
     }
 
     #[allow(dead_code)]
-    fn unwrap_index(index: T::ZoneId) -> (T::RootId, T::AreaId, u16) {
+    fn unpack_index(index: T::ZoneId) -> (T::RootId, T::AreaId, u16) {
         let mask_u16: u64 = 0x0000_0000_0000_0000_0000_0000_ffff_ffff;
         let index: u64 = index.into();
         // is refactoring possible?
         let root: T::RootId = ((index >> 32) as u32).into();
         let area: T::AreaId = (((index >> 16) & mask_u16) as u16).into();
-        let childs: u16 = (index & mask_u16) as u16;
+        let children: u16 = (index & mask_u16) as u16;
         
-        (root, area, childs)
+        (root, area, children)
     }
 }
 
