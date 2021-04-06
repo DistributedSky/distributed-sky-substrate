@@ -162,14 +162,12 @@ pub trait Trait: accounts::Trait {
     + Copy
     + PartialOrd
     + PartialEq
-    // + Eq 
     + FromStr
     + Default
     + Cast<u16>
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>;
-    // + Add<Output = Self::Coord>
-    // + Mul<Output = Self::Coord>;
+
     type LocalCoord: Default 
     + Parameter
     + Copy
@@ -342,7 +340,7 @@ impl<T: Trait> Module<T> {
                     root_box.bounding_box.south_east.lon); 
         let root_dimensions = root_base_point.get_distance_vector(root_secondary_point);
         let distance_vector = root_base_point.get_distance_vector(touch);
-        // casts required to evade possible overflows in division
+        
         let delta = root_box.delta;
         let touch_lon = distance_vector.lon;
         let touch_lat = distance_vector.lat;

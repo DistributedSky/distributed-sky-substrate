@@ -102,14 +102,6 @@ impl crate::WeightInfo for WeightInfo {
     }
 }
 
-// impl IntDiv for I9F23 {
-//     type Output = u16;
-
-//     fn int_div(self, a: Self) -> Self::Output {
-//         (self / a).to_num::<u16>()
-//     }
-// }
-
 impl Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
