@@ -6,12 +6,12 @@ use frame_support::{
     codec::{Decode, Encode},
     storage::StorageDoubleMap,
     dispatch::fmt::Debug,
-    sp_runtime::sp_std::ops::{Add, Sub, Div, Mul},
+    sp_runtime::sp_std::ops::{Sub, Div},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,    
     weights::Weight,
     Parameter,
 };
-
+use az::Cast;
 use sp_std::str::FromStr;
 
 use frame_system::ensure_signed;
@@ -143,10 +143,10 @@ type AreaId = u16;
 type RootId = u32;
 type ZoneId = u64;
 
-pub trait IntDiv<Rhs = Self> {
-    type Output; 
-    fn int_div(self, rhs: Rhs) -> Self::Output;
-}
+// pub trait IntDiv<Rhs = Self> {
+//     type Output; 
+//     fn int_div(self, rhs: Rhs) -> Self::Output;
+// }
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: accounts::Trait {
@@ -157,20 +157,19 @@ pub trait Trait: accounts::Trait {
     type WeightInfo: WeightInfo;
 
     // new types, consider descriptions
-    type Coord: 
-    Default 
+    type Coord: Default 
     + Parameter
     + Copy
     + PartialOrd
     + PartialEq
-    + Eq 
+    // + Eq 
     + FromStr
     + Default
+    + Cast<u16>
     + Sub<Output = Self::Coord>
-    + IntDiv<Output = u16>;
+    + Div<Output = Self::Coord>;
     // + Add<Output = Self::Coord>
     // + Mul<Output = Self::Coord>;
-
     type LocalCoord: Default 
     + Parameter
     + Copy
@@ -349,9 +348,9 @@ impl<T: Trait> Module<T> {
         let touch_lat = distance_vector.lat;
         let root_lat_dimension = root_dimensions.lat;
 
-        let row: u16 = (touch_lat.int_div(delta)) + 1;
-        let column: u16 = (touch_lon.int_div(delta)) + 1;
-        let total_rows: u16 = root_lat_dimension.int_div(delta);
+        let row: u16 = (touch_lat / delta).cast() + 1;
+        let column: u16 = (touch_lon / delta).cast() + 1;
+        let total_rows: u16 = (root_lat_dimension / delta).cast();
 
         (total_rows * (column - 1)) + row
     }

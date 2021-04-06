@@ -1,4 +1,4 @@
-use crate::{Module, Trait, IntDiv};
+use crate::{Module, Trait};
 use frame_support::{
     impl_outer_event, impl_outer_origin, parameter_types,
     weights::{constants::RocksDbWeight, Weight},
@@ -102,12 +102,13 @@ impl crate::WeightInfo for WeightInfo {
     }
 }
 
-impl IntDiv for I9F23 {
-    type Output = u16;
-    fn int_div(self, a: Self) -> Self::Output {
-        (self / a).to_num::<u16>()
-    }
-}
+// impl IntDiv for I9F23 {
+//     type Output = u16;
+
+//     fn int_div(self, a: Self) -> Self::Output {
+//         (self / a).to_num::<u16>()
+//     }
+// }
 
 impl Trait for Test {
     type Event = TestEvent;

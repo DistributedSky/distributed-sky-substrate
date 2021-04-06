@@ -13,7 +13,6 @@ use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use pallet_ds_accounts::{prelude::IdentityMultiplierUpdater, AccountOf, ADMIN_ROLE, REGISTRAR_ROLE};
-use pallet_ds_maps::IntDiv;
 use sp_runtime::traits::{
     BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
 };
@@ -22,7 +21,7 @@ use sp_runtime::{
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature,
 };
-use sp_std::{prelude::*, ops::Deref};
+use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -49,7 +48,6 @@ pub use pallet_ds_accounts;
 pub use pallet_ds_maps;
 /// Import fixed point for GPS coords
 use substrate_fixed::types::I9F23;
-
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -288,23 +286,14 @@ impl pallet_ds_accounts::Trait for Runtime {
     type SerialNumber = Vec<u8>;    //guess, this should be UTF-8 encoded
 }
 
-struct GpsCoord {I9F23}
-
-impl IntDiv for GpsCoord {
-    type Output = u16;
-    
-    fn int_div(self, a: Self) -> Self::Output {
-        (self.0 / a).to_num::<u16>()
-    }
-}
-
 /// Configure the DS maps pallet in pallets/ds-maps.
 impl pallet_ds_maps::Trait for Runtime {
     type Event = Event;
     type WeightInfo = ();
-    type Coord = GpsCoord;
+    type Coord = I9F23;
     type LocalCoord = u16;
 }
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub enum Runtime where
