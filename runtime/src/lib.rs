@@ -13,6 +13,7 @@ use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use pallet_ds_accounts::{prelude::IdentityMultiplierUpdater, AccountOf, ADMIN_ROLE, REGISTRAR_ROLE};
+use pallet_ds_maps::IntDiv;
 use sp_runtime::traits::{
     BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
 };
@@ -21,7 +22,7 @@ use sp_runtime::{
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature,
 };
-use sp_std::prelude::*;
+use sp_std::{prelude::*, ops::Deref};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -287,15 +288,22 @@ impl pallet_ds_accounts::Trait for Runtime {
     type SerialNumber = Vec<u8>;    //guess, this should be UTF-8 encoded
 }
 
+struct GpsCoord {I9F23}
+
+impl IntDiv for GpsCoord {
+    type Output = u16;
+    
+    fn int_div(self, a: Self) -> Self::Output {
+        (self.0 / a).to_num::<u16>()
+    }
+}
+
 /// Configure the DS maps pallet in pallets/ds-maps.
 impl pallet_ds_maps::Trait for Runtime {
     type Event = Event;
     type WeightInfo = ();
-    type Coord = I9F23;
+    type Coord = GpsCoord;
     type LocalCoord = u16;
-    type AreaId = u16;
-    type RootId = u32;
-    type ZoneId = u64;
 }
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(

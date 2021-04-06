@@ -1,9 +1,10 @@
 use crate::mock::*;
 use crate::{Point3D, Box3D, 
-            Point2D, Rect2D, I9F23};
+            Point2D, Rect2D};
 use frame_support::{
     assert_noop, assert_ok,
 };
+use substrate_fixed::types::I9F23;
 use sp_std::str::FromStr;
 
 type Error = super::Error<Test>;
@@ -18,7 +19,7 @@ const AREA_ID: u16 = 58;
 const DEFAULT_HEIGHT: u16 = 30;
 
 const DELTA: &str = "0.01";
-
+// fn coord<Coord>(s: &str) -> Coord { Coord::from_str(s).unwrap() }
 fn construct_box() -> Box3D<Coord> {
     let north_west: Point3D<Coord> = Point3D::new(Coord::from_str("55.37").unwrap(),
                                                   Coord::from_str("37.37").unwrap(), 

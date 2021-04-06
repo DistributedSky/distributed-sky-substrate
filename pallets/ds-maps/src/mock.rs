@@ -1,4 +1,4 @@
-use crate::{Module, Trait};
+use crate::{Module, Trait, IntDiv};
 use frame_support::{
     impl_outer_event, impl_outer_origin, parameter_types,
     weights::{constants::RocksDbWeight, Weight},
@@ -11,7 +11,6 @@ use sp_runtime::{
     Perbill,
 };
 use substrate_fixed::types::I9F23;
-
 use pallet_ds_accounts::ADMIN_ROLE;
 
 impl_outer_origin! {
@@ -101,7 +100,13 @@ impl crate::WeightInfo for WeightInfo {
     fn change_area_type() -> Weight {
         <() as crate::WeightInfo>::change_area_type()
     }
+}
 
+impl IntDiv for I9F23 {
+    type Output = u16;
+    fn int_div(self, a: Self) -> Self::Output {
+        (self / a).to_num::<u16>()
+    }
 }
 
 impl Trait for Test {
@@ -109,9 +114,6 @@ impl Trait for Test {
     type WeightInfo = ();
     type Coord = I9F23;
     type LocalCoord = u16;
-    type AreaId = u16;
-    type RootId = u32;
-    type ZoneId = u64;
 }
 
 parameter_types! {
