@@ -286,12 +286,20 @@ impl pallet_ds_accounts::Trait for Runtime {
     type SerialNumber = Vec<u8>;    //guess, this should be UTF-8 encoded
 }
 
+// After researches, consider placing here max grid sizes
+parameter_types! {
+    pub const MaxHeight: u16 = 400;
+    pub const MaxBuildingsInArea: u16 = 100;
+}
+
 /// Configure the DS maps pallet in pallets/ds-maps.
 impl pallet_ds_maps::Trait for Runtime {
     type Event = Event;
     type WeightInfo = ();
     type Coord = I9F23;
-    type LocalCoord = u16;
+    type LightCoord = u16;
+    type MaxBuildingsInArea = MaxBuildingsInArea;
+    type MaxHeight = MaxHeight;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

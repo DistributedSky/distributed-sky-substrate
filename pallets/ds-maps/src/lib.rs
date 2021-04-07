@@ -10,6 +10,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,    
     weights::Weight,
     Parameter,
+    traits::Get,
 };
 use az::Cast;
 use sp_std::str::FromStr;
@@ -73,14 +74,14 @@ impl<Coord> Rect2D<Coord> {
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default)]
-pub struct Zone<Coord> {
+pub struct Zone<Coord, LightCoord> {
     pub zone_id: ZoneId,
     pub rect: Rect2D<Coord>,
-    pub height: u16,
+    pub height: LightCoord,
 }
 
-impl<Coord> Zone<Coord> {
-    pub fn new(zone_id: ZoneId, rect: Rect2D<Coord>, height: u16) -> Self {
+impl<Coord, LightCoord> Zone<Coord, LightCoord> {
+    pub fn new(zone_id: ZoneId, rect: Rect2D<Coord>, height: LightCoord) -> Self {
         Zone {zone_id, rect, height}
     }
 } 
@@ -143,11 +144,6 @@ type AreaId = u16;
 type RootId = u32;
 type ZoneId = u64;
 
-// pub trait IntDiv<Rhs = Self> {
-//     type Output; 
-//     fn int_div(self, rhs: Rhs) -> Self::Output;
-// }
-
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: accounts::Trait {
     /// Because this pallet emits events, it depends on the runtime's definition of an event.
@@ -168,10 +164,14 @@ pub trait Trait: accounts::Trait {
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>;
 
-    type LocalCoord: Default 
+    type LightCoord: Default 
     + Parameter
     + Copy
-    + PartialOrd;
+    + PartialOrd
+    + FromStr;
+
+    type MaxBuildingsInArea: Get<u16>;
+    type MaxHeight: Get<Self::LightCoord>;
 }    
 
 pub trait WeightInfo {
@@ -201,7 +201,7 @@ decl_storage! {
 }
 
 pub type RootBoxOf<T> = RootBox<<T as Trait>::Coord>;
-pub type ZoneOf<T> = Zone<<T as Trait>::Coord>;
+pub type ZoneOf<T> = Zone<<T as Trait>::Coord, <T as Trait>::LightCoord>;
 
 // Pallets use events to inform users when important changes are made.
 // https://substrate.dev/docs/en/knowledgebase/runtime/events
@@ -239,7 +239,9 @@ decl_error! {
         /// Trying to add zone in non-existing root
         RootDoesNotExist,
         /// Sizes are off bounds
-        BadDimesions
+        BadDimesions,
+        /// Area can't contain no more buildings
+        AreaFull,
         // add additional errors below
     }
 }
@@ -281,23 +283,24 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::zone_add()]
         pub fn zone_add(origin, 
                         rect: Rect2D<T::Coord>,
-                        height: u16,
+                        height: T::LightCoord,
                         root_id: RootId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
-            ensure!(height > 1, Error::<T>::InvalidData);
+            ensure!(height < T::MaxHeight::get(), Error::<T>::InvalidData);
             // TODO calc required area in root from rect, rn no overlap checks
             let area_id = Self::detect_intersecting_area(RootBoxes::<T>::get(root_id), rect.north_west);
-                        
+            // Getting area from storage, or creating it
             let area = if AreaData::contains_key(root_id, area_id) {
                 AreaData::get(root_id, area_id)
             } else {
                 AreaData::insert(root_id, area_id, Area::new(GREEN_AREA, 0));
                 Area::new(GREEN_AREA, 0)
             };
-
+            ensure!(area.child_count < T::MaxBuildingsInArea::get(), Error::<T>::AreaFull);
             ensure!(area.area_type == GREEN_AREA, Error::<T>::ForbiddenArea); 
+
             let id = Self::pack_index(root_id, area_id, area.child_count); 
             let zone = ZoneOf::<T>::new(id, rect, height);
             RedZones::<T>::insert(id, zone);
@@ -354,8 +357,9 @@ impl<T: Trait> Module<T> {
     }
 
     /// creates type from str, no error handling
-    fn coord_from_str(s: &str) -> T::Coord {
-        match T::Coord::from_str(s) {
+    fn coord_from_str<Coord> (s: &str) -> Coord
+            where Coord: FromStr + Default {
+        match Coord::from_str(s) {
             Ok(v) => v,
             Err(_) => Default::default(),
         }

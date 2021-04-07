@@ -101,12 +101,19 @@ impl crate::WeightInfo for WeightInfo {
         <() as crate::WeightInfo>::change_area_type()
     }
 }
+// After researches, consider placing here max grid sizes
+parameter_types! {
+    pub const MaxHeight: u16 = 400;
+    pub const MaxBuildingsInArea: u16 = 100;
+}
 
 impl Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
     type Coord = I9F23;
-    type LocalCoord = u16;
+    type LightCoord = u16;
+    type MaxBuildingsInArea = MaxBuildingsInArea;
+    type MaxHeight = MaxHeight;
 }
 
 parameter_types! {
