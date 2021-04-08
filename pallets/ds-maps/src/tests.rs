@@ -7,28 +7,50 @@ use frame_support::{
 use substrate_fixed::types::I9F23;
 use sp_std::str::FromStr;
 
-/// Explanation for all hardcoded values down here
-///                             Root        P2(55.92, 37.90)
-///            +----+-------------------------+----O
-///            |2861|                         |2915|
-///            |    | Area 2861               |    |
-///            +----+                         +----+
-///            |                                   |
-///            |                                   |
-///            |                                   |
-///            |                                   |
-///            |                                   |
-///            +----+        Moscow                |
-///            |111 |                              |
-///            |    |                              |
-///            +----+----+----+ Zone(55.395,       |
-///            | 56 | 57 | 58 |<-----              |
-///            |    |    |  Z |   37.385)          |
-///        +-> +----+----+----+               +----+
-///        |   | 1  | 2  | 3  |               | 55 |
-///  delta |   |    |    |    |               |    |
-///  =0.01 +-> O----+----+----+---------------+----+
-///           Origin(55.37, 37.37)
+// Explanation for all hardcoded values down here
+//                             Root        P2(55.92, 37.90)
+//            +----+-------------------------+----O
+//            |2861|                         |2915|
+//            |    | Area 2861               |    |
+//            +----+                         +----+
+//            |                                   |
+//            |                                   |
+//            |                                   |
+//            |                                   |
+//            |                                   |
+//            +----+        Moscow                |
+//            |111 |                              |
+//            |    |                              |
+//            +----+----+----+ Zone(55.395,       |
+//            | 56 | 57 | 58 |<-----              |
+//            |    |    |  Z |   37.385)          |
+//        +-> +----+----+----+               +----+
+//        |   | 1  | 2  | 3  |               | 55 |
+//  delta |   |    |    |    |               |    |
+//  =0.01 +-> O----+----+----+---------------+----+
+//           Origin(55.37, 37.37)
+//                   Area 58       (55.400, 37.390)
+//    +----------------------------------o
+//    |                                  |
+//    |                                  |
+//    |                                  |
+//    |             testing rect         |
+//    |                +--------o(55.396,|
+//    |                |        | 37.386)|
+//    |                |        |        |
+//    |                |        |        |
+//    |                |        |        |
+//    |                o--------+        |
+//    |               (55.395,           |
+//    |                37.385)           |
+//    |                                  |
+//    |                                  |
+//    |                                  |
+//    |                                  |
+//    |                                  |
+//    |                                  |
+//    o----------------------------------+
+// (55.390, 37,380)
 
 type Error = super::Error<Test>;
 type Coord = I9F23;
@@ -68,20 +90,23 @@ fn construct_huge_box() -> Box3D<Coord> {
     Box3D::new(north_west, south_east)
 }
 
-fn construct_rect() -> Rect2D<Coord> {
+fn construct_custom_rect(nw_lat: &str, nw_lon: &str,
+                         se_lat: &str, se_lon: &str) -> Rect2D<Coord> {
+    let north_west: Point2D<Coord> = Point2D::new(coord(nw_lat),
+                                                  coord(nw_lon));
+    let south_east: Point2D<Coord> = Point2D::new(coord(se_lat),
+                                                  coord(se_lon));
+    Rect2D::new(north_west, south_east)
+}
+
+fn construct_testing_rect() -> Rect2D<Coord> {
     let north_west: Point2D<Coord> = Point2D::new(coord("55.395"),
                                                   coord("37.385"));
     let south_east: Point2D<Coord> = Point2D::new(coord("55.396"),
                                                   coord("37.386"));
     Rect2D::new(north_west, south_east)
 }
-fn construct_huge_rect() -> Rect2D<Coord> {
-    let north_west: Point2D<Coord> = Point2D::new(coord("55.395"),
-                                                  coord("37.385"));
-    let south_east: Point2D<Coord> = Point2D::new(coord("56.396"),
-                                                  coord("37.386"));
-    Rect2D::new(north_west, south_east)
-}
+
 #[test]
 fn it_try_add_root_unauthorized() {
     new_test_ext().execute_with(|| {
@@ -133,7 +158,7 @@ fn it_try_add_zone_unauthorized() {
         assert_noop!(
             DSMapsModule::zone_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
-                construct_rect(),
+                construct_testing_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
             ),
@@ -156,7 +181,7 @@ fn it_try_add_zone_to_not_existing_root() {
         assert_noop!(
             DSMapsModule::zone_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_rect(),
+                construct_testing_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
             ),
@@ -182,14 +207,14 @@ fn it_try_add_zone_by_registrar() {
         assert_ok!(
             DSMapsModule::zone_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_rect(),
+                construct_testing_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
         ));
         assert_noop!(
             DSMapsModule::zone_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
-                construct_rect(),
+                construct_testing_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
             ),
@@ -199,7 +224,7 @@ fn it_try_add_zone_by_registrar() {
 }
 
 #[test]
-fn it_try_add_overlapping_zone() {
+fn it_try_add_zone_which_lie_in_different_areas() {
     new_test_ext().execute_with(|| {
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
@@ -215,11 +240,119 @@ fn it_try_add_overlapping_zone() {
         assert_noop!(
             DSMapsModule::zone_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_huge_rect(),
+                construct_custom_rect("55.395", "37.385",
+                                      "56.396", "37.901"),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+            ),
+            Error::ZoneDoesntFit
+        );
+    });
+}
+
+#[test]
+fn it_try_add_overlapping_zones() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(DSAccountsModule::account_add(
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
+            super::REGISTRAR_ROLE
+        ));
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_box(),
+                coord(DELTA)
+        ));
+        assert_ok!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_rect(),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+        ));
+        assert_noop!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
             ),
             Error::OverlappingZone
+        );
+    });
+}
+
+#[test]
+fn it_try_add_not_overlapping_zones() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(DSAccountsModule::account_add(
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
+            super::REGISTRAR_ROLE
+        ));
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_box(),
+                coord(DELTA)
+        ));
+        assert_ok!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_rect(),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+        ));
+        assert_ok!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_custom_rect("55.391", "37.381", 
+                                      "55.392", "37.382"),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+            ));
+    });
+}
+
+#[test]
+fn it_try_add_more_than_max_zones() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(DSAccountsModule::account_add(
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
+            super::REGISTRAR_ROLE
+        ));
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_box(),
+                coord(DELTA)
+        ));
+        assert_ok!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_rect(),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+        ));
+        assert_ok!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_custom_rect("55.391", "37.381", 
+                                      "55.392", "37.382"),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+        ));
+        assert_noop!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_custom_rect("55.393", "37.383", 
+                                      "55.394", "37.384"),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+            ), 
+            Error::AreaFull
         );
     });
 }
@@ -243,7 +376,7 @@ fn it_increment_zone_counter_in_area() {
         assert_ok!(
             DSMapsModule::zone_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_rect(),
+                construct_testing_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
         ));
@@ -322,7 +455,7 @@ fn it_changes_existing_area_type() {
         assert_ok!(
             DSMapsModule::zone_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_rect(),
+                construct_testing_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
         ));
@@ -336,7 +469,7 @@ fn it_changes_existing_area_type() {
         assert_noop!(
             DSMapsModule::zone_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_rect(),
+                construct_testing_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
                 ), 

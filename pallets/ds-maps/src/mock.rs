@@ -104,7 +104,7 @@ impl crate::WeightInfo for WeightInfo {
 // After researches, consider placing here max grid sizes
 parameter_types! {
     pub const MaxHeight: u16 = 400;
-    pub const MaxBuildingsInArea: u16 = 100;
+    pub const MaxBuildingsInArea: u16 = 2;
 }
 
 impl Trait for Test {

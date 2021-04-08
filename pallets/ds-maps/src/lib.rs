@@ -246,7 +246,9 @@ decl_error! {
         /// Area can't contain no more buildings
         AreaFull,
         /// Zone points lies in different areas
-        OverlappingZone
+        ZoneDoesntFit,
+        /// Added zone overlaps with another in current area
+        OverlappingZone,
         // Add additional errors below
     }
 }
@@ -297,10 +299,10 @@ decl_module! {
             // Check if zone lies in one area 
             let area_id = Self::detect_intersected_area(RootBoxes::<T>::get(root_id), rect.north_west);
             let se_area_id = Self::detect_intersected_area(RootBoxes::<T>::get(root_id), rect.south_east);
-            ensure!(area_id == se_area_id, Error::<T>::OverlappingZone);
+            ensure!(area_id == se_area_id, Error::<T>::ZoneDoesntFit);
             
             // Getting area from storage, or creating it. If it just created, skip next stage of ensures.
-            let (area, area_exists) = if AreaData::contains_key(root_id, area_id) {
+            let (area, area_existed) = if AreaData::contains_key(root_id, area_id) {
                 (AreaData::get(root_id, area_id), true)
             } else {
                 AreaData::insert(root_id, area_id, Area::new(GREEN_AREA, 0));
@@ -309,14 +311,15 @@ decl_module! {
             
             let id = Self::pack_index(root_id, area_id, area.child_count); 
             // If area already exists, we check if it may contain any more zones. 
-            if area_exists {
+            
+            if area_existed {
                 ensure!(area.child_count < T::MaxBuildingsInArea::get(), Error::<T>::AreaFull);
                 ensure!(area.area_type == GREEN_AREA, Error::<T>::ForbiddenArea); 
                 // Check if zone overlaps with another zone in current area
                 let mut count: ZoneId = id - (area.child_count as u64);
                 while id - count != 0 {
-                    ensure!(!Self::zone_intersects(RedZones::<T>::get(count).rect, &rect), Error::<T>::OverlappingZone);
-                    count +=1;
+                    ensure!(Self::zone_intersects(&RedZones::<T>::get(count).rect, &rect), Error::<T>::OverlappingZone);
+                    count += 1;
                 }
             }
             
@@ -375,7 +378,7 @@ impl<T: Trait> Module<T> {
     }
 
     // You may check it, but better just trust me on this one :)
-    fn zone_intersects(a: Rect2D<T::Coord>, b: &Rect2D<T::Coord>) -> bool {
+    fn zone_intersects(a: &Rect2D<T::Coord>, b: &Rect2D<T::Coord>) -> bool {
         a.south_east.lon < b.north_west.lon || a.north_west.lon > b.south_east.lon ||
         a.south_east.lat < b.north_west.lat || a.north_west.lat > b.south_east.lat
     }
