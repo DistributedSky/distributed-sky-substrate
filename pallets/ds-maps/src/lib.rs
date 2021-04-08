@@ -42,7 +42,7 @@ impl<
         Point2D{lon, lat}
     }
 
-    /// there is no shared trait implementing method abs(), so it's written like that
+    /// There is no shared trait implementing method abs(), so it's written like that
     pub fn get_distance_vector(self, second_point: Point2D<Coord>) -> Point2D<Coord> {
         let lat_length = if self.lat > second_point.lat {
             self.lat - second_point.lat
@@ -58,7 +58,6 @@ impl<
     }
 }
 
-//derives and if req by compiler
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq)]
 pub struct Rect2D<Coord> {
@@ -152,7 +151,7 @@ pub trait Trait: accounts::Trait {
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type WeightInfo: WeightInfo;
 
-    // new types, consider descriptions
+    /// Represents GPS coordinate, usually 32 bit variables
     type Coord: Default 
     + Parameter
     + Copy
@@ -164,13 +163,17 @@ pub trait Trait: accounts::Trait {
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>;
 
+    /// Used in places where u32 is too much (as altitude)
     type LightCoord: Default 
     + Parameter
     + Copy
     + PartialOrd
     + FromStr;
 
+    /// This allows us to have top borders for checks
     type MaxBuildingsInArea: Get<u16>;
+    
+    /// Max available height of any building
     type MaxHeight: Get<Self::LightCoord>;
 }    
 
@@ -215,7 +218,7 @@ decl_event!(
         RootCreated(RootId, AccountId),
         /// New zone added [root, area, zone number, who]
         ZoneCreated(RootId, AreaId, ZoneId, AccountId),
-        /// area type changed [role, area, root, who]
+        /// Area type changed [role, area, root, who]
         AreaTypeChanged(u8, AreaId, RootId, AccountId),
     }
 );
@@ -242,7 +245,9 @@ decl_error! {
         BadDimesions,
         /// Area can't contain no more buildings
         AreaFull,
-        // add additional errors below
+        /// Zone points lies in different areas
+        OverlappingZone
+        // Add additional errors below
     }
 }
 
@@ -263,7 +268,7 @@ decl_module! {
                         delta: T::Coord) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
-            // TODO change ensures to inverted index (by global grid)
+            // TODO replace these ensures w inverted index (using global grid)
             let lat_dim = bounding_box.south_east.lat - bounding_box.north_west.lat;
             ensure!(lat_dim <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
             let lon_dim = bounding_box.south_east.lon - bounding_box.north_west.lon;
@@ -289,19 +294,32 @@ decl_module! {
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
             ensure!(height < T::MaxHeight::get(), Error::<T>::InvalidData);
-            // TODO calc required area in root from rect, rn no overlap checks
-            let area_id = Self::detect_intersecting_area(RootBoxes::<T>::get(root_id), rect.north_west);
-            // Getting area from storage, or creating it
-            let area = if AreaData::contains_key(root_id, area_id) {
-                AreaData::get(root_id, area_id)
+            // Check if zone lies in one area 
+            let area_id = Self::detect_intersected_area(RootBoxes::<T>::get(root_id), rect.north_west);
+            let se_area_id = Self::detect_intersected_area(RootBoxes::<T>::get(root_id), rect.south_east);
+            ensure!(area_id == se_area_id, Error::<T>::OverlappingZone);
+            
+            // Getting area from storage, or creating it. If it just created, skip next stage of ensures.
+            let (area, area_exists) = if AreaData::contains_key(root_id, area_id) {
+                (AreaData::get(root_id, area_id), true)
             } else {
                 AreaData::insert(root_id, area_id, Area::new(GREEN_AREA, 0));
-                Area::new(GREEN_AREA, 0)
+                (Area::new(GREEN_AREA, 0), false)
             };
-            ensure!(area.child_count < T::MaxBuildingsInArea::get(), Error::<T>::AreaFull);
-            ensure!(area.area_type == GREEN_AREA, Error::<T>::ForbiddenArea); 
-
+            
             let id = Self::pack_index(root_id, area_id, area.child_count); 
+            // If area already exists, we check if it may contain any more zones. 
+            if area_exists {
+                ensure!(area.child_count < T::MaxBuildingsInArea::get(), Error::<T>::AreaFull);
+                ensure!(area.area_type == GREEN_AREA, Error::<T>::ForbiddenArea); 
+                // Check if zone overlaps with another zone in current area
+                let mut count: ZoneId = id - (area.child_count as u64);
+                while id - count != 0 {
+                    ensure!(!Self::zone_intersects(RedZones::<T>::get(count).rect, &rect), Error::<T>::OverlappingZone);
+                    count +=1;
+                }
+            }
+            
             let zone = ZoneOf::<T>::new(id, rect, height);
             RedZones::<T>::insert(id, zone);
             AreaData::mutate(root_id, area_id, |ar| {
@@ -333,8 +351,8 @@ decl_module! {
 impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
-    /// Returns id of an area in root, in which supplied point is located
-    fn detect_intersecting_area(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> AreaId {
+    /// Returns id of an area in root, in which supplied zone is located
+    fn detect_intersected_area(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> AreaId {
         let root_base_point: Point2D<T::Coord> = 
         Point2D::new(root_box.bounding_box.north_west.lat,
                      root_box.bounding_box.north_west.lon); 
@@ -356,7 +374,13 @@ impl<T: Trait> Module<T> {
         (total_rows * (column - 1)) + row
     }
 
-    /// creates type from str, no error handling
+    // You may check it, but better just trust me on this one :)
+    fn zone_intersects(a: Rect2D<T::Coord>, b: &Rect2D<T::Coord>) -> bool {
+        a.south_east.lon < b.north_west.lon || a.north_west.lon > b.south_east.lon ||
+        a.south_east.lat < b.north_west.lat || a.north_west.lat > b.south_east.lat
+    }
+    
+    /// Creates type from str, no error handling
     fn coord_from_str<Coord> (s: &str) -> Coord
             where Coord: FromStr + Default {
         match Coord::from_str(s) {
@@ -365,15 +389,15 @@ impl<T: Trait> Module<T> {
         }
     } 
 
-    /// form index for storing zones, wrapped in u64
-    // v.............root id here............v v.....area id.....v v..child objects..v
-    // 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+    /// Form index for storing zones, wrapped in u64............limited by const in runtime
+    /// v.............root id here............v v.....area id.....v v..child objects..v
+    /// 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
     fn pack_index(root: RootId, area: AreaId, children: u16) -> ZoneId {
         (root as u64) << 32 |
         (area as u64) << 16 | 
         children as u64
     }
-
+    /// Reverse function for pack_index
     #[allow(dead_code)]
     fn unpack_index(index: ZoneId) -> (RootId, AreaId, u16) {
         let mask_u16: u64 = 0x0000_0000_0000_0000_0000_0000_ffff_ffff;

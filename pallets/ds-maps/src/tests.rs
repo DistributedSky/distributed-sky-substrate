@@ -7,6 +7,29 @@ use frame_support::{
 use substrate_fixed::types::I9F23;
 use sp_std::str::FromStr;
 
+/// Explanation for all hardcoded values down here
+///                             Root        P2(55.92, 37.90)
+///            +----+-------------------------+----O
+///            |2861|                         |2915|
+///            |    | Area 2861               |    |
+///            +----+                         +----+
+///            |                                   |
+///            |                                   |
+///            |                                   |
+///            |                                   |
+///            |                                   |
+///            +----+        Moscow                |
+///            |111 |                              |
+///            |    |                              |
+///            +----+----+----+ Zone(55.395,       |
+///            | 56 | 57 | 58 |<-----              |
+///            |    |    |  Z |   37.385)          |
+///        +-> +----+----+----+               +----+
+///        |   | 1  | 2  | 3  |               | 55 |
+///  delta |   |    |    |    |               |    |
+///  =0.01 +-> O----+----+----+---------------+----+
+///           Origin(55.37, 37.37)
+
 type Error = super::Error<Test>;
 type Coord = I9F23;
 
@@ -52,7 +75,13 @@ fn construct_rect() -> Rect2D<Coord> {
                                                   coord("37.386"));
     Rect2D::new(north_west, south_east)
 }
-
+fn construct_huge_rect() -> Rect2D<Coord> {
+    let north_west: Point2D<Coord> = Point2D::new(coord("55.395"),
+                                                  coord("37.385"));
+    let south_east: Point2D<Coord> = Point2D::new(coord("56.396"),
+                                                  coord("37.386"));
+    Rect2D::new(north_west, south_east)
+}
 #[test]
 fn it_try_add_root_unauthorized() {
     new_test_ext().execute_with(|| {
@@ -165,6 +194,32 @@ fn it_try_add_zone_by_registrar() {
                 ROOT_ID,
             ),
             Error::NotAuthorized
+        );
+    });
+}
+
+#[test]
+fn it_try_add_overlapping_zone() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(DSAccountsModule::account_add(
+            Origin::signed(ADMIN_ACCOUNT_ID),
+            REGISTRAR_1_ACCOUNT_ID,
+            super::REGISTRAR_ROLE
+        ));
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_box(),
+                coord(DELTA)
+        ));
+        assert_noop!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_huge_rect(),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+            ),
+            Error::OverlappingZone
         );
     });
 }
