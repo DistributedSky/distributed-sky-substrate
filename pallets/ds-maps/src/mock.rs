@@ -101,6 +101,7 @@ impl crate::WeightInfo for WeightInfo {
         <() as crate::WeightInfo>::change_area_type()
     }
 }
+
 // After researches, consider placing here max grid sizes
 parameter_types! {
     pub const MaxHeight: u16 = 400;

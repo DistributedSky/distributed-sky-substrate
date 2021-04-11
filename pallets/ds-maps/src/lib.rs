@@ -130,12 +130,11 @@ impl<Coord> RootBox <Coord> {
 #[derive(Encode, Decode, Default, Debug, PartialEq)]
 pub struct Area {
     pub area_type: u8,
-    pub child_count: u16,
 }
 
 impl Area {
-    pub fn new(area_type: u8, child_count: u16) -> Self {
-        Area{area_type, child_count}
+    pub fn new(area_type: u8) -> Self {
+        Area{area_type}
     } 
 }
 
@@ -170,7 +169,7 @@ pub trait Trait: accounts::Trait {
     + PartialOrd
     + FromStr;
 
-    /// This allows us to have top borders for checks
+    /// This allows us to have a top border
     type MaxBuildingsInArea: Get<u16>;
     
     /// Max available height of any building
@@ -220,6 +219,8 @@ decl_event!(
         ZoneCreated(RootId, AreaId, ZoneId, AccountId),
         /// Area type changed [role, area, root, who]
         AreaTypeChanged(u8, AreaId, RootId, AccountId),
+        /// Zone was removed from storage
+        ZoneRemoved(ZoneId, AccountId),
     }
 );
 
@@ -247,6 +248,8 @@ decl_error! {
         AreaFull,
         /// Zone points lies in different areas
         ZoneDoesntFit,
+        /// Zone you are trying to access is not in storage
+        ZoneDoesntExist,
         /// Added zone overlaps with another in current area
         OverlappingZone,
         // Add additional errors below
@@ -301,37 +304,67 @@ decl_module! {
             let se_area_id = Self::detect_intersected_area(RootBoxes::<T>::get(root_id), rect.south_east);
             ensure!(area_id == se_area_id, Error::<T>::ZoneDoesntFit);
             
-            // Getting area from storage, or creating it. If it just created, skip next stage of ensures.
+            // Getting area from storage, or creating it.
             let (area, area_existed) = if AreaData::contains_key(root_id, area_id) {
                 (AreaData::get(root_id, area_id), true)
             } else {
-                AreaData::insert(root_id, area_id, Area::new(GREEN_AREA, 0));
-                (Area::new(GREEN_AREA, 0), false)
+                AreaData::insert(root_id, area_id, Area::new(GREEN_AREA));
+                (Area::new(GREEN_AREA), false)
             };
+
+            let max_zones = T::MaxBuildingsInArea::get();
+            let first_empty_id = Self::pack_index(root_id, area_id, 0);
+            let mut zone_id: ZoneId = first_empty_id;
             
-            let id = Self::pack_index(root_id, area_id, area.child_count); 
-            // If area already exists, we check if it may contain any more zones. 
-            
+            // If area already exists, we check if it's full, and check all zones inside for intersection
             if area_existed {
-                ensure!(area.child_count < T::MaxBuildingsInArea::get(), Error::<T>::AreaFull);
                 ensure!(area.area_type == GREEN_AREA, Error::<T>::ForbiddenArea); 
-                // Check if zone overlaps with another zone in current area
-                let mut count: ZoneId = id - (area.child_count as u64);
-                while id - count != 0 {
-                    ensure!(Self::zone_intersects(&RedZones::<T>::get(count).rect, &rect), Error::<T>::OverlappingZone);
+                let mut children = 1;
+                // Check, can we add new zone. If so, we generate its number.
+                while children < max_zones {
+                    if RedZones::<T>::contains_key(first_empty_id + children as u64) {
+                        children += 1;
+                    } else { 
+                        zone_id = Self::pack_index(root_id, area_id, children);
+                        break;
+                    }
+                } 
+                ensure!(zone_id != first_empty_id, Error::<T>::AreaFull);
+                // Check if our zone overlaps with another zone in current area
+                let mut count: ZoneId = first_empty_id;
+                while count != first_empty_id + max_zones as u64 {
+                    if RedZones::<T>::contains_key(count) {
+                        ensure!(Self::zone_intersects(&RedZones::<T>::get(count).rect, &rect), Error::<T>::OverlappingZone);
+                    } 
                     count += 1;
                 }
+            } else {
+                zone_id = first_empty_id; 
             }
             
-            let zone = ZoneOf::<T>::new(id, rect, height);
-            RedZones::<T>::insert(id, zone);
-            AreaData::mutate(root_id, area_id, |ar| {
-                ar.child_count += 1;
-            });
-            Self::deposit_event(RawEvent::ZoneCreated(root_id, area_id, id, who));
+            let zone = ZoneOf::<T>::new(zone_id, rect, height);
+            RedZones::<T>::insert(zone_id, zone);
+            // AreaData::mutate(root_id, area_id, |ar| {
+            //     ar.child_count += 1;
+            // });
+            Self::deposit_event(RawEvent::ZoneCreated(root_id, area_id, zone_id, who));
+            Ok(())
+        }
+        
+        #[weight = <T as Trait>::WeightInfo::zone_add()]
+        pub fn remove_root(origin, root_id: RootId) -> dispatch::DispatchResult {
             Ok(())
         }
 
+        #[weight = <T as Trait>::WeightInfo::zone_add()]
+        pub fn remove_zone(origin, zone_id: ZoneId) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin)?;
+            ensure!(RedZones::<T>::contains_key(count), Error::<T>::ZoneDoesntExist);
+            RedZones::<T>::remove(zone_id);
+            Self::deposit_event(RawEvent::ZoneRemoved(zone_id, who));
+            Ok(())
+        }
+        
         /// Changes area type with u8 bit flag
         #[weight = <T as Trait>::WeightInfo::change_area_type()]
         pub fn change_area_type(origin, 
@@ -354,7 +387,7 @@ decl_module! {
 impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
-    /// Returns id of an area in root, in which supplied zone is located
+    /// Returns id of an area in root, in which supplied point is located
     fn detect_intersected_area(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> AreaId {
         let root_base_point: Point2D<T::Coord> = 
         Point2D::new(root_box.bounding_box.north_west.lat,
@@ -400,7 +433,8 @@ impl<T: Trait> Module<T> {
         (area as u64) << 16 | 
         children as u64
     }
-    /// Reverse function for pack_index
+
+    /// Reverse function for pack_index()
     #[allow(dead_code)]
     fn unpack_index(index: ZoneId) -> (RootId, AreaId, u16) {
         let mask_u16: u64 = 0x0000_0000_0000_0000_0000_0000_ffff_ffff;
