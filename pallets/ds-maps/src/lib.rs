@@ -120,9 +120,47 @@ pub struct RootBox<Coord> {
     pub delta: Coord,
 }
 
-impl<Coord> RootBox <Coord> {
+impl<Coord: PartialOrd
+          + Sub<Output = Coord> 
+          + Div<Output = Coord> 
+          + Cast<AreaId>
+          + Copy> RootBox <Coord> {
     pub fn new(id: RootId, bounding_box: Box3D<Coord>, delta: Coord) -> Self {
         RootBox{id, bounding_box, delta}
+    }
+    /// Returns maximum area index of given root. Guess, mostly - 655356.
+    pub fn get_max_area(self) -> AreaId {
+        let touch = Point2D::new(self.bounding_box.south_east.lat,
+                                 self.bounding_box.south_east.lon); 
+        Self::detect_intersected_area(self, touch)
+    }
+
+    /// Returns id of an area in root, in which supplied point is located
+    fn detect_intersected_area(self, touch: Point2D<Coord>) -> AreaId {
+        let root_base_point: Point2D<Coord> = 
+        Point2D::new(self.bounding_box.north_west.lat,
+                     self.bounding_box.north_west.lon); 
+        let root_secondary_point: Point2D<Coord> = 
+        Point2D::new(self.bounding_box.south_east.lat,
+                    self.bounding_box.south_east.lon); 
+        let root_dimensions = root_base_point.get_distance_vector(root_secondary_point);
+        let distance_vector = root_base_point.get_distance_vector(touch);
+        
+        let delta = self.delta;
+        let touch_lon = distance_vector.lon;
+        let touch_lat = distance_vector.lat;
+        let root_lat_dimension = root_dimensions.lat;
+
+        let row: u16 = (touch_lat / delta).cast() + 1;
+        let column: u16 = (touch_lon / delta).cast() + 1;
+        let total_rows: u16 = (root_lat_dimension / delta).cast();
+
+        (total_rows * (column - 1)) + row
+    }
+
+    // This function used only in tests, consider usability
+    pub fn is_active(self) -> bool {
+        self.id != 0
     }
 }
 
@@ -169,7 +207,7 @@ pub trait Trait: accounts::Trait {
     + PartialOrd
     + FromStr;
 
-    /// This allows us to have a top border
+    /// This allows us to have a top border for zones
     type MaxBuildingsInArea: Get<u16>;
     
     /// Max available height of any building
@@ -179,6 +217,8 @@ pub trait Trait: accounts::Trait {
 pub trait WeightInfo {
     fn root_add() -> Weight;
     fn zone_add() -> Weight;
+    fn root_remove() -> Weight;
+    fn zone_remove() -> Weight;
     fn change_area_type() -> Weight;
 }
 
@@ -188,7 +228,7 @@ decl_storage! {
     // ---------------------------------vvvvvvvvvvvv
     trait Store for Module<T: Trait> as DSMapsModule {
         // MAX is 4_294_967_295. Change if required more.
-        TotalRoots get(fn total_roots): RootId = 0;    
+        TotalRoots get(fn total_roots): RootId = 1;    
 
         RootBoxes get(fn root_box_data): 
             map hasher(blake2_128_concat) RootId => RootBoxOf<T>;
@@ -219,6 +259,8 @@ decl_event!(
         ZoneCreated(RootId, AreaId, ZoneId, AccountId),
         /// Area type changed [role, area, root, who]
         AreaTypeChanged(u8, AreaId, RootId, AccountId),
+        /// Root was removed from storage
+        RootRemoved(RootId, AccountId),
         /// Zone was removed from storage
         ZoneRemoved(ZoneId, AccountId),
     }
@@ -240,7 +282,7 @@ decl_error! {
         NotExists,
         /// Area is unavailable for operation
         ForbiddenArea,
-        /// Trying to add zone in non-existing root
+        /// Root you are trying to access is not in storage
         RootDoesNotExist,
         /// Sizes are off bounds
         BadDimesions,
@@ -299,12 +341,11 @@ decl_module! {
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
             ensure!(height < T::MaxHeight::get(), Error::<T>::InvalidData);
-            // Check if zone lies in one area 
-            let area_id = Self::detect_intersected_area(RootBoxes::<T>::get(root_id), rect.north_west);
-            let se_area_id = Self::detect_intersected_area(RootBoxes::<T>::get(root_id), rect.south_east);
+            // Check if zone lies in one single area 
+            let area_id = RootBoxes::<T>::get(root_id).detect_intersected_area(rect.north_west);
+            let se_area_id = RootBoxes::<T>::get(root_id).detect_intersected_area(rect.south_east);
             ensure!(area_id == se_area_id, Error::<T>::ZoneDoesntFit);
-            
-            // Getting area from storage, or creating it.
+            // Getting area from storage, or creating it
             let (area, area_existed) = if AreaData::contains_key(root_id, area_id) {
                 (AreaData::get(root_id, area_id), true)
             } else {
@@ -321,9 +362,11 @@ decl_module! {
                 ensure!(area.area_type == GREEN_AREA, Error::<T>::ForbiddenArea); 
                 let mut current_zone: ZoneId = first_empty_id;
                 let mut empty_id_found: bool = false;
-                // Check, can we add new zone. If so, we generate its number.
+                // Maybe, this cycle should be splitted in two. One finds first unused Id,
+                // and only if it was found, we should look for intersections. Not sure.
                 while current_zone < first_empty_id + max_zones as ZoneId {
                     if RedZones::<T>::contains_key(current_zone) || empty_id_found {
+                        // Check if our zone overlaps with another zone in current area
                         ensure!(Self::zone_intersects(&RedZones::<T>::get(current_zone).rect, &rect), Error::<T>::OverlappingZone);
                         current_zone += 1;
                     } else { 
@@ -331,30 +374,53 @@ decl_module! {
                         empty_id_found = true;
                     }
                 } 
-                ensure!(zone_id != first_empty_id, Error::<T>::AreaFull);
-                // Check if our zone overlaps with another zone in current area
+                ensure!(empty_id_found, Error::<T>::AreaFull);
             } else {
+                // This is first zone in area, we don't need to check any intersections and stuff.
                 zone_id = first_empty_id; 
             }
             
             let zone = ZoneOf::<T>::new(zone_id, rect, height);
             RedZones::<T>::insert(zone_id, zone);
-            // AreaData::mutate(root_id, area_id, |ar| {
-            //     ar.child_count += 1;
-            // });
             Self::deposit_event(RawEvent::ZoneCreated(root_id, area_id, zone_id, who));
             Ok(())
         }
-        
-        #[weight = <T as Trait>::WeightInfo::zone_add()]
-        pub fn remove_root(origin, root_id: RootId) -> dispatch::DispatchResult {
+
+        /// Removes root by given id, and zones inside. This means, function might be heavy. 
+        #[weight = <T as Trait>::WeightInfo::root_remove()]
+        pub fn root_remove(origin, root_id: RootId) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin)?;
+            ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
+            ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
+
+            let max_zones = T::MaxBuildingsInArea::get();
+            let max_areas = RootBoxes::<T>::get(root_id).get_max_area();
+            // Recursively remove all zones inside selected root
+            let mut zone_id = Self::pack_index(root_id, 0, 0);
+            let mut area_id = 0;
+            while area_id <= max_areas {
+                let max_zones_in_area = zone_id + max_zones as ZoneId;
+                while zone_id < max_zones_in_area {
+                    if RedZones::<T>::contains_key(zone_id) {
+                        RedZones::<T>::remove(zone_id); 
+                    }
+                    zone_id += 1;
+                }
+                area_id += 1;
+                zone_id = Self::pack_index(root_id, area_id, 0);
+            }
+
+            RootBoxes::<T>::remove(root_id);
+            Self::deposit_event(RawEvent::RootRemoved(root_id, who));
             Ok(())
         }
-
-        #[weight = <T as Trait>::WeightInfo::zone_add()]
+        /// Removes area by given id
+        #[weight = <T as Trait>::WeightInfo::zone_remove()]
         pub fn zone_remove(origin, zone_id: ZoneId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
+            ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             ensure!(RedZones::<T>::contains_key(zone_id), Error::<T>::ZoneDoesntExist);
+            
             RedZones::<T>::remove(zone_id);
             Self::deposit_event(RawEvent::ZoneRemoved(zone_id, who));
             Ok(())
@@ -369,6 +435,7 @@ decl_module! {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             ensure!(AreaData::contains_key(root_id, area_id), Error::<T>::NotExists);
+            
             AreaData::mutate(root_id, area_id, |ar| {
                 ar.area_type = area_type;
             });
@@ -382,30 +449,7 @@ decl_module! {
 impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
-    /// Returns id of an area in root, in which supplied point is located
-    fn detect_intersected_area(root_box: RootBoxOf<T>, touch: Point2D<T::Coord>) -> AreaId {
-        let root_base_point: Point2D<T::Coord> = 
-        Point2D::new(root_box.bounding_box.north_west.lat,
-                     root_box.bounding_box.north_west.lon); 
-        let root_secondary_point: Point2D<T::Coord> = 
-        Point2D::new(root_box.bounding_box.south_east.lat,
-                    root_box.bounding_box.south_east.lon); 
-        let root_dimensions = root_base_point.get_distance_vector(root_secondary_point);
-        let distance_vector = root_base_point.get_distance_vector(touch);
-        
-        let delta = root_box.delta;
-        let touch_lon = distance_vector.lon;
-        let touch_lat = distance_vector.lat;
-        let root_lat_dimension = root_dimensions.lat;
-
-        let row: u16 = (touch_lat / delta).cast() + 1;
-        let column: u16 = (touch_lon / delta).cast() + 1;
-        let total_rows: u16 = (root_lat_dimension / delta).cast();
-
-        (total_rows * (column - 1)) + row
-    }
-
-    // You may check it, but better just trust me on this one :)
+    // Just trust me on this one, it works
     fn zone_intersects(a: &Rect2D<T::Coord>, b: &Rect2D<T::Coord>) -> bool {
         a.south_east.lon < b.north_west.lon || a.north_west.lon > b.south_east.lon ||
         a.south_east.lat < b.north_west.lat || a.north_west.lat > b.south_east.lat

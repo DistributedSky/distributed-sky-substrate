@@ -54,19 +54,19 @@ type Coord = I9F23;
 // Constants to make tests more readable
 const ADMIN_ACCOUNT_ID: u64 = 1;
 const REGISTRAR_1_ACCOUNT_ID: u64 = 2;
-const ROOT_ID: u32 = 0;
+const ROOT_ID: u32 = 1;
 // this value, and values in construct() was calculated
 const AREA_ID: u16 = 58;
 const DEFAULT_HEIGHT: u16 = 30;
 
 const DELTA: &str = "0.01";
 
-// shortcut for creating Coord from &str
+// shortcut for &str -> Coord
 fn coord<Coord>(s: &str) -> Coord
     where Coord: FromStr,
          <Coord as FromStr>::Err: std::fmt::Debug { Coord::from_str(s).unwrap() }
 
-fn construct_box() -> Box3D<Coord> {
+fn construct_testing_box() -> Box3D<Coord> {
     let north_west: Point3D<Coord> = Point3D::new(coord("55.37"),
                                                   coord("37.37"), 
                                                   coord("1"));
@@ -76,12 +76,13 @@ fn construct_box() -> Box3D<Coord> {
     Box3D::new(north_west, south_east)
 }
 
-fn construct_huge_box() -> Box3D<Coord> {
-    let north_west: Point3D<Coord> = Point3D::new(coord("55.37"),
-                                                  coord("37.37"), 
+fn construct_custom_box(nw_lat: &str, nw_lon: &str,
+                        se_lat: &str, se_lon: &str) -> Box3D<Coord> {
+    let north_west: Point3D<Coord> = Point3D::new(coord(nw_lat),
+                                                  coord(nw_lon), 
                                                   coord("1"));
-    let south_east: Point3D<Coord> = Point3D::new(coord("66.92"),
-                                                  coord("37.90"),       
+    let south_east: Point3D<Coord> = Point3D::new(coord(se_lat),
+                                                  coord(se_lon),       
                                                   coord("3"));      
     Box3D::new(north_west, south_east)
 }
@@ -112,7 +113,7 @@ fn it_try_add_root_unauthorized() {
         assert_noop!(
             DSMapsModule::root_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
-                construct_box(),
+                construct_testing_box(),
                 coord(DELTA)
             ),
             Error::NotAuthorized
@@ -123,25 +124,53 @@ fn it_try_add_root_unauthorized() {
 #[test]
 fn it_try_add_root_by_registrar() {
     new_test_ext().execute_with(|| {
-        assert_ok!(DSAccountsModule::account_add(
-            Origin::signed(ADMIN_ACCOUNT_ID),
-            REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
         ));
         assert_ok!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_box(),
+                construct_testing_box(),
                 coord(DELTA)
         ));
         assert_noop!(
             DSMapsModule::root_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
-                construct_box(),
+                construct_testing_box(),
                 coord(DELTA)
             ),
             Error::NotAuthorized
         );
+    });
+}
+
+#[test]
+fn it_try_remove_root() {    
+    new_test_ext().execute_with(|| {
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
+        ));
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_box(),
+                coord(DELTA)
+        ));
+        let root = DSMapsModule::root_box_data(ROOT_ID);
+        assert!(root.is_active());
+        assert_ok!(
+            DSMapsModule::root_remove(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                ROOT_ID,
+        ));
+        let root = DSMapsModule::root_box_data(ROOT_ID);
+        assert!(!root.is_active());
     });
 }
 
@@ -168,11 +197,11 @@ fn it_try_add_zone_to_not_existing_root() {
     new_test_ext().execute_with(|| {
         let account = DSAccountsModule::account_registry(2);
         assert!(!account.is_enabled());
-
-        assert_ok!(DSAccountsModule::account_add(
-            Origin::signed(ADMIN_ACCOUNT_ID),
-            REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
         ));
         assert_noop!(
             DSMapsModule::zone_add(
@@ -189,15 +218,16 @@ fn it_try_add_zone_to_not_existing_root() {
 #[test]
 fn it_try_add_zone_by_registrar() {
     new_test_ext().execute_with(|| {
-        assert_ok!(DSAccountsModule::account_add(
-            Origin::signed(ADMIN_ACCOUNT_ID),
-            REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
         ));
         assert_ok!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_box(),
+                construct_testing_box(),
                 coord(DELTA)
         ));
         assert_ok!(
@@ -230,7 +260,7 @@ fn it_try_get_zone() {
         assert_ok!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_box(),
+                construct_testing_box(),
                 coord(DELTA)
         ));
         assert_ok!(
@@ -256,7 +286,7 @@ fn it_try_remove_zone() {
         assert_ok!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_box(),
+                construct_testing_box(),
                 coord(DELTA)
         ));
         assert_ok!(
@@ -275,12 +305,13 @@ fn it_try_remove_zone() {
                 zone_index,
         ));
         let zone = DSMapsModule::zone_data(zone_index);
+        // Guess, not the best way to check, but it works
         assert!(construct_custom_rect("0", "0", "0", "0") == zone.rect);
     });
 }
 
 #[test]
-fn it_try_add_zone_which_lie_in_different_areas() {
+fn it_try_add_zone_which_lies_in_different_areas() {
     new_test_ext().execute_with(|| {
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
@@ -290,7 +321,7 @@ fn it_try_add_zone_which_lie_in_different_areas() {
         assert_ok!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_box(),
+                construct_testing_box(),
                 coord(DELTA)
         ));
         assert_noop!(
@@ -317,7 +348,7 @@ fn it_try_add_overlapping_zones() {
         assert_ok!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_box(),
+                construct_testing_box(),
                 coord(DELTA)
         ));
         assert_ok!(
@@ -342,15 +373,16 @@ fn it_try_add_overlapping_zones() {
 #[test]
 fn it_try_add_not_overlapping_zones() {
     new_test_ext().execute_with(|| {
-        assert_ok!(DSAccountsModule::account_add(
-            Origin::signed(ADMIN_ACCOUNT_ID),
-            REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
         ));
         assert_ok!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_box(),
+                construct_testing_box(),
                 coord(DELTA)
         ));
         assert_ok!(
@@ -367,22 +399,23 @@ fn it_try_add_not_overlapping_zones() {
                                       "55.392", "37.382"),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
-            ));
+        ));
     });
 }
 
 #[test]
 fn it_try_add_more_than_max_zones() {
     new_test_ext().execute_with(|| {
-        assert_ok!(DSAccountsModule::account_add(
-            Origin::signed(ADMIN_ACCOUNT_ID),
-            REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
         ));
         assert_ok!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_box(),
+                construct_testing_box(),
                 coord(DELTA)
         ));
         assert_ok!(
@@ -416,15 +449,16 @@ fn it_try_add_more_than_max_zones() {
 #[test]
 fn it_changes_not_existing_area_type() {    
     new_test_ext().execute_with(|| {
-        assert_ok!(DSAccountsModule::account_add(
-            Origin::signed(ADMIN_ACCOUNT_ID),
-            REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
         ));
         assert_ok!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_box(),
+                construct_testing_box(),
                 coord(DELTA)
         ));
         assert_noop!(
@@ -434,7 +468,7 @@ fn it_changes_not_existing_area_type() {
                 AREA_ID,
                 0
             ),
-        Error::NotExists
+            Error::NotExists
         );
     });
 }
@@ -442,15 +476,16 @@ fn it_changes_not_existing_area_type() {
 #[test]
 fn it_adds_restricted_size_root() {    
     new_test_ext().execute_with(|| {
-        assert_ok!(DSAccountsModule::account_add(
-            Origin::signed(ADMIN_ACCOUNT_ID),
-            REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
         ));
         assert_noop!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_huge_box(),
+                construct_custom_box("55.37", "37.37", "56.92", "37.90"),
                 coord(DELTA)
             ), 
             Error::BadDimesions
@@ -458,7 +493,7 @@ fn it_adds_restricted_size_root() {
         assert_noop!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_box(),
+                construct_testing_box(),
                 Coord::from_num(1)
             ), 
             Error::InvalidData
@@ -469,15 +504,16 @@ fn it_adds_restricted_size_root() {
 #[test]
 fn it_changes_existing_area_type() {    
     new_test_ext().execute_with(|| {
-        assert_ok!(DSAccountsModule::account_add(
-            Origin::signed(ADMIN_ACCOUNT_ID),
-            REGISTRAR_1_ACCOUNT_ID,
-            super::REGISTRAR_ROLE
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
         ));
         assert_ok!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_box(),
+                construct_testing_box(),
                 coord(DELTA)
         ));
         assert_ok!(
@@ -500,7 +536,7 @@ fn it_changes_existing_area_type() {
                 construct_testing_rect(),
                 DEFAULT_HEIGHT, 
                 ROOT_ID,
-                ), 
+            ), 
             Error::ForbiddenArea
         );
     });

@@ -97,6 +97,12 @@ impl crate::WeightInfo for WeightInfo {
     fn zone_add() -> Weight {
         <() as crate::WeightInfo>::zone_add()
     }
+    fn root_remove() -> Weight {
+        <() as crate::WeightInfo>::root_remove()
+    }
+    fn zone_remove() -> Weight {
+        <() as crate::WeightInfo>::zone_remove()
+    }
     fn change_area_type() -> Weight {
         <() as crate::WeightInfo>::change_area_type()
     }
@@ -149,7 +155,7 @@ impl pallet_ds_accounts::Trait for Test {
 pub type DSMapsModule = Module<Test>;
 
 pub type DSAccountsModule = pallet_ds_accounts::Module<Test>;
-// Was taken from another mock, might be not best way to do
+
 static INITIAL: [(
     <Test as system::Trait>::AccountId,
     <Test as pallet_ds_accounts::Trait>::AccountRole,
