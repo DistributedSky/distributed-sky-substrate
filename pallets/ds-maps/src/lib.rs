@@ -319,25 +319,20 @@ decl_module! {
             // If area already exists, we check if it's full, and check all zones inside for intersection
             if area_existed {
                 ensure!(area.area_type == GREEN_AREA, Error::<T>::ForbiddenArea); 
-                let mut children = 1;
+                let mut current_zone: ZoneId = first_empty_id;
+                let mut empty_id_found: bool = false;
                 // Check, can we add new zone. If so, we generate its number.
-                while children < max_zones {
-                    if RedZones::<T>::contains_key(first_empty_id + children as u64) {
-                        children += 1;
+                while current_zone < first_empty_id + max_zones as ZoneId {
+                    if RedZones::<T>::contains_key(current_zone) || empty_id_found {
+                        ensure!(Self::zone_intersects(&RedZones::<T>::get(current_zone).rect, &rect), Error::<T>::OverlappingZone);
+                        current_zone += 1;
                     } else { 
-                        zone_id = Self::pack_index(root_id, area_id, children);
-                        break;
+                        zone_id = current_zone;
+                        empty_id_found = true;
                     }
                 } 
                 ensure!(zone_id != first_empty_id, Error::<T>::AreaFull);
                 // Check if our zone overlaps with another zone in current area
-                let mut count: ZoneId = first_empty_id;
-                while count != first_empty_id + max_zones as u64 {
-                    if RedZones::<T>::contains_key(count) {
-                        ensure!(Self::zone_intersects(&RedZones::<T>::get(count).rect, &rect), Error::<T>::OverlappingZone);
-                    } 
-                    count += 1;
-                }
             } else {
                 zone_id = first_empty_id; 
             }
@@ -357,9 +352,9 @@ decl_module! {
         }
 
         #[weight = <T as Trait>::WeightInfo::zone_add()]
-        pub fn remove_zone(origin, zone_id: ZoneId) -> dispatch::DispatchResult {
+        pub fn zone_remove(origin, zone_id: ZoneId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
-            ensure!(RedZones::<T>::contains_key(count), Error::<T>::ZoneDoesntExist);
+            ensure!(RedZones::<T>::contains_key(zone_id), Error::<T>::ZoneDoesntExist);
             RedZones::<T>::remove(zone_id);
             Self::deposit_event(RawEvent::ZoneRemoved(zone_id, who));
             Ok(())
