@@ -12,8 +12,8 @@ use frame_support::{
     Parameter,
     traits::Get,
 };
-use az::Cast;
 use sp_std::str::FromStr;
+use dsky_utils::MathUtils;
 
 use frame_system::ensure_signed;
 use pallet_ds_accounts as accounts;
@@ -34,26 +34,17 @@ pub struct Point2D<Coord> {
     lat: Coord,
 }
 
-impl<
-        Coord: PartialOrd + Sub<Output = Coord>
-    > Point2D<Coord> 
-{
+impl<Coord: PartialOrd 
+          + Sub<Output = Coord> 
+          + MathUtils> Point2D<Coord> {
     pub fn new(lon: Coord, lat: Coord) -> Self {
         Point2D{lon, lat}
     }
 
     /// There is no shared trait implementing method abs(), so it's written like that
     pub fn get_distance_vector(self, second_point: Point2D<Coord>) -> Point2D<Coord> {
-        let lat_length = if self.lat > second_point.lat {
-            self.lat - second_point.lat
-        } else {
-            second_point.lat - self.lat
-        };
-        let long_length = if self.lon > second_point.lon {
-            self.lon - second_point.lon 
-        } else {
-            second_point.lon - self.lon
-        };
+        let lat_length = (self.lat - second_point.lat).abs();
+        let long_length = (self.lon - second_point.lon).abs();
         Point2D::new(lat_length, long_length)
     }
 }
@@ -123,7 +114,7 @@ pub struct RootBox<Coord> {
 impl<Coord: PartialOrd
           + Sub<Output = Coord> 
           + Div<Output = Coord> 
-          + Cast<AreaId>
+          + MathUtils
           + Copy> RootBox <Coord> {
     pub fn new(id: RootId, bounding_box: Box3D<Coord>, delta: Coord) -> Self {
         RootBox{id, bounding_box, delta}
@@ -137,10 +128,10 @@ impl<Coord: PartialOrd
 
     /// Returns id of an area in root, in which supplied point is located
     fn detect_intersected_area(self, touch: Point2D<Coord>) -> AreaId {
-        let root_base_point: Point2D<Coord> = 
+        let root_base_point = 
         Point2D::new(self.bounding_box.north_west.lat,
                      self.bounding_box.north_west.lon); 
-        let root_secondary_point: Point2D<Coord> = 
+        let root_secondary_point = 
         Point2D::new(self.bounding_box.south_east.lat,
                     self.bounding_box.south_east.lon); 
         let root_dimensions = root_base_point.get_distance_vector(root_secondary_point);
@@ -151,15 +142,15 @@ impl<Coord: PartialOrd
         let touch_lat = distance_vector.lat;
         let root_lat_dimension = root_dimensions.lat;
 
-        let row: u16 = (touch_lat / delta).cast() + 1;
-        let column: u16 = (touch_lon / delta).cast() + 1;
-        let total_rows: u16 = (root_lat_dimension / delta).cast();
+        let row: u16 = touch_lat.integer_divide(delta) + 1;
+        let column: u16 = touch_lon.integer_divide(delta) + 1;
+        let total_rows: u16 = root_lat_dimension.integer_divide(delta);
 
         (total_rows * (column - 1)) + row
     }
 
     // This function used only in tests, consider usability
-    pub fn is_active(self) -> bool {
+    pub fn is_active(&self) -> bool {
         self.id != 0
     }
 }
@@ -196,7 +187,7 @@ pub trait Trait: accounts::Trait {
     + PartialEq
     + FromStr
     + Default
-    + Cast<u16>
+    + MathUtils
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>;
 
@@ -355,13 +346,13 @@ decl_module! {
 
             let max_zones = T::MaxBuildingsInArea::get();
             let first_empty_id = Self::pack_index(root_id, area_id, 0);
-            let mut zone_id: ZoneId = first_empty_id;
+            let mut zone_id = first_empty_id;
             
             // If area already exists, we check if it's full, and check all zones inside for intersection
             if area_existed {
                 ensure!(area.area_type == GREEN_AREA, Error::<T>::ForbiddenArea); 
-                let mut current_zone: ZoneId = first_empty_id;
-                let mut empty_id_found: bool = false;
+                let mut current_zone = first_empty_id;
+                let mut empty_id_found = false;
                 // Maybe, this cycle should be splitted in two. One finds first unused Id,
                 // and only if it was found, we should look for intersections. Not sure.
                 while current_zone < first_empty_id + max_zones as ZoneId {

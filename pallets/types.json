@@ -15,6 +15,7 @@
 		"managed_by": "AccountId"
 	},
 	"Coord": "I9F23",
+	"LightCoord": "u32",
 	"AreaId": "u16",
 	"RootId": "u32",
 	"ZoneId": "u64",

@@ -4,7 +4,7 @@ use node_dsky_runtime::{
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{sr25519, Pair, Public};
+use sp_core::{crypto::Ss58Codec, sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
@@ -47,6 +47,10 @@ pub fn development_config() -> Result<ChainSpec, String> {
         "dev",
         ChainType::Development,
         move || {
+            let master_account_id: AccountId =
+                Ss58Codec::from_ss58check("5Gn6YMyoNZVZx9jCpANYDRPMB2p4FwyUTy1tKgfPTZz4vQFL").unwrap();
+            let registrar_account_id: AccountId =
+                Ss58Codec::from_ss58check("5GQvJoe3uQFFKPjCQLLfdf1nTPbPP6NKRHtEeRtvLBDBpMuX").unwrap();
             testnet_genesis(
                 wasm_binary,
                 // Initial PoA authorities
@@ -55,6 +59,8 @@ pub fn development_config() -> Result<ChainSpec, String> {
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
                 // Pre-funded accounts
                 vec![
+                    master_account_id,
+                    registrar_account_id,
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
                     get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
@@ -87,6 +93,8 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
         "local_testnet",
         ChainType::Local,
         move || {
+            let master_account_id: AccountId =
+                Ss58Codec::from_ss58check("5Gn6YMyoNZVZx9jCpANYDRPMB2p4FwyUTy1tKgfPTZz4vQFL").unwrap();
             testnet_genesis(
                 wasm_binary,
                 // Initial PoA authorities
@@ -95,9 +103,11 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
                     authority_keys_from_seed("Bob"),
                 ],
                 // Sudo account
-                get_account_id_from_seed::<sr25519::Public>("Alice"),
+                // get_account_id_from_seed::<sr25519::Public>("Alice"),
+                master_account_id.clone(),
                 // Pre-funded accounts
                 vec![
+                    master_account_id,
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
                     get_account_id_from_seed::<sr25519::Public>("Charlie"),
