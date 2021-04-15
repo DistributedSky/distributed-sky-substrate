@@ -28,20 +28,20 @@ mod tests;
 pub const GREEN_AREA: u8 = 0b00000001;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Copy, Default, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Point2D<Coord> {
     lon: Coord,
     lat: Coord,
 }
 
-impl<Coord: PartialOrd 
-          + Sub<Output = Coord> 
-          + MathUtils> Point2D<Coord> {
+impl<
+    Coord: PartialOrd + Sub<Output = Coord> + MathUtils
+    > Point2D<Coord> {
     pub fn new(lon: Coord, lat: Coord) -> Self {
         Point2D{lon, lat}
     }
 
-    /// There is no shared trait implementing method abs(), so it's written like that
+    // Here Point2D actually represent not a point, but distance
     pub fn get_distance_vector(self, second_point: Point2D<Coord>) -> Point2D<Coord> {
         let lat_length = (self.lat - second_point.lat).abs();
         let long_length = (self.lon - second_point.lon).abs();
@@ -50,15 +50,38 @@ impl<Coord: PartialOrd
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rect2D<Coord> {
     north_west: Point2D<Coord>,
     south_east: Point2D<Coord>,
 }
 
-impl<Coord> Rect2D<Coord> {
+impl<
+    Coord: PartialOrd + Sub<Output = Coord> + MathUtils
+    > Rect2D<Coord> {
     pub fn new(north_west: Point2D<Coord>, south_east: Point2D<Coord>) -> Self {
         Rect2D{north_west, south_east}
+    }
+
+    // Here Point2D actually represent not a point, but rect's size
+    pub fn get_dimensions(self) -> Point2D<Coord> {
+        self.north_west.get_distance_vector(self.south_east)
+    }
+    
+    // Check tests for fn explanation
+    pub fn zone_intersects(self, target: Rect2D<Coord>) -> bool {
+        !(self.south_east.lon < target.north_west.lon || 
+          self.north_west.lon > target.south_east.lon ||
+          self.south_east.lat < target.north_west.lat || 
+          self.north_west.lat > target.south_east.lat)
+    }
+
+    // Kinda same, but easier to understand
+    pub fn point_intersects(self, target: Point2D<Coord>) -> bool {
+        !(self.south_east.lon < target.lon || 
+          self.north_west.lon > target.lon ||
+          self.south_east.lat < target.lat || 
+          self.north_west.lat > target.lat)
     }
 }
 
@@ -77,7 +100,7 @@ impl<Coord, LightCoord> Zone<Coord, LightCoord> {
 } 
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Point3D<Coord> {
     lat: Coord,
     lon: Coord,
@@ -91,65 +114,75 @@ impl<Coord> Point3D<Coord> {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Box3D<Coord> {
     pub north_west: Point3D<Coord>,
     pub south_east: Point3D<Coord>,
 }
 
-impl <Coord> Box3D<Coord> {
+impl<
+    Coord: PartialOrd + Sub<Output = Coord> + MathUtils
+    > Box3D<Coord> {
     pub fn new(north_west: Point3D<Coord>, south_east: Point3D<Coord>) -> Self {
         Box3D{north_west, south_east}
+    }
+
+    pub fn project_on_plane(self) -> Rect2D<Coord> {
+        let north_west = 
+        Point2D::new(self.north_west.lat,
+                     self.north_west.lon); 
+        let south_east = 
+        Point2D::new(self.south_east.lat,
+                    self.south_east.lon); 
+        Rect2D::new(north_west, south_east)
     }
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Default, Debug)]
+#[derive(Encode, Decode, Default, Clone, Copy, Debug)]
 pub struct RootBox<Coord> {
     pub id: RootId,
     pub bounding_box: Box3D<Coord>,
     pub delta: Coord,
 }
-
-impl<Coord: PartialOrd
-          + Sub<Output = Coord> 
-          + Div<Output = Coord> 
-          + MathUtils
-          + Copy> RootBox <Coord> {
+impl<
+    Coord: PartialOrd + Sub<Output = Coord> + MathUtils + Div<Output = Coord> + Copy 
+    > RootBox<Coord> {
     pub fn new(id: RootId, bounding_box: Box3D<Coord>, delta: Coord) -> Self {
         RootBox{id, bounding_box, delta}
     }
+
     /// Returns maximum area index of given root. Guess, mostly - 655356.
     pub fn get_max_area(self) -> AreaId {
-        let touch = Point2D::new(self.bounding_box.south_east.lat,
-                                 self.bounding_box.south_east.lon); 
-        Self::detect_intersected_area(self, touch)
+        let root_dimensions = self.bounding_box.project_on_plane().get_dimensions();
+        let total_rows = root_dimensions.lat.integer_divide(self.delta);
+        let total_columns = root_dimensions.lon.integer_divide(self.delta);
+
+        total_rows * total_columns
     }
 
     /// Returns id of an area in root, in which supplied point is located
     fn detect_intersected_area(self, touch: Point2D<Coord>) -> AreaId {
-        let root_base_point = 
-        Point2D::new(self.bounding_box.north_west.lat,
-                     self.bounding_box.north_west.lon); 
-        let root_secondary_point = 
-        Point2D::new(self.bounding_box.south_east.lat,
-                    self.bounding_box.south_east.lon); 
-        let root_dimensions = root_base_point.get_distance_vector(root_secondary_point);
-        let distance_vector = root_base_point.get_distance_vector(touch);
+        let root_projection = self.bounding_box.project_on_plane();
+        if !root_projection.point_intersects(touch) {
+            return 0;
+        }
+        let root_dimensions = root_projection.get_dimensions();
+        let touch_distance_vector = root_projection.north_west.get_distance_vector(touch);
         
         let delta = self.delta;
-        let touch_lon = distance_vector.lon;
-        let touch_lat = distance_vector.lat;
+        let touch_lon = touch_distance_vector.lon;
+        let touch_lat = touch_distance_vector.lat;
         let root_lat_dimension = root_dimensions.lat;
 
-        let row: u16 = touch_lat.integer_divide(delta) + 1;
-        let column: u16 = touch_lon.integer_divide(delta) + 1;
-        let total_rows: u16 = root_lat_dimension.integer_divide(delta);
+        let row = touch_lat.integer_divide(delta) + 1;
+        let column = touch_lon.integer_divide(delta) + 1;
+        let total_rows = root_lat_dimension.integer_divide(delta);
 
         (total_rows * (column - 1)) + row
     }
 
-    // This function used only in tests, consider usability
+    #[cfg(test)]
     pub fn is_active(&self) -> bool {
         self.id != 0
     }
@@ -307,10 +340,9 @@ decl_module! {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             // TODO replace these ensures w inverted index (using global grid)
-            let lat_dim = bounding_box.south_east.lat - bounding_box.north_west.lat;
-            ensure!(lat_dim <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
-            let lon_dim = bounding_box.south_east.lon - bounding_box.north_west.lon;
-            ensure!(lon_dim <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
+            let root_size = bounding_box.project_on_plane().get_dimensions();
+            ensure!(root_size.lat <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
+            ensure!(root_size.lon <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
             ensure!(delta <= Self::coord_from_str("0.1") && 
                     delta >= Self::coord_from_str("0.002"), Error::<T>::InvalidData);
 
@@ -358,7 +390,8 @@ decl_module! {
                 while current_zone < first_empty_id + max_zones as ZoneId {
                     if RedZones::<T>::contains_key(current_zone) || empty_id_found {
                         // Check if our zone overlaps with another zone in current area
-                        ensure!(Self::zone_intersects(&RedZones::<T>::get(current_zone).rect, &rect), Error::<T>::OverlappingZone);
+                        let rect_to_check = RedZones::<T>::get(current_zone).rect;
+                        ensure!(!rect_to_check.zone_intersects(rect), Error::<T>::OverlappingZone);
                         current_zone += 1;
                     } else { 
                         zone_id = current_zone;
@@ -405,7 +438,8 @@ decl_module! {
             Self::deposit_event(RawEvent::RootRemoved(root_id, who));
             Ok(())
         }
-        /// Removes area by given id
+
+        /// Removes zone by given id
         #[weight = <T as Trait>::WeightInfo::zone_remove()]
         pub fn zone_remove(origin, zone_id: ZoneId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
@@ -436,16 +470,10 @@ decl_module! {
     }
 }
 
-// Module allows  use  common functionality by dispatchables
+// Module allows use common functionality by dispatchables
 impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
-    // Just trust me on this one, it works
-    fn zone_intersects(a: &Rect2D<T::Coord>, b: &Rect2D<T::Coord>) -> bool {
-        a.south_east.lon < b.north_west.lon || a.north_west.lon > b.south_east.lon ||
-        a.south_east.lat < b.north_west.lat || a.north_west.lat > b.south_east.lat
-    }
-    
     /// Creates type from str, no error handling
     fn coord_from_str<Coord> (s: &str) -> Coord
             where Coord: FromStr + Default {
@@ -459,17 +487,17 @@ impl<T: Trait> Module<T> {
     /// v.............root id here............v v.....area id.....v v..child objects..v
     /// 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
     fn pack_index(root: RootId, area: AreaId, children: u16) -> ZoneId {
-        (root as u64) << 32 |
-        (area as u64) << 16 | 
-        children as u64
+        (root as ZoneId) << 32 |
+        (area as ZoneId) << 16 | 
+        children as ZoneId
     }
 
     /// Reverse function for pack_index()
     #[allow(dead_code)]
     fn unpack_index(index: ZoneId) -> (RootId, AreaId, u16) {
         let mask_u16: u64 = 0x0000_0000_0000_0000_0000_0000_ffff_ffff;
-        let root: RootId = (index >> 32) as u32;
-        let area: AreaId = ((index >> 16) & mask_u16) as u16;
+        let root: RootId = (index >> 32) as RootId;
+        let area: AreaId = ((index >> 16) & mask_u16) as AreaId;
         let children: u16 = (index & mask_u16) as u16;
         
         (root, area, children)
