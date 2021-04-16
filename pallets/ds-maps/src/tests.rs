@@ -146,31 +146,31 @@ fn it_zone_intersection_works() {
 #[test]
 fn it_max_area_counts_right() {
     new_test_ext().execute_with(|| {
-    let bbox = construct_custom_box("0", "0", "2", "3");
-    let root = RootBox::new(ROOT_ID, bbox, I9F23::from_num(1));
-    assert_eq!(root.get_max_area(), 6); 
-    // This values will not be possible in extinsics, btw
-    let bbox = construct_custom_box("-90", "-180", "0", "0");
-    let root = RootBox::new(ROOT_ID, bbox, I9F23::from_num(1));
-    assert_eq!(root.get_max_area(), 16_200); 
+        let bbox = construct_custom_box("0", "0", "2", "3");
+        let root = RootBox::new(ROOT_ID, bbox, I9F23::from_num(1));
+        assert_eq!(root.get_max_area(), 6); 
+        // This values will not be possible in extinsics, btw
+        let bbox = construct_custom_box("-90", "-180", "0", "0");
+        let root = RootBox::new(ROOT_ID, bbox, I9F23::from_num(1));
+        assert_eq!(root.get_max_area(), 16_200); 
     });
 }
 
 #[test]
 fn it_detects_right_area() {
     new_test_ext().execute_with(|| {
-    let bbox = construct_custom_box("0", "0", "2", "3");
-    let root = RootBox::new(100, bbox, I9F23::from_num(1));
-    let touch = Point2D::new(coord("0.5"),
-                             coord("0.5"));
-    assert_eq!(root.detect_intersected_area(touch), 1);
-    let touch = Point2D::new(coord("1.5"),
-                             coord("1.5"));
-    assert_eq!(root.detect_intersected_area(touch), 4); 
-    // not sure, is it better to throw an error, or have a special index?
-    let far_away_touch = Point2D::new(coord("50"),
-                                      coord("50"));
-    assert_eq!(root.detect_intersected_area(far_away_touch), 0); 
+        let bbox = construct_custom_box("0", "0", "2", "3");
+        let root = RootBox::new(100, bbox, I9F23::from_num(1));
+        let touch = Point2D::new(coord("0.5"),
+                                coord("0.5"));
+        assert_eq!(root.detect_intersected_area(touch), 1);
+        let touch = Point2D::new(coord("1.5"),
+                                coord("1.5"));
+        assert_eq!(root.detect_intersected_area(touch), 4); 
+        // not sure, is it better to throw an error, or have a special index?
+        let far_away_touch = Point2D::new(coord("50"),
+                                        coord("50"));
+        assert_eq!(root.detect_intersected_area(far_away_touch), 0); 
     });
 }
 
