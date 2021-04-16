@@ -76,7 +76,7 @@ impl<
           self.north_west.lat > target.south_east.lat)
     }
 
-    // Kinda same, but easier to understand
+    // Same looking, but easier to understand and actually kinda different 
     pub fn point_intersects(self, target: Point2D<Coord>) -> bool {
         !(self.south_east.lon < target.lon || 
           self.north_west.lon > target.lon ||
@@ -127,7 +127,7 @@ impl<
         Box3D{north_west, south_east}
     }
 
-    pub fn project_on_plane(self) -> Rect2D<Coord> {
+    pub fn projection_on_plane(self) -> Rect2D<Coord> {
         let north_west = 
         Point2D::new(self.north_west.lat,
                      self.north_west.lon); 
@@ -154,7 +154,7 @@ impl<
 
     /// Returns maximum area index of given root. Guess, mostly - 655356.
     pub fn get_max_area(self) -> AreaId {
-        let root_dimensions = self.bounding_box.project_on_plane().get_dimensions();
+        let root_dimensions = self.bounding_box.projection_on_plane().get_dimensions();
         let total_rows = root_dimensions.lat.integer_divide(self.delta);
         let total_columns = root_dimensions.lon.integer_divide(self.delta);
 
@@ -163,21 +163,16 @@ impl<
 
     /// Returns id of an area in root, in which supplied point is located
     fn detect_intersected_area(self, touch: Point2D<Coord>) -> AreaId {
-        let root_projection = self.bounding_box.project_on_plane();
+        let root_projection = self.bounding_box.projection_on_plane();
         if !root_projection.point_intersects(touch) {
             return 0;
         }
         let root_dimensions = root_projection.get_dimensions();
-        let touch_distance_vector = root_projection.north_west.get_distance_vector(touch);
+        let touch_vector = root_projection.north_west.get_distance_vector(touch);
         
-        let delta = self.delta;
-        let touch_lon = touch_distance_vector.lon;
-        let touch_lat = touch_distance_vector.lat;
-        let root_lat_dimension = root_dimensions.lat;
-
-        let row = touch_lat.integer_divide(delta) + 1;
-        let column = touch_lon.integer_divide(delta) + 1;
-        let total_rows = root_lat_dimension.integer_divide(delta);
+        let row = touch_vector.lat.integer_divide(self.delta) + 1;
+        let column = touch_vector.lon.integer_divide(self.delta) + 1;
+        let total_rows = root_dimensions.lat.integer_divide(self.delta);
 
         (total_rows * (column - 1)) + row
     }
@@ -340,7 +335,7 @@ decl_module! {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             // TODO replace these ensures w inverted index (using global grid)
-            let root_size = bounding_box.project_on_plane().get_dimensions();
+            let root_size = bounding_box.projection_on_plane().get_dimensions();
             ensure!(root_size.lat <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
             ensure!(root_size.lon <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
             ensure!(delta <= Self::coord_from_str("0.1") && 
