@@ -13,7 +13,7 @@ use frame_support::{
     traits::Get,
 };
 use sp_std::str::FromStr;
-use dsky_utils::MathUtils;
+use dsky_utils::{Signed, IntDiv};
 
 use frame_system::ensure_signed;
 use pallet_ds_accounts as accounts;
@@ -35,7 +35,7 @@ pub struct Point2D<Coord> {
 }
 
 impl<
-    Coord: PartialOrd + Sub<Output = Coord> + MathUtils
+    Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv
     > Point2D<Coord> {
     pub fn new(lon: Coord, lat: Coord) -> Self {
         Point2D{lon, lat}
@@ -57,7 +57,7 @@ pub struct Rect2D<Coord> {
 }
 
 impl<
-    Coord: PartialOrd + Sub<Output = Coord> + MathUtils
+    Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv
     > Rect2D<Coord> {
     pub fn new(north_west: Point2D<Coord>, south_east: Point2D<Coord>) -> Self {
         Rect2D{north_west, south_east}
@@ -69,7 +69,7 @@ impl<
     }
     
     // Check tests for fn explanation
-    pub fn zone_intersects(self, target: Rect2D<Coord>) -> bool {
+    pub fn intersects_rect(self, target: Rect2D<Coord>) -> bool {
         !(self.south_east.lon < target.north_west.lon || 
           self.north_west.lon > target.south_east.lon ||
           self.south_east.lat < target.north_west.lat || 
@@ -77,7 +77,7 @@ impl<
     }
 
     // Same looking, but easier to understand and actually kinda different 
-    pub fn point_intersects(self, target: Point2D<Coord>) -> bool {
+    pub fn is_point_inside(self, target: Point2D<Coord>) -> bool {
         !(self.south_east.lon < target.lon || 
           self.north_west.lon > target.lon ||
           self.south_east.lat < target.lat || 
@@ -121,7 +121,7 @@ pub struct Box3D<Coord> {
 }
 
 impl<
-    Coord: PartialOrd + Sub<Output = Coord> + MathUtils
+    Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv
     > Box3D<Coord> {
     pub fn new(north_west: Point3D<Coord>, south_east: Point3D<Coord>) -> Self {
         Box3D{north_west, south_east}
@@ -146,7 +146,7 @@ pub struct RootBox<Coord> {
     pub delta: Coord,
 }
 impl<
-    Coord: PartialOrd + Sub<Output = Coord> + MathUtils + Div<Output = Coord> + Copy 
+    Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv + Div<Output = Coord> + Copy 
     > RootBox<Coord> {
     pub fn new(id: RootId, bounding_box: Box3D<Coord>, delta: Coord) -> Self {
         RootBox{id, bounding_box, delta}
@@ -164,7 +164,7 @@ impl<
     /// Returns id of an area in root, in which supplied point is located
     fn detect_intersected_area(self, touch: Point2D<Coord>) -> AreaId {
         let root_projection = self.bounding_box.projection_on_plane();
-        if !root_projection.point_intersects(touch) {
+        if !root_projection.is_point_inside(touch) {
             return 0;
         }
         let root_dimensions = root_projection.get_dimensions();
@@ -215,7 +215,8 @@ pub trait Trait: accounts::Trait {
     + PartialEq
     + FromStr
     + Default
-    + MathUtils
+    + IntDiv
+    + Signed
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>;
 
@@ -386,7 +387,7 @@ decl_module! {
                     if RedZones::<T>::contains_key(current_zone) || empty_id_found {
                         // Check if our zone overlaps with another zone in current area
                         let rect_to_check = RedZones::<T>::get(current_zone).rect;
-                        ensure!(!rect_to_check.zone_intersects(rect), Error::<T>::OverlappingZone);
+                        ensure!(!rect_to_check.intersects_rect(rect), Error::<T>::OverlappingZone);
                         current_zone += 1;
                     } else { 
                         zone_id = current_zone;
