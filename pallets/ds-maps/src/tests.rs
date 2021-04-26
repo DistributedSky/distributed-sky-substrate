@@ -122,24 +122,24 @@ fn it_zone_intersection_works() {
     new_test_ext().execute_with(|| {
         // Can't add two same zones
         let mid_rect = construct_custom_rect("1", "1", "3", "3");
-        assert!(mid_rect.zone_intersects(mid_rect));
+        assert!(mid_rect.intersects_rect(mid_rect));
         // Doesn't intersect
         let far_away_rect = construct_custom_rect("10", "10", "30", "30");
-        assert!(!mid_rect.zone_intersects(far_away_rect));
+        assert!(!mid_rect.intersects_rect(far_away_rect));
         // Checking from 4 sides (as on comment above)
         let down_right_rect = construct_custom_rect("0", "0", "2", "2");
-        assert!(mid_rect.zone_intersects(down_right_rect));
+        assert!(mid_rect.intersects_rect(down_right_rect));
         let top_right_rect = construct_custom_rect("0", "2", "2", "4");
-        assert!(mid_rect.zone_intersects(top_right_rect));
+        assert!(mid_rect.intersects_rect(top_right_rect));
         let top_left_rect = construct_custom_rect("2", "2", "4", "4");
-        assert!(mid_rect.zone_intersects(top_left_rect));
+        assert!(mid_rect.intersects_rect(top_left_rect));
         let down_right_rect = construct_custom_rect("2", "0", "4", "2");
-        assert!(mid_rect.zone_intersects(down_right_rect));
+        assert!(mid_rect.intersects_rect(down_right_rect));
         // We can place zone riiiight near another, but not on it 
         let rect_near_edge = construct_custom_rect("0", "0", "0.999999", "5");
-        assert!(!mid_rect.zone_intersects(rect_near_edge));
+        assert!(!mid_rect.intersects_rect(rect_near_edge));
         let rect_on_edge = construct_custom_rect("0", "0", "1", "5");
-        assert!(mid_rect.zone_intersects(rect_on_edge));
+        assert!(mid_rect.intersects_rect(rect_on_edge));
     });
 }
 

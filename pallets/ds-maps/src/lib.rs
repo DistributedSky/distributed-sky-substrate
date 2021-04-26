@@ -68,7 +68,7 @@ impl<
         self.north_west.get_distance_vector(self.south_east)
     }
     
-    // Check tests for fn explanation
+    /// True if this rect intersects other. Still true if they share edge. 
     pub fn intersects_rect(self, target: Rect2D<Coord>) -> bool {
         !(self.south_east.lon < target.north_west.lon || 
           self.north_west.lon > target.south_east.lon ||
@@ -76,8 +76,8 @@ impl<
           self.north_west.lat > target.south_east.lat)
     }
 
-    // Same looking, but easier to understand and actually kinda different 
-    pub fn is_point_inside(self, target: Point2D<Coord>) -> bool {
+    /// True, if given point lies inside the rect 
+    pub fn is_point_inside(&self, target: Point2D<Coord>) -> bool {
         !(self.south_east.lon < target.lon || 
           self.north_west.lon > target.lon ||
           self.south_east.lat < target.lat || 
@@ -127,6 +127,7 @@ impl<
         Box3D{north_west, south_east}
     }
 
+    /// Gets rect 2D projection from a box
     pub fn projection_on_plane(self) -> Rect2D<Coord> {
         let north_west = 
         Point2D::new(self.north_west.lat,
@@ -152,7 +153,7 @@ impl<
         RootBox{id, bounding_box, delta}
     }
 
-    /// Returns maximum area index of given root. Guess, mostly - 655356.
+    /// Returns maximum area index of given root. Max is 655356.
     pub fn get_max_area(self) -> AreaId {
         let root_dimensions = self.bounding_box.projection_on_plane().get_dimensions();
         let total_rows = root_dimensions.lat.integer_divide(self.delta);
