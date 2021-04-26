@@ -30,22 +30,22 @@ pub const GREEN_AREA: u8 = 0b00000001;
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Point2D<Coord> {
-    lon: Coord,
     lat: Coord,
+    lon: Coord,
 }
 
 impl<
     Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv
     > Point2D<Coord> {
-    pub fn new(lon: Coord, lat: Coord) -> Self {
-        Point2D{lon, lat}
+    pub fn new(lat: Coord, lon: Coord) -> Self {
+        Point2D{lat, lon}
     }
 
     // Here Point2D actually represent not a point, but distance
     pub fn get_distance_vector(self, second_point: Point2D<Coord>) -> Point2D<Coord> {
         let lat_length = (self.lat - second_point.lat).abs();
-        let long_length = (self.lon - second_point.lon).abs();
-        Point2D::new(lat_length, long_length)
+        let lon_length = (self.lon - second_point.lon).abs();
+        Point2D::new(lat_length, lon_length)
     }
 }
 
@@ -68,20 +68,48 @@ impl<
         self.north_west.get_distance_vector(self.south_east)
     }
     
-    /// True if this rect intersects other. Still true if they share edge. 
+    /// True if this rect intersects other, excluding edges.
     pub fn intersects_rect(self, target: Rect2D<Coord>) -> bool {
-        !(self.south_east.lon < target.north_west.lon || 
-          self.north_west.lon > target.south_east.lon ||
-          self.south_east.lat < target.north_west.lat || 
-          self.north_west.lat > target.south_east.lat)
+        !(self.south_east.lon <= target.north_west.lon || 
+          self.north_west.lon >= target.south_east.lon ||
+          self.south_east.lat <= target.north_west.lat || 
+          self.north_west.lat >= target.south_east.lat)
     }
 
-    /// True, if given point lies inside the rect 
+    /// True, if given point lies inside the rect, excluding edges. 
     pub fn is_point_inside(&self, target: Point2D<Coord>) -> bool {
-        !(self.south_east.lon < target.lon || 
-          self.north_west.lon > target.lon ||
-          self.south_east.lat < target.lat || 
-          self.north_west.lat > target.lat)
+        !(self.south_east.lon <= target.lon || 
+          self.north_west.lon >= target.lon ||
+          self.south_east.lat <= target.lat || 
+          self.north_west.lat >= target.lat)
+    }
+}
+
+#[cfg(test)]
+mod rect_tests {
+    use super::*;
+    use crate::tests::{construct_custom_rect, coord};
+    #[test]
+    fn rect_intersection_is_correct() {
+        let rect = construct_custom_rect("1", "1", "3", "3");
+        assert!(rect.intersects_rect(rect));
+        let partly_inside_rect = construct_custom_rect("0", "0", "2", "2");
+        assert!(rect.intersects_rect(partly_inside_rect));
+        let edge_rect = construct_custom_rect("0", "0", "1", "5");
+        assert!(!rect.intersects_rect(edge_rect));
+        let out_rect = construct_custom_rect("10", "10", "30", "30");
+        assert!(!rect.intersects_rect(out_rect));
+    }
+
+    #[test]
+    fn point_detection_is_correct() {
+        let rect = construct_custom_rect("1", "1", "3", "3");
+        let mid_point = Point2D::new(coord("2"), coord("2"));
+        assert!(rect.is_point_inside(mid_point));
+        let edge_point = Point2D::new(coord("1"), coord("1"));
+        assert!(!rect.is_point_inside(edge_point));
+        let out_point = Point2D::new(coord("0"), coord("0"));
+        assert!(!rect.is_point_inside(out_point));
     }
 }
 
@@ -146,6 +174,7 @@ pub struct RootBox<Coord> {
     pub bounding_box: Box3D<Coord>,
     pub delta: Coord,
 }
+
 impl<
     Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv + Div<Output = Coord> + Copy 
     > RootBox<Coord> {
@@ -181,6 +210,40 @@ impl<
     #[cfg(test)]
     pub fn is_active(&self) -> bool {
         self.id != 0
+    }
+}
+
+#[cfg(test)]
+mod rootbox_tests {
+    use super::*;
+    use crate::tests::{construct_custom_box, ROOT_ID, coord};
+
+    #[test]
+    fn max_area_correct() {
+        let bbox = construct_custom_box("0", "0", "2", "3");
+        let small_root = RootBox::new(ROOT_ID, bbox, coord("1"));
+        assert_eq!(small_root.get_max_area(), 6); 
+        let bbox = construct_custom_box("-90", "-180", "0", "0");
+        let root = RootBox::new(ROOT_ID, bbox, coord("1"));
+        assert_eq!(root.get_max_area(), 16_200); 
+    }
+
+    #[test]
+    fn area_detects_correct() {
+        let bbox = construct_custom_box("0", "0", "2", "3");
+        let root = RootBox::new(100, bbox, coord("1"));
+        let point = Point2D::new(coord("0.5"),
+                                 coord("0.5"));
+        assert_eq!(root.detect_intersected_area(touch), 1);
+        let point = Point2D::new(coord("1.5"),
+                                 coord("1.5"));
+        assert_eq!(root.detect_intersected_area(point), 4);
+        let edge_point = Point2D::new(coord("2"),
+                                      coord("3"));
+        assert_eq!(root.detect_intersected_area(edge_point), 0); 
+        let out_point = Point2D::new(coord("50"),
+                                     coord("50"));
+        assert_eq!(root.detect_intersected_area(out_point), 0); 
     }
 }
 
