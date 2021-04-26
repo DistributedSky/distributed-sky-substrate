@@ -234,7 +234,7 @@ mod rootbox_tests {
         let root = RootBox::new(100, bbox, coord("1"));
         let point = Point2D::new(coord("0.5"),
                                  coord("0.5"));
-        assert_eq!(root.detect_intersected_area(touch), 1);
+        assert_eq!(root.detect_intersected_area(point), 1);
         let point = Point2D::new(coord("1.5"),
                                  coord("1.5"));
         assert_eq!(root.detect_intersected_area(point), 4);
