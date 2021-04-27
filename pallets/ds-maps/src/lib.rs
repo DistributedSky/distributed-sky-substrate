@@ -89,27 +89,61 @@ impl<
 mod rect_tests {
     use super::*;
     use crate::tests::{construct_custom_rect, coord};
+    // construct_custom_rect(a, b, c, d)
+    //
+    //       (c,d)
+    //   +-----o
+    //   |     |
+    //   |     |
+    //   o-----+
+    // (a,b)
+
     #[test]
-    fn rect_intersection_is_correct() {
+    fn rect_intersects_itself() {
         let rect = construct_custom_rect("1", "1", "3", "3");
         assert!(rect.intersects_rect(rect));
-        let partly_inside_rect = construct_custom_rect("0", "0", "2", "2");
-        assert!(rect.intersects_rect(partly_inside_rect));
-        let edge_rect = construct_custom_rect("0", "0", "1", "5");
-        assert!(!rect.intersects_rect(edge_rect));
-        let out_rect = construct_custom_rect("10", "10", "30", "30");
-        assert!(!rect.intersects_rect(out_rect));
     }
 
     #[test]
-    fn point_detection_is_correct() {
-        let rect = construct_custom_rect("1", "1", "3", "3");
-        let mid_point = Point2D::new(coord("2"), coord("2"));
-        assert!(rect.is_point_inside(mid_point));
-        let edge_point = Point2D::new(coord("1"), coord("1"));
-        assert!(!rect.is_point_inside(edge_point));
-        let out_point = Point2D::new(coord("0"), coord("0"));
-        assert!(!rect.is_point_inside(out_point));
+    fn rect_b_fully_inside_a() {
+        let rect_a = construct_custom_rect("1", "1", "4", "6");
+        let rect_b = construct_custom_rect("2", "2", "3", "5");
+        assert!(rect_a.intersects_rect(rect_b));
+    }
+
+    #[test]
+    fn rect_b_on_edge_of_a() {
+        let rect_a = construct_custom_rect("1", "1", "4", "6");
+        let rect_b = construct_custom_rect("0", "0", "1", "5");
+        assert!(!rect_a.intersects_rect(rect_b));
+    }
+
+    #[test]
+    fn rect_b_outside_a() {
+        let rect_a = construct_custom_rect("1", "1", "4", "6");
+        let rect_b = construct_custom_rect("10", "10", "30", "30");
+        assert!(!rect_a.intersects_rect(rect_b));
+    }
+
+    #[test]
+    fn point_inside_rect() {
+        let rect = construct_custom_rect("1", "1", "3", "5");
+        let point = Point2D::new(coord("2"), coord("4"));
+        assert!(rect.is_point_inside(point));
+    }
+
+    #[test]
+    fn point_on_edge_rect() {
+        let rect = construct_custom_rect("1", "1", "3", "5");
+        let point = Point2D::new(coord("1"), coord("2"));
+        assert!(!rect.is_point_inside(point));
+    }
+
+    #[test]
+    fn point_outside_rect() {
+        let rect = construct_custom_rect("1", "1", "3", "5");
+        let point = Point2D::new(coord("0"), coord("0"));
+        assert!(!rect.is_point_inside(point));
     }
 }
 
@@ -182,7 +216,7 @@ impl<
         RootBox{id, bounding_box, delta}
     }
 
-    /// Returns maximum area index of given root. Max is 655356.
+    /// Returns maximum area index of given root. Max is 65536.
     pub fn get_max_area(self) -> AreaId {
         let root_dimensions = self.bounding_box.projection_on_plane().get_dimensions();
         let total_rows = root_dimensions.lat.integer_divide(self.delta);
@@ -219,28 +253,44 @@ mod rootbox_tests {
     use crate::tests::{construct_custom_box, ROOT_ID, coord};
 
     #[test]
-    fn max_area_correct() {
+    fn max_area_small_root() {
         let bbox = construct_custom_box("0", "0", "2", "3");
-        let small_root = RootBox::new(ROOT_ID, bbox, coord("1"));
-        assert_eq!(small_root.get_max_area(), 6); 
+        let root = RootBox::new(ROOT_ID, bbox, coord("1"));
+        assert_eq!(root.get_max_area(), 6); 
+
+    }
+    
+    #[test]
+    fn max_area_frac_delta() {
+        let bbox = construct_custom_box("-0", "0", "2", "3");
+        let root = RootBox::new(ROOT_ID, bbox, coord("0.5"));
+        assert_eq!(root.get_max_area(), 24);
+    } 
+
+    #[test]
+    fn max_area_big_root() {
         let bbox = construct_custom_box("-90", "-180", "0", "0");
         let root = RootBox::new(ROOT_ID, bbox, coord("1"));
-        assert_eq!(root.get_max_area(), 16_200); 
-    }
+        assert_eq!(root.get_max_area(), 16_200);
+    } 
 
     #[test]
     fn area_detects_correct() {
         let bbox = construct_custom_box("0", "0", "2", "3");
         let root = RootBox::new(100, bbox, coord("1"));
+
         let point = Point2D::new(coord("0.5"),
                                  coord("0.5"));
         assert_eq!(root.detect_intersected_area(point), 1);
+
         let point = Point2D::new(coord("1.5"),
                                  coord("1.5"));
         assert_eq!(root.detect_intersected_area(point), 4);
+        
         let edge_point = Point2D::new(coord("2"),
                                       coord("3"));
         assert_eq!(root.detect_intersected_area(edge_point), 0); 
+        
         let out_point = Point2D::new(coord("50"),
                                      coord("50"));
         assert_eq!(root.detect_intersected_area(out_point), 0); 
