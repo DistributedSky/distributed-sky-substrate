@@ -257,7 +257,6 @@ mod rootbox_tests {
         let bbox = construct_custom_box("0", "0", "2", "3");
         let root = RootBox::new(ROOT_ID, bbox, coord("1"));
         assert_eq!(root.get_max_area(), 6); 
-
     }
     
     #[test]
