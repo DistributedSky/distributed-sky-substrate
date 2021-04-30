@@ -285,7 +285,7 @@ decl_storage! {
             map hasher(blake2_128_concat) RootId => RootBoxOf<T>;
 
         EarthBitmap get(fn bitmap_cells):
-            map hasher(blake2_128_concat) PageId => PageOf;
+            map hasher(blake2_128_concat) PageId => Page;
 
         AreaData get(fn area_info): 
             double_map hasher(blake2_128_concat) RootId, 
@@ -296,7 +296,6 @@ decl_storage! {
     }
 }
 
-pub type PageOf = Page;
 pub type RootBoxOf<T> = RootBox<<T as Trait>::Coord>;
 pub type ZoneOf<T> = Zone<<T as Trait>::Coord, <T as Trait>::LightCoord>;
 
