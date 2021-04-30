@@ -27,6 +27,20 @@ mod tests;
 
 pub const GREEN_AREA: u8 = 0b00000001;
 
+/// RootBox parameters
+pub const MAX_ROW_INDEX: u16 = 35_999;
+pub const MAX_COLUMN_INDEX: u16 = 18_000;
+
+/// Zero-degree indexes for latitude and longitude in bitmap
+pub const ZERO_DEGREE_ROW_INDEX: u16 = 18_000;
+pub const ZERO_DEGREE_COLUMN_INDEX: u16 = 9_000;
+
+/// Page parameters
+pub const MAX_PAGE_INDEX: u32 = 404_999;
+pub const MAX_PAGES_AMOUNT_TO_EXTRACT: u8 = 9;
+pub const PAGE_LENGTH: usize = 32;
+pub const PAGE_WIDTH: usize = 50;
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Point2D<Coord> {
@@ -195,7 +209,25 @@ impl Area {
     } 
 }
 
+#[derive(Encode, Decode, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Page {
+    pub bitmap: [[u32; PAGE_WIDTH]; PAGE_LENGTH],
+}
+
+impl Page {
+    fn new() -> Self {
+        Page{bitmap: [[0u32; PAGE_WIDTH]; PAGE_LENGTH]}
+    }
+}
+
+impl Default for Page {
+    fn default() -> Self {
+        Page{bitmap: [[0u32; PAGE_WIDTH]; PAGE_LENGTH]}
+    }
+}
+
 type AreaId = u16;
+type PageId = u32;
 type RootId = u32;
 type ZoneId = u64;
 
@@ -252,6 +284,9 @@ decl_storage! {
         RootBoxes get(fn root_box_data): 
             map hasher(blake2_128_concat) RootId => RootBoxOf<T>;
 
+        EarthBitmap get(fn bitmap_cells):
+            map hasher(blake2_128_concat) PageId => PageOf;
+
         AreaData get(fn area_info): 
             double_map hasher(blake2_128_concat) RootId, 
                        hasher(blake2_128_concat) AreaId => Area;    
@@ -261,6 +296,7 @@ decl_storage! {
     }
 }
 
+pub type PageOf = Page;
 pub type RootBoxOf<T> = RootBox<<T as Trait>::Coord>;
 pub type ZoneOf<T> = Zone<<T as Trait>::Coord, <T as Trait>::LightCoord>;
 
@@ -338,7 +374,7 @@ decl_module! {
             let root_size = bounding_box.projection_on_plane().get_dimensions();
             ensure!(root_size.lat <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
             ensure!(root_size.lon <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
-            ensure!(delta <= Self::coord_from_str("0.1") && 
+            ensure!(delta <= Self::coord_from_str("0.1") &&
                     delta >= Self::coord_from_str("0.002"), Error::<T>::InvalidData);
 
             let id = TotalRoots::get();
