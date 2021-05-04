@@ -67,41 +67,41 @@ fn coord<Coord>(s: &str) -> Coord
          <Coord as FromStr>::Err: std::fmt::Debug { Coord::from_str(s).unwrap() }
 
 fn construct_testing_box() -> Box3D<Coord> {
-    let north_west = Point3D::new(coord("55.37"),
+    let north_east = Point3D::new(coord("55.37"),
                                   coord("37.37"), 
                                   coord("1"));
-    let south_east = Point3D::new(coord("55.92"),
+    let south_west = Point3D::new(coord("55.92"),
                                   coord("37.90"),       
                                   coord("3"));      
-    Box3D::new(north_west, south_east)
+    Box3D::new(north_east, south_west)
 }
 
 fn construct_custom_box(nw_lat: &str, nw_lon: &str,
                         se_lat: &str, se_lon: &str) -> Box3D<Coord> {
-    let north_west = Point3D::new(coord(nw_lat),
+    let north_east = Point3D::new(coord(nw_lat),
                                   coord(nw_lon), 
                                   coord("1"));
-    let south_east = Point3D::new(coord(se_lat),
+    let south_west = Point3D::new(coord(se_lat),
                                   coord(se_lon),       
                                   coord("3"));      
-    Box3D::new(north_west, south_east)
+    Box3D::new(north_east, south_west)
 }
 
 fn construct_custom_rect(nw_lat: &str, nw_lon: &str,
                          se_lat: &str, se_lon: &str) -> Rect2D<Coord> {
-    let north_west = Point2D::new(coord(nw_lat),
+    let north_east = Point2D::new(coord(nw_lat),
                                   coord(nw_lon));
-    let south_east = Point2D::new(coord(se_lat),
+    let south_west = Point2D::new(coord(se_lat),
                                   coord(se_lon));
-    Rect2D::new(north_west, south_east)
+    Rect2D::new(north_east, south_west)
 }
 
 fn construct_testing_rect() -> Rect2D<Coord> {
-    let north_west = Point2D::new(coord("55.395"),
+    let north_east = Point2D::new(coord("55.395"),
                                   coord("37.385"));
-    let south_east = Point2D::new(coord("55.396"),
+    let south_west = Point2D::new(coord("55.396"),
                                   coord("37.386"));
-    Rect2D::new(north_west, south_east)
+    Rect2D::new(north_east, south_west)
 }
 
 // 4 rects from test              

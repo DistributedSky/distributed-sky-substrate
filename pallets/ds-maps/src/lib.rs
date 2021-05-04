@@ -66,36 +66,36 @@ impl<
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rect2D<Coord> {
-    north_west: Point2D<Coord>,
-    south_east: Point2D<Coord>,
+    north_east: Point2D<Coord>,
+    south_west: Point2D<Coord>,
 }
 
 impl<
     Coord: PartialOrd + Sub<Output = Coord> + MathUtils
     > Rect2D<Coord> {
-    pub fn new(north_west: Point2D<Coord>, south_east: Point2D<Coord>) -> Self {
-        Rect2D{north_west, south_east}
+    pub fn new(north_east: Point2D<Coord>, south_west: Point2D<Coord>) -> Self {
+        Rect2D{north_east, south_west}
     }
 
     // Here Point2D actually represent not a point, but rect's size
     pub fn get_dimensions(self) -> Point2D<Coord> {
-        self.north_west.get_distance_vector(self.south_east)
+        self.north_east.get_distance_vector(self.south_west)
     }
     
     // Check tests for fn explanation
     pub fn zone_intersects(self, target: Rect2D<Coord>) -> bool {
-        !(self.south_east.lon < target.north_west.lon || 
-          self.north_west.lon > target.south_east.lon ||
-          self.south_east.lat < target.north_west.lat || 
-          self.north_west.lat > target.south_east.lat)
+        !(self.south_west.lon < target.north_east.lon ||
+          self.north_east.lon > target.south_west.lon ||
+          self.south_west.lat < target.north_east.lat ||
+          self.north_east.lat > target.south_west.lat)
     }
 
     // Same looking, but easier to understand and actually kinda different 
     pub fn point_intersects(self, target: Point2D<Coord>) -> bool {
-        !(self.south_east.lon < target.lon || 
-          self.north_west.lon > target.lon ||
-          self.south_east.lat < target.lat || 
-          self.north_west.lat > target.lat)
+        !(self.south_west.lon < target.lon ||
+          self.north_east.lon > target.lon ||
+          self.south_west.lat < target.lat ||
+          self.north_east.lat > target.lat)
     }
 }
 
@@ -130,25 +130,25 @@ impl<Coord> Point3D<Coord> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Box3D<Coord> {
-    pub north_west: Point3D<Coord>,
-    pub south_east: Point3D<Coord>,
+    pub north_east: Point3D<Coord>,
+    pub south_west: Point3D<Coord>,
 }
 
 impl<
     Coord: PartialOrd + Sub<Output = Coord> + MathUtils
     > Box3D<Coord> {
-    pub fn new(north_west: Point3D<Coord>, south_east: Point3D<Coord>) -> Self {
-        Box3D{north_west, south_east}
+    pub fn new(north_east: Point3D<Coord>, south_west: Point3D<Coord>) -> Self {
+        Box3D{north_east, south_west}
     }
 
     pub fn projection_on_plane(self) -> Rect2D<Coord> {
-        let north_west = 
-        Point2D::new(self.north_west.lat,
-                     self.north_west.lon); 
-        let south_east = 
-        Point2D::new(self.south_east.lat,
-                    self.south_east.lon); 
-        Rect2D::new(north_west, south_east)
+        let north_east =
+        Point2D::new(self.north_east.lat,
+                     self.north_east.lon);
+        let south_west =
+        Point2D::new(self.south_west.lat,
+                    self.south_west.lon);
+        Rect2D::new(north_east, south_west)
     }
 }
 
@@ -182,7 +182,7 @@ impl<
             return 0;
         }
         let root_dimensions = root_projection.get_dimensions();
-        let touch_vector = root_projection.north_west.get_distance_vector(touch);
+        let touch_vector = root_projection.north_east.get_distance_vector(touch);
         
         let row = touch_vector.lat.integer_divide(self.delta) + 1;
         let column = touch_vector.lon.integer_divide(self.delta) + 1;
@@ -387,7 +387,7 @@ decl_module! {
             RootBoxes::<T>::insert(id, root);
             TotalRoots::put(id + 1);
             Self::deposit_event(RawEvent::RootCreated(id, who));
-            
+
             Ok(())
         }
         
@@ -402,8 +402,8 @@ decl_module! {
             ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
             ensure!(height < T::MaxHeight::get(), Error::<T>::InvalidData);
             // Check if zone lies in one single area 
-            let area_id = RootBoxes::<T>::get(root_id).detect_intersected_area(rect.north_west);
-            let se_area_id = RootBoxes::<T>::get(root_id).detect_intersected_area(rect.south_east);
+            let area_id = RootBoxes::<T>::get(root_id).detect_intersected_area(rect.north_east);
+            let se_area_id = RootBoxes::<T>::get(root_id).detect_intersected_area(rect.south_west);
             ensure!(area_id == se_area_id, Error::<T>::ZoneDoesntFit);
             // Getting area from storage, or creating it
             let (area, area_existed) = if AreaData::contains_key(root_id, area_id) {
