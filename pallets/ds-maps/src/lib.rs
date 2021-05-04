@@ -362,6 +362,11 @@ decl_module! {
 
         // Events must be initialized if they are used by the pallet.
         fn deposit_event() = default;
+
+        /// Bitmap cell parameters
+        const BitmapCellLength: T::Coord = T::Coord::from_str("0.01").unwrap_or_default();
+        const BitmapCellWidth: T::Coord = T::Coord::from_str("0.01").unwrap_or_default();
+
         /// Adds new root to storage
         #[weight = <T as Trait>::WeightInfo::root_add()]
         pub fn root_add(origin, 
@@ -369,6 +374,7 @@ decl_module! {
                         delta: T::Coord) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
+
             // TODO replace these ensures w inverted index (using global grid)
             let root_size = bounding_box.projection_on_plane().get_dimensions();
             ensure!(root_size.lat <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
@@ -381,6 +387,7 @@ decl_module! {
             RootBoxes::<T>::insert(id, root);
             TotalRoots::put(id + 1);
             Self::deposit_event(RawEvent::RootCreated(id, who));
+            
             Ok(())
         }
         
