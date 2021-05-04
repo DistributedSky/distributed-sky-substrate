@@ -287,7 +287,7 @@ decl_storage! {
         EarthBitmap get(fn bitmap_cells):
             map hasher(blake2_128_concat) PageId => Page;
 
-        AreaData get(fn area_info): 
+        AreaData get(fn area_info):
             double_map hasher(blake2_128_concat) RootId, 
                        hasher(blake2_128_concat) AreaId => Area;    
 
@@ -364,8 +364,8 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Bitmap cell parameters
-        const BitmapCellLength: T::Coord = T::Coord::from_str("0.01").unwrap_or_default();
-        const BitmapCellWidth: T::Coord = T::Coord::from_str("0.01").unwrap_or_default();
+        const BITMAP_CELL_LENGTH: T::Coord = T::Coord::from_str("0.01").unwrap_or_default();
+        const BITMAP_CELL_WIDTH: T::Coord = T::Coord::from_str("0.01").unwrap_or_default();
 
         /// Adds new root to storage
         #[weight = <T as Trait>::WeightInfo::root_add()]
@@ -379,6 +379,7 @@ decl_module! {
             let root_size = bounding_box.projection_on_plane().get_dimensions();
             ensure!(root_size.lat <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
             ensure!(root_size.lon <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
+
             ensure!(delta <= Self::coord_from_str("0.1") &&
                     delta >= Self::coord_from_str("0.002"), Error::<T>::InvalidData);
 
