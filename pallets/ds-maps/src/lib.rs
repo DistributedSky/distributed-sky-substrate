@@ -12,7 +12,10 @@ use frame_support::{
     Parameter,
     traits::Get,
 };
-use sp_std::str::FromStr;
+use sp_std::{
+    str::FromStr,
+    marker::PhantomData,
+};
 use dsky_utils::MathUtils;
 
 use frame_system::ensure_signed;
@@ -169,8 +172,8 @@ impl<
     /// Returns maximum area index of given root. Guess, mostly - 655356.
     pub fn get_max_area(self) -> AreaId {
         let root_dimensions = self.bounding_box.projection_on_plane().get_dimensions();
-        let total_rows = root_dimensions.lat.integer_divide(self.delta);
-        let total_columns = root_dimensions.lon.integer_divide(self.delta);
+        let total_rows = root_dimensions.lat.integer_division_u16(self.delta);
+        let total_columns = root_dimensions.lon.integer_division_u16(self.delta);
 
         total_rows * total_columns
     }
@@ -184,9 +187,9 @@ impl<
         let root_dimensions = root_projection.get_dimensions();
         let touch_vector = root_projection.north_east.get_distance_vector(touch);
         
-        let row = touch_vector.lat.integer_divide(self.delta) + 1;
-        let column = touch_vector.lon.integer_divide(self.delta) + 1;
-        let total_rows = root_dimensions.lat.integer_divide(self.delta);
+        let row = touch_vector.lat.integer_division_u16(self.delta) + 1;
+        let column = touch_vector.lon.integer_division_u16(self.delta) + 1;
+        let total_rows = root_dimensions.lat.integer_division_u16(self.delta);
 
         (total_rows * (column - 1)) + row
     }
@@ -210,19 +213,55 @@ impl Area {
 }
 
 #[derive(Encode, Decode, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Page {
+pub struct Page<Coord> {
     pub bitmap: [[u32; PAGE_WIDTH]; PAGE_LENGTH],
+    cell_length: u32,
+    cell_width: u32,
+    _phantom: PhantomData<Coord>,
 }
 
-impl Page {
+impl<
+    Coord: Default
+    + FromStr
+    + Copy
+    + MathUtils
+    + core::ops::Div<Output = Coord>
+> Page<Coord> {
     fn new() -> Self {
-        Page{bitmap: [[0u32; PAGE_WIDTH]; PAGE_LENGTH]}
+        Page{
+            bitmap: [[0u32; PAGE_WIDTH]; PAGE_LENGTH],
+            cell_length: 1,
+            cell_width: 1,
+            _phantom: PhantomData,
+        }
+    }
+
+    // TODO implement page counting
+    fn get_amount_of_pages_to_extract(bounding_box: Box3D<Coord>) -> u32 {
+        let amount_of_pages: u32 = 0;
+
+        amount_of_pages
+    }
+
+    pub fn get_cell_indexes(self, point: Point3D<Coord>) -> (u32, u32) {
+        let lat: u32 = point.lat.to_u32();
+        let lon: u32 = point.lon.to_u32();
+
+        let row_index: u32 = lat / self.cell_length;
+        let column_index: u32 = lon / self.cell_length;
+
+        (row_index, column_index)
     }
 }
 
-impl Default for Page {
+impl<Coord: Default + FromStr> Default for Page<Coord> {
     fn default() -> Self {
-        Page{bitmap: [[0u32; PAGE_WIDTH]; PAGE_LENGTH]}
+        Page{
+            bitmap: [[0u32; PAGE_WIDTH]; PAGE_LENGTH],
+            cell_length: 1,
+            cell_width: 1,
+            _phantom: PhantomData,
+        }
     }
 }
 
@@ -246,7 +285,6 @@ pub trait Trait: accounts::Trait {
     + PartialOrd
     + PartialEq
     + FromStr
-    + Default
     + MathUtils
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>;
@@ -285,7 +323,7 @@ decl_storage! {
             map hasher(blake2_128_concat) RootId => RootBoxOf<T>;
 
         EarthBitmap get(fn bitmap_cells):
-            map hasher(blake2_128_concat) PageId => Page;
+            map hasher(blake2_128_concat) PageId => PageOf<T>;
 
         AreaData get(fn area_info):
             double_map hasher(blake2_128_concat) RootId, 
@@ -296,6 +334,7 @@ decl_storage! {
     }
 }
 
+pub type PageOf<T> = Page<<T as Trait>::Coord>;
 pub type RootBoxOf<T> = RootBox<<T as Trait>::Coord>;
 pub type ZoneOf<T> = Zone<<T as Trait>::Coord, <T as Trait>::LightCoord>;
 
