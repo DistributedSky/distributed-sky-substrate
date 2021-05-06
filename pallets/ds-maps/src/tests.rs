@@ -6,7 +6,7 @@ use crate::{Point3D, Box3D,
 use frame_support::{
     assert_noop, assert_ok,
 };
-use substrate_fixed::types::I9F23;
+use substrate_fixed::types::I10F22;
 use sp_std::str::FromStr;
 
 // Explanation for all hardcoded values down here
@@ -51,7 +51,7 @@ use sp_std::str::FromStr;
 // (55.390, 37,380)
 
 type Error = super::Error<Test>;
-pub type Coord = I9F23;
+pub type Coord = I10F22;
 
 // Constants to make tests more readable
 const ADMIN_ACCOUNT_ID: u64 = 1;
@@ -547,18 +547,55 @@ fn it_calculates_cell_indexes() {
     let point: Point3D<Coord> = Point3D::new(coord("1.0"), coord("2.0"), coord("1"));
     let page: Page<Coord> = Page::new();
     let (cell_row_index, cell_column_index) = page.get_cell_indexes(point);
-    assert_eq!(cell_row_index, 10);
-    assert_eq!(cell_column_index, 20);
+    assert_eq!(cell_row_index, 100);
+    assert_eq!(cell_column_index, 200);
 
-    let point: Point3D<Coord> = Point3D::new(coord("55.37"), coord("33.37"), coord("1"));
+    let point: Point3D<Coord> = Point3D::new(coord("55.371"), coord("33.371"), coord("1"));
     let page: Page<Coord> = Page::new();
     let (cell_row_index, cell_column_index) = page.get_cell_indexes(point);
     assert_eq!(cell_row_index, 5537);
     assert_eq!(cell_column_index, 3337);
 
-    let point: Point3D<Coord> = Point3D::new(coord("133.37"), coord("255.37"), coord("1"));
+    let point: Point3D<Coord> = Point3D::new(coord("133.371"), coord("255.373"), coord("1"));
     let page: Page<Coord> = Page::new();
     let (cell_row_index, cell_column_index) = page.get_cell_indexes(point);
     assert_eq!(cell_row_index, 13337);
     assert_eq!(cell_column_index, 25537);
+
+    let point: Point3D<Coord> = Point3D::new(coord("360.0"), coord("180.0"), coord("1"));
+    let page: Page<Coord> = Page::new();
+    let (cell_row_index, cell_column_index) = page.get_cell_indexes(point);
+    assert_eq!(cell_row_index, 36000);
+    assert_eq!(cell_column_index, 18000);
+
+    let point: Point3D<Coord> = Point3D::new(coord("13.3778"), coord("255.3734"), coord("1"));
+    let page: Page<Coord> = Page::new();
+    let (cell_row_index, cell_column_index) = page.get_cell_indexes(point);
+    assert_eq!(cell_row_index, 1337);
+    assert_eq!(cell_column_index, 25537);
+
+    let point: Point3D<Coord> = Point3D::new(coord("0.452"), coord("0.3003"), coord("1"));
+    let page: Page<Coord> = Page::new();
+    let (cell_row_index, cell_column_index) = page.get_cell_indexes(point);
+    assert_eq!(cell_row_index, 45);
+    assert_eq!(cell_column_index, 30);
+
+    let point: Point3D<Coord> = Point3D::new(coord("55.37"), coord("33.37"), coord("1"));
+    let page: Page<Coord> = Page::new();
+    let (cell_row_index, cell_column_index) = page.get_cell_indexes(point);
+    // Because it is required minimum 3 non-zero (simultaneous) digits after the point
+    assert_eq!(cell_row_index, 5536);
+    assert_eq!(cell_column_index, 3336);
+
+    let point: Point3D<Coord> = Point3D::new(coord("1.3778321"), coord("25.3222734"), coord("1"));
+    let page: Page<Coord> = Page::new();
+    let (cell_row_index, cell_column_index) = page.get_cell_indexes(point);
+    assert_eq!(cell_row_index, 137);
+    assert_eq!(cell_column_index, 2532);
+
+    let point: Point3D<Coord> = Point3D::new(coord("1.301"), coord("25.301"), coord("1"));
+    let page: Page<Coord> = Page::new();
+    let (cell_row_index, cell_column_index) = page.get_cell_indexes(point);
+    assert_eq!(cell_row_index, 130);
+    assert_eq!(cell_column_index, 2530);
 }
