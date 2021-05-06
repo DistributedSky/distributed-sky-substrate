@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use substrate_fixed::types::I9F23;
+use substrate_fixed::types::I10F22;
 
 pub trait IntDiv<RHS = Self> {
     fn integer_division_u16(self, rhs: RHS) -> u16;
@@ -16,35 +16,37 @@ pub trait CastToType {
 }
 
 // Want to change Coord type => impl trait for it here
-impl IntDiv for I9F23 {
-    fn integer_division_u16(self, rhs: I9F23) -> u16 {
+impl IntDiv for I10F22 {
+    fn integer_division_u16(self, rhs: I10F22) -> u16 {
         (self / rhs).to_num::<u16>()
     }
 
-    fn integer_division_u32(self, rhs: I9F23) -> u32 {
+    fn integer_division_u32(self, rhs: I10F22) -> u32 {
         (self / rhs).to_num::<u32>()
     }
 }
 
-impl Signed for I9F23 {
+impl Signed for I10F22 {
     fn abs(self) -> Self {
         self.abs()
     }
 }
 
-impl CastToType for I9F23 {
-    fn to_u32_with_frac_part(self, cell_size: u32, max_digits_in_frac_part: u8) -> u32 {
+impl CastToType for I10F22 {
+    /// It is required minimum 3 non-zero (simultaneous) digits after the point
+    /// due to the type features
+    fn to_u32_with_frac_part(self, coefficient: u32, max_digits_in_frac_part: u8) -> u32 {
         let mut integer_part: u32 = self.to_num::<u32>();
         let mut degree_counter: u8 = 0;
 
-        while (integer_part > 0) && (max_digits_in_frac_part > degree_counter) {
+        while max_digits_in_frac_part > degree_counter {
             integer_part /= 10;
             degree_counter += 1;
         }
 
         let base: u32 = 10;
-        let integer_part: u32 = self.to_num::<u32>() * base.pow(degree_counter as u32) * cell_size;
-        let frac_part: u32 = ((self - I9F23::from_num(self.to_num::<u32>()))
+        let integer_part: u32 = self.to_num::<u32>() * base.pow(degree_counter as u32) * coefficient;
+        let frac_part: u32 = ((self - I10F22::from_num(self.to_num::<u32>()))
                                 * base.pow(max_digits_in_frac_part as u32) as i32).to_num::<u32>();
 
         integer_part + frac_part

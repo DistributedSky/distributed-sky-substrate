@@ -47,7 +47,7 @@ pub use pallet_ds_accounts;
 /// Import the DS maps pallet.
 pub use pallet_ds_maps;
 /// Import fixed point for GPS coords
-use substrate_fixed::types::I9F23;
+use substrate_fixed::types::I10F22;
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -296,7 +296,7 @@ parameter_types! {
 impl pallet_ds_maps::Trait for Runtime {
     type Event = Event;
     type WeightInfo = ();
-    type Coord = I9F23;
+    type Coord = I10F22;
     type LightCoord = u16;
     type MaxBuildingsInArea = MaxBuildingsInArea;
     type MaxHeight = MaxHeight;
