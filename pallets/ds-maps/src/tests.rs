@@ -544,21 +544,21 @@ fn it_changes_existing_area_type() {
 
 #[test]
 fn it_calculates_cell_indexes() {
+    let point: Point3D<Coord> = Point3D::new(coord("1.0"), coord("2.0"), coord("1"));
+    let page: Page<Coord> = Page::new();
+    let (cell_row_index, cell_column_index) = page.get_cell_indexes(point);
+    assert_eq!(cell_row_index, 10);
+    assert_eq!(cell_column_index, 20);
+
     let point: Point3D<Coord> = Point3D::new(coord("55.37"), coord("33.37"), coord("1"));
     let page: Page<Coord> = Page::new();
     let (cell_row_index, cell_column_index) = page.get_cell_indexes(point);
     assert_eq!(cell_row_index, 5537);
     assert_eq!(cell_column_index, 3337);
 
-    let point: Point3D<Coord> = Point3D::new(coord("13.37"), coord("255.37"), coord("1"));
+    let point: Point3D<Coord> = Point3D::new(coord("133.37"), coord("255.37"), coord("1"));
     let page: Page<Coord> = Page::new();
     let (cell_row_index, cell_column_index) = page.get_cell_indexes(point);
-    assert_eq!(cell_row_index, 1337);
+    assert_eq!(cell_row_index, 13337);
     assert_eq!(cell_column_index, 25537);
-
-    let point: Point3D<Coord> = Point3D::new(coord("1.0"), coord("2.0"), coord("1"));
-    let page: Page<Coord> = Page::new();
-    let (cell_row_index, cell_column_index) = page.get_cell_indexes(point);
-    assert_eq!(cell_row_index, 10);
-    assert_eq!(cell_column_index, 20);
 }

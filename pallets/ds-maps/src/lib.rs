@@ -326,6 +326,8 @@ impl Area {
     } 
 }
 
+const CELL_SIZE_DEGREE: u8 = 2;
+
 #[derive(Encode, Decode, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Page<Coord> {
     pub bitmap: [[u32; PAGE_WIDTH]; PAGE_LENGTH],
@@ -358,8 +360,8 @@ impl<
     }
 
     pub fn get_cell_indexes(self, point: Point3D<Coord>) -> (u32, u32) {
-        let lat: u32 = point.lat.to_u32();
-        let lon: u32 = point.lon.to_u32();
+        let lat: u32 = point.lat.to_u32_with_frac_part(self.cell_length, CELL_SIZE_DEGREE);
+        let lon: u32 = point.lon.to_u32_with_frac_part(self.cell_width, CELL_SIZE_DEGREE);
 
         let row_index: u32 = lat / self.cell_length;
         let column_index: u32 = lon / self.cell_length;

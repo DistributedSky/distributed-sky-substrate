@@ -12,7 +12,7 @@ pub trait Signed {
 }
 
 pub trait CastToType {
-    fn to_u32(self) -> u32;
+    fn to_u32_with_frac_part(self, cell_size: u32, max_digits_in_frac_part: u8) -> u32;
 }
 
 // Want to change Coord type => impl trait for it here
@@ -33,14 +33,20 @@ impl Signed for I9F23 {
 }
 
 impl CastToType for I9F23 {
-    // TODO make this function universal
-    // TODO fix situation when int part consists of 1 number
-    // '100' is the precision for the first two numbers of the fractional part
-    fn to_u32(self) -> u32 {
-        let result: u32 = self.to_num::<u32>() * 100;
-        let first_number_from_frac: u32 = ((self - I9F23::from_num(self.to_num::<u32>())) * 10).to_num::<u32>() * 10;
-        let second_number_from_frac: u32 = ((self - I9F23::from_num(self.to_num::<u32>())) * 100).to_num::<u32>() % 10;
+    fn to_u32_with_frac_part(self, cell_size: u32, max_digits_in_frac_part: u8) -> u32 {
+        let mut integer_part: u32 = self.to_num::<u32>();
+        let mut degree_counter: u8 = 0;
 
-        result + first_number_from_frac + second_number_from_frac
+        while (integer_part > 0) && (max_digits_in_frac_part > degree_counter) {
+            integer_part /= 10;
+            degree_counter += 1;
+        }
+
+        let base: u32 = 10;
+        let integer_part: u32 = self.to_num::<u32>() * base.pow(degree_counter as u32) * cell_size;
+        let frac_part: u32 = ((self - I9F23::from_num(self.to_num::<u32>()))
+                                * base.pow(max_digits_in_frac_part as u32) as i32).to_num::<u32>();
+
+        integer_part + frac_part
     }
 }
