@@ -1,6 +1,8 @@
 use crate::mock::*;
-use crate::{Box3D, Page, Point2D,
-            Point3D, Rect2D, RootBox,};
+use crate::{Point3D, Box3D, 
+            Point2D, Rect2D,
+            Page
+};
 use frame_support::{
     assert_noop, assert_ok,
 };
@@ -49,12 +51,12 @@ use sp_std::str::FromStr;
 // (55.390, 37,380)
 
 type Error = super::Error<Test>;
-type Coord = I9F23;
+pub type Coord = I9F23;
 
 // Constants to make tests more readable
 const ADMIN_ACCOUNT_ID: u64 = 1;
 const REGISTRAR_1_ACCOUNT_ID: u64 = 2;
-const ROOT_ID: u32 = 1;
+pub const ROOT_ID: u32 = 1;
 // this value, and values in construct_testing_..() was calculated
 const AREA_ID: u16 = 58;
 const DEFAULT_HEIGHT: u16 = 30;
@@ -62,9 +64,9 @@ const DEFAULT_HEIGHT: u16 = 30;
 const DELTA: &str = "0.01";
 
 // shortcut for &str -> Coord
-fn coord<Coord>(s: &str) -> Coord
+pub fn coord<Coord>(s: &str) -> Coord
     where Coord: FromStr,
-         <Coord as FromStr>::Err: std::fmt::Debug { Coord::from_str(s).unwrap() }
+        <Coord as FromStr>::Err: std::fmt::Debug { Coord::from_str(s).unwrap() }
 
 fn construct_testing_box() -> Box3D<Coord> {
     let north_east = Point3D::new(coord("55.37"),
@@ -76,8 +78,7 @@ fn construct_testing_box() -> Box3D<Coord> {
     Box3D::new(north_east, south_west)
 }
 
-fn construct_custom_box(nw_lat: &str, nw_lon: &str,
-                        se_lat: &str, se_lon: &str) -> Box3D<Coord> {
+pub fn construct_custom_box(nw_lat: &str, nw_lon: &str, se_lat: &str, se_lon: &str) -> Box3D<Coord> {
     let north_east = Point3D::new(coord(nw_lat),
                                   coord(nw_lon), 
                                   coord("1"));
@@ -87,8 +88,7 @@ fn construct_custom_box(nw_lat: &str, nw_lon: &str,
     Box3D::new(north_east, south_west)
 }
 
-fn construct_custom_rect(nw_lat: &str, nw_lon: &str,
-                         se_lat: &str, se_lon: &str) -> Rect2D<Coord> {
+pub fn construct_custom_rect(nw_lat: &str, nw_lon: &str, se_lat: &str, se_lon: &str) -> Rect2D<Coord> {
     let north_east = Point2D::new(coord(nw_lat),
                                   coord(nw_lon));
     let south_west = Point2D::new(coord(se_lat),
@@ -102,76 +102,6 @@ fn construct_testing_rect() -> Rect2D<Coord> {
     let south_west = Point2D::new(coord("55.396"),
                                   coord("37.386"));
     Rect2D::new(north_east, south_west)
-}
-
-// 4 rects from test              
-//          +-----o  +-----o
-//          |     |  |     |
-//          |     |  |     |
-//          |   +-+--+-+   |
-//          o---+-+  +-+---+
-//              |      |
-//          +---+-+  +-+---o 
-//          |   +-+--+-+   |
-//          |     |  |     |
-//          |     |  |     |
-//          o-----+  +-----+ 
-
-#[test]
-fn it_zone_intersection_works() {
-    new_test_ext().execute_with(|| {
-        // Can't add two same zones
-        let mid_rect = construct_custom_rect("1", "1", "3", "3");
-        assert!(mid_rect.zone_intersects(mid_rect));
-        // Doesn't intersect
-        let far_away_rect = construct_custom_rect("10", "10", "30", "30");
-        assert!(!mid_rect.zone_intersects(far_away_rect));
-        // Checking from 4 sides (as on comment above)
-        let down_right_rect = construct_custom_rect("0", "0", "2", "2");
-        assert!(mid_rect.zone_intersects(down_right_rect));
-        let top_right_rect = construct_custom_rect("0", "2", "2", "4");
-        assert!(mid_rect.zone_intersects(top_right_rect));
-        let top_left_rect = construct_custom_rect("2", "2", "4", "4");
-        assert!(mid_rect.zone_intersects(top_left_rect));
-        let down_right_rect = construct_custom_rect("2", "0", "4", "2");
-        assert!(mid_rect.zone_intersects(down_right_rect));
-        // We can place zone riiiight near another, but not on it 
-        let rect_near_edge = construct_custom_rect("0", "0", "0.999999", "5");
-        assert!(!mid_rect.zone_intersects(rect_near_edge));
-        let rect_on_edge = construct_custom_rect("0", "0", "1", "5");
-        assert!(mid_rect.zone_intersects(rect_on_edge));
-    });
-}
-
-#[test]
-fn it_max_area_counts_right() {
-    new_test_ext().execute_with(|| {
-        let bbox = construct_custom_box("0", "0", "2", "3");
-        let root = RootBox::new(ROOT_ID, bbox, I9F23::from_num(1));
-        assert_eq!(root.get_max_area(), 6); 
-        // This values will not be possible in extinsics, btw
-        let bbox = construct_custom_box("-90", "-180", "0", "0");
-        let root = RootBox::new(ROOT_ID, bbox, I9F23::from_num(1));
-        assert_eq!(root.get_max_area(), 16_200); 
-    });
-}
-
-#[test]
-fn it_detects_right_area() {
-    new_test_ext().execute_with(|| {
-        let bbox = construct_custom_box("0", "0", "2", "3");
-        let root = RootBox::new(100, bbox, I9F23::from_num(1));
-        let touch = Point2D::new(coord("0.5"),
-                                coord("0.5"));
-        assert_eq!(root.detect_intersected_area(touch), 1);
-        let touch = Point2D::new(coord("1.5"),
-                                coord("1.5"));
-        assert_eq!(root.detect_intersected_area(touch), 4); 
-        // not sure, is it better to throw an error, or have a special index?
-        let far_away_touch = Point2D::new(coord("50"),
-                                        coord("50"));
-        assert_eq!(root.detect_intersected_area(far_away_touch), 0); 
-    });
 }
 
 #[test]
