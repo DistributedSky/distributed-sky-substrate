@@ -45,6 +45,10 @@ pub const MAX_PAGES_AMOUNT_TO_EXTRACT: u8 = 9;
 pub const PAGE_LENGTH: usize = 32;
 pub const PAGE_WIDTH: usize = 50;
 
+/// Bitmap cell parameters in degree e-2
+const BITMAP_CELL_LENGTH: u32 = 1;
+const BITMAP_CELL_WIDTH: u32 = 1;
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Point2D<Coord> {
@@ -331,8 +335,6 @@ const CELL_SIZE_DEGREE: u8 = 2;
 #[derive(Encode, Decode, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Page<Coord> {
     pub bitmap: [[u32; PAGE_WIDTH]; PAGE_LENGTH],
-    cell_length: u32,
-    cell_width: u32,
     _phantom: PhantomData<Coord>,
 }
 
@@ -346,28 +348,51 @@ impl<
     fn new() -> Self {
         Page{
             bitmap: [[0u32; PAGE_WIDTH]; PAGE_LENGTH],
-            cell_length: 1,
-            cell_width: 1,
             _phantom: PhantomData,
         }
     }
 
-    // TODO implement page counting
-    fn get_amount_of_pages_to_extract(bounding_box: Box3D<Coord>) -> u32 {
-        let amount_of_pages: u32 = 0;
+    pub fn get_amount_of_pages_to_extract(bounding_box: Box3D<Coord>) -> u32 {
+        let mut amount_of_pages: u32 = 0;
 
+        let (sw_row_index, sw_column_index) = Self::get_cell_indexes(bounding_box.south_west);
+        let (ne_row_index, ne_column_index) = Self::get_cell_indexes(bounding_box.north_east);
+
+        let sw_cell_page_index = Self::get_page_index(sw_row_index, sw_column_index);
+        let ne_cell_page_index = Self::get_page_index(ne_row_index, ne_column_index);
+
+        if sw_cell_page_index == ne_cell_page_index {
+            amount_of_pages = 1;
+            return amount_of_pages
+        }
+
+        let (sw_page_row_index, sw_page_column_index) = Self::extract_values_from_page_index(sw_cell_page_index);
+        let (ne_page_row_index, ne_page_column_index) = Self::extract_values_from_page_index(ne_cell_page_index);
+
+        amount_of_pages += (ne_page_row_index - sw_page_row_index) / MAX_ROW_INDEX as u32 +
+                           (ne_page_column_index - sw_page_column_index) / MAX_COLUMN_INDEX as u32;
 
         amount_of_pages
     }
 
-    pub fn get_cell_indexes(self, point: Point3D<Coord>) -> (u32, u32) {
-        let lat: u32 = point.lat.to_u32_with_frac_part(self.cell_length, CELL_SIZE_DEGREE);
-        let lon: u32 = point.lon.to_u32_with_frac_part(self.cell_width, CELL_SIZE_DEGREE);
+    pub fn get_cell_indexes(point: Point3D<Coord>) -> (u32, u32) {
+        let lat: u32 = point.lat.to_u32_with_frac_part(BITMAP_CELL_LENGTH, CELL_SIZE_DEGREE);
+        let lon: u32 = point.lon.to_u32_with_frac_part(BITMAP_CELL_WIDTH, CELL_SIZE_DEGREE);
 
-        let row_index: u32 = lat / self.cell_length;
-        let column_index: u32 = lon / self.cell_length;
+        let row_index: u32 = lat / BITMAP_CELL_LENGTH;
+        let column_index: u32 = lon / BITMAP_CELL_WIDTH;
 
         (row_index, column_index)
+    }
+
+    // TODO implement page index getting
+    pub fn get_page_index(cell_row_index: u32, cell_column_index: u32) -> u32 {
+        0
+    }
+
+    // TODO implement page indexes extracting
+    fn extract_values_from_page_index(page_index: u32) -> (u32, u32) {
+        (0, 0)
     }
 }
 
@@ -375,8 +400,6 @@ impl<Coord: Default + FromStr> Default for Page<Coord> {
     fn default() -> Self {
         Page{
             bitmap: [[0u32; PAGE_WIDTH]; PAGE_LENGTH],
-            cell_length: 1,
-            cell_width: 1,
             _phantom: PhantomData,
         }
     }
