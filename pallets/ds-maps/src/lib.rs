@@ -356,6 +356,7 @@ impl<
     fn get_amount_of_pages_to_extract(bounding_box: Box3D<Coord>) -> u32 {
         let amount_of_pages: u32 = 0;
 
+
         amount_of_pages
     }
 
@@ -519,10 +520,6 @@ decl_module! {
 
         // Events must be initialized if they are used by the pallet.
         fn deposit_event() = default;
-
-        /// Bitmap cell parameters
-        const BITMAP_CELL_LENGTH: T::Coord = T::Coord::from_str("0.01").unwrap_or_default();
-        const BITMAP_CELL_WIDTH: T::Coord = T::Coord::from_str("0.01").unwrap_or_default();
 
         /// Adds new root to storage
         #[weight = <T as Trait>::WeightInfo::root_add()]
