@@ -385,9 +385,8 @@ impl<
         (row_index, column_index)
     }
 
-    // TODO implement page index getting
     pub fn get_page_index(cell_row_index: u32, cell_column_index: u32) -> u32 {
-        0
+        cell_row_index << 16 | cell_column_index
     }
 
     // TODO implement page indexes extracting
