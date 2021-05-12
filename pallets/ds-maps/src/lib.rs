@@ -389,9 +389,11 @@ impl<
         cell_row_index << 16 | cell_column_index
     }
 
-    // TODO implement page indexes extracting
     fn extract_values_from_page_index(page_index: u32) -> (u32, u32) {
-        (0, 0)
+        let mask_u16: u32 = 0b1111_1111_1111_1111;
+        let row_index: u32 = page_index >> 16;
+        let column_index: u32 = page_index & mask_u16;
+        (row_index, column_index)
     }
 }
 
