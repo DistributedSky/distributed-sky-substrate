@@ -386,8 +386,23 @@ impl<
     }
 
     pub fn get_page_index(cell_row_index: u32, cell_column_index: u32) -> u32 {
-        (PAGE_LENGTH as u32 * cell_row_index + cell_row_index % PAGE_LENGTH as u32) << 16 |
-            (PAGE_WIDTH as u32 * cell_column_index + cell_column_index % PAGE_WIDTH as u32)
+        let mut row_index: u32 = 0;
+        let mut column_index: u32 = 0;
+
+        if (cell_row_index - 1) % PAGE_LENGTH as u32 != 0 {
+            row_index = PAGE_LENGTH as u32 *
+                (cell_row_index + PAGE_LENGTH as u32 - (cell_row_index) % PAGE_LENGTH as u32);
+        } else {
+            row_index = PAGE_LENGTH as u32 * cell_row_index;
+        }
+        if (cell_column_index - 1) % PAGE_WIDTH as u32 != 0 {
+            column_index = PAGE_WIDTH as u32 *
+                (cell_column_index + PAGE_WIDTH as u32 - (cell_column_index) % PAGE_WIDTH as u32);
+        } else {
+            column_index = PAGE_WIDTH as u32 * cell_column_index;
+        }
+
+        (row_index << 16) | column_index
     }
 
     fn extract_values_from_page_index(page_index: u32) -> (u32, u32) {
