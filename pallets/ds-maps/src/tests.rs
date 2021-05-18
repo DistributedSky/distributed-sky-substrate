@@ -1,7 +1,8 @@
 use crate::mock::*;
 use crate::{Point3D, Box3D, 
             Point2D, Rect2D,
-            Page
+            Page,
+            PAGE_LENGTH, PAGE_WIDTH
 };
 use frame_support::{
     assert_noop, assert_ok,
@@ -593,7 +594,21 @@ fn it_calculates_cell_indexes() {
 
 #[test]
 fn it_gets_amount_of_pages_to_extract() {
+    let bounding_box = construct_custom_box("0.301", "0.0", "0.0", "0.491");
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    assert_eq!(pages_to_extract, 1);
 
+    // let bounding_box = construct_custom_box("0.301", "0.0", "0.0", "1.01");
+    // let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    // assert_eq!(pages_to_extract, 2);
+
+    // let bounding_box = construct_custom_box("0.641", "0.0", "0.0", "1.01");
+    // let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    // assert_eq!(pages_to_extract, 4);
+
+    // let bounding_box = construct_custom_box("0.641", "0.0", "0.211", "1.01");
+    // let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    // assert_eq!(pages_to_extract, 4);
 }
 
 #[test]
@@ -603,37 +618,37 @@ fn it_extracts_values_from_page_index() {
     assert_eq!(cell_row_index, 1);
     assert_eq!(cell_column_index, 1);
     let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0001_0000_0000_0000_0001);
+    assert_eq!(page_index, 0b0010_0000_0000_0000_0011_0010);
     let (row_index, column_index) = Page::<Coord>::extract_values_from_page_index(page_index);
-    assert_eq!(row_index, cell_row_index);
-    assert_eq!(column_index, cell_column_index);
+    assert_eq!(row_index, PAGE_LENGTH as u32);
+    assert_eq!(column_index, PAGE_WIDTH as u32);
 
-    let point: Point3D<Coord> = Point3D::new(coord("12.251"), coord("5.211"), coord("1"));
+    let point: Point3D<Coord> = Point3D::new(coord("12.251"), coord("0.011"), coord("1"));
     let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
     assert_eq!(cell_row_index, 1225);
-    assert_eq!(cell_column_index, 521);
+    assert_eq!(cell_column_index, 1);
     let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0100_1100_1001_0000_0010_0000_1001);
+    assert_eq!(page_index, 0b1001_1100_0000_0000_0000_0000_0011_0010);
     let (row_index, column_index) = Page::<Coord>::extract_values_from_page_index(page_index);
-    assert_eq!(row_index, cell_row_index);
-    assert_eq!(column_index, cell_column_index);
+    assert_eq!(row_index, 1248 * PAGE_LENGTH as u32);
+    assert_eq!(column_index, PAGE_WIDTH as u32);
 
     let point: Point3D<Coord> = Point3D::new(coord("12.251"), coord("235.211"), coord("1"));
     let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
     assert_eq!(cell_row_index, 1225);
     assert_eq!(cell_column_index, 23521);
     let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0100_1100_1001_0101_1011_1110_0001);
+    assert_eq!(page_index, 0b1001_1100_0001_0001_1111_0111_1001_1100);
     let (row_index, column_index) = Page::<Coord>::extract_values_from_page_index(page_index);
-    assert_eq!(row_index, cell_row_index);
-    assert_eq!(column_index, cell_column_index);
+    assert_eq!(row_index, 39953);
+    assert_eq!(column_index, 63388);
 }
 
 #[test]
 fn it_gets_page_index() {
-    // All numbers for assertion are converted from the binary form.
-    // All index situations by row and column are considered.
-    // The entry 3-2 means 3 digits in the row index and 2 digits in the column index, and so on.
+    // The formula for getting page index from rows and columns is the same,
+    // except for the shift, so only several cases are considered.
+    // The entry 1-1 means 1 digit in the row index and 1 digit in the column index, and so on.
 
     // case 1-1
     let point: Point3D<Coord> = Point3D::new(coord("0.011"), coord("0.011"), coord("1"));
@@ -641,7 +656,7 @@ fn it_gets_page_index() {
     assert_eq!(cell_row_index, 1);
     assert_eq!(cell_column_index, 1);
     let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0001_0000_0000_0000_0001);
+    assert_eq!(page_index, 0b0010_0000_0000_0000_0011_0010);
 
     // case 2-1
     let point: Point3D<Coord> = Point3D::new(coord("0.251"), coord("0.011"), coord("1"));
@@ -649,7 +664,7 @@ fn it_gets_page_index() {
     assert_eq!(cell_row_index, 25);
     assert_eq!(cell_column_index, 1);
     let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0001_1001_0000_0000_0000_0001);
+    assert_eq!(page_index, 0b0100_0000_0000_0000_0000_0011_0010);
 
     // case 3-1
     let point: Point3D<Coord> = Point3D::new(coord("2.251"), coord("0.011"), coord("1"));
@@ -657,7 +672,7 @@ fn it_gets_page_index() {
     assert_eq!(cell_row_index, 225);
     assert_eq!(cell_column_index, 1);
     let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b1110_0001_0000_0000_0000_0001);
+    assert_eq!(page_index, 0b0001_1100_0010_0000_0000_0000_0011_0010);
 
     // case 4-1
     let point: Point3D<Coord> = Point3D::new(coord("12.251"), coord("0.011"), coord("1"));
@@ -665,7 +680,7 @@ fn it_gets_page_index() {
     assert_eq!(cell_row_index, 1225);
     assert_eq!(cell_column_index, 1);
     let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0100_1100_1001_0000_0000_0000_0001);
+    assert_eq!(page_index, 0b1001_1100_0000_0000_0000_0000_0011_0010);
 
     // case 5-1
     let point: Point3D<Coord> = Point3D::new(coord("133.251"), coord("0.011"), coord("1"));
@@ -673,151 +688,7 @@ fn it_gets_page_index() {
     assert_eq!(cell_row_index, 13325);
     assert_eq!(cell_column_index, 1);
     let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0011_0100_0000_1101_0000_0000_0000_0001);
-
-    // case 1-2
-    let point: Point3D<Coord> = Point3D::new(coord("0.011"), coord("0.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 1);
-    assert_eq!(cell_column_index, 21);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0001_0000_0000_0001_0101);
-
-    // case 2-2
-    let point: Point3D<Coord> = Point3D::new(coord("0.251"), coord("0.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 25);
-    assert_eq!(cell_column_index, 21);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0001_1001_0000_0000_0001_0101);
-
-    // case 3-2
-    let point: Point3D<Coord> = Point3D::new(coord("2.251"), coord("0.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 225);
-    assert_eq!(cell_column_index, 21);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b1110_0001_0000_0000_0001_0101);
-
-    // case 4-2
-    let point: Point3D<Coord> = Point3D::new(coord("12.251"), coord("0.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 1225);
-    assert_eq!(cell_column_index, 21);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0100_1100_1001_0000_0000_0001_0101);
-
-    // case 5-2
-    let point: Point3D<Coord> = Point3D::new(coord("133.251"), coord("0.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 13325);
-    assert_eq!(cell_column_index, 21);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0011_0100_0000_1101_0000_0000_0001_0101);
-
-    // case 1-3
-    let point: Point3D<Coord> = Point3D::new(coord("0.011"), coord("5.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 1);
-    assert_eq!(cell_column_index, 521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0001_0000_0010_0000_1001);
-
-    // case 2-3
-    let point: Point3D<Coord> = Point3D::new(coord("0.251"), coord("5.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 25);
-    assert_eq!(cell_column_index, 521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0001_1001_0000_0010_0000_1001);
-
-    // case 3-3
-    let point: Point3D<Coord> = Point3D::new(coord("2.251"), coord("5.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 225);
-    assert_eq!(cell_column_index, 521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b1110_0001_0000_0010_0000_1001);
-
-    // case 4-3
-    let point: Point3D<Coord> = Point3D::new(coord("12.251"), coord("5.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 1225);
-    assert_eq!(cell_column_index, 521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0100_1100_1001_0000_0010_0000_1001);
-
-    // case 5-3
-    let point: Point3D<Coord> = Point3D::new(coord("133.251"), coord("5.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 13325);
-    assert_eq!(cell_column_index, 521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0011_0100_0000_1101_0000_0010_0000_1001);
-
-    // case 1-4
-    let point: Point3D<Coord> = Point3D::new(coord("0.011"), coord("35.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 1);
-    assert_eq!(cell_column_index, 3521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0001_0000_1101_1100_0001);
-
-    // case 2-4
-    let point: Point3D<Coord> = Point3D::new(coord("0.251"), coord("35.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 25);
-    assert_eq!(cell_column_index, 3521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0001_1001_0000_1101_1100_0001);
-
-    // case 3-4
-    let point: Point3D<Coord> = Point3D::new(coord("2.251"), coord("35.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 225);
-    assert_eq!(cell_column_index, 3521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b1110_0001_0000_1101_1100_0001);
-
-    // case 4-4
-    let point: Point3D<Coord> = Point3D::new(coord("12.251"), coord("35.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 1225);
-    assert_eq!(cell_column_index, 3521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0100_1100_1001_0000_1101_1100_0001);
-
-    // case 5-4
-    let point: Point3D<Coord> = Point3D::new(coord("133.251"), coord("35.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 13325);
-    assert_eq!(cell_column_index, 3521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0011_0100_0000_1101_0000_1101_1100_0001);
-
-    // case 1-5
-    let point: Point3D<Coord> = Point3D::new(coord("0.011"), coord("235.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 1);
-    assert_eq!(cell_column_index, 23521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0001_0101_1011_1110_0001);
-
-    // case 2-5
-    let point: Point3D<Coord> = Point3D::new(coord("0.251"), coord("235.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 25);
-    assert_eq!(cell_column_index, 23521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0001_1001_0101_1011_1110_0001);
-
-    // case 3-5
-    let point: Point3D<Coord> = Point3D::new(coord("2.251"), coord("235.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 225);
-    assert_eq!(cell_column_index, 23521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b1110_0001_0101_1011_1110_0001);
+    assert_eq!(page_index, 0b1000_0100_0000_0000_0000_0000_0011_0010);
 
     // case 4-5
     let point: Point3D<Coord> = Point3D::new(coord("12.251"), coord("235.211"), coord("1"));
@@ -825,13 +696,5 @@ fn it_gets_page_index() {
     assert_eq!(cell_row_index, 1225);
     assert_eq!(cell_column_index, 23521);
     let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0100_1100_1001_0101_1011_1110_0001);
-
-    // case 5-5
-    let point: Point3D<Coord> = Point3D::new(coord("133.251"), coord("235.211"), coord("1"));
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
-    assert_eq!(cell_row_index, 13325);
-    assert_eq!(cell_column_index, 23521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0011_0100_0000_1101_0101_1011_1110_0001);
+    assert_eq!(page_index, 0b1001_1100_0001_0001_1111_0111_1001_1100);
 }
