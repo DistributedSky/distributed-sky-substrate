@@ -386,7 +386,8 @@ impl<
     }
 
     pub fn get_page_index(cell_row_index: u32, cell_column_index: u32) -> u32 {
-        cell_row_index << 16 | cell_column_index
+        (PAGE_LENGTH as u32 * cell_row_index + cell_row_index % PAGE_LENGTH as u32) << 16 |
+            (PAGE_WIDTH as u32 * cell_column_index + cell_column_index % PAGE_WIDTH as u32)
     }
 
     fn extract_values_from_page_index(page_index: u32) -> (u32, u32) {
