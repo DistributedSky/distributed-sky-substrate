@@ -353,8 +353,6 @@ impl<
     }
 
     pub fn get_amount_of_pages_to_extract(bounding_box: Box3D<Coord>) -> u32 {
-        let mut amount_of_pages: u32 = 0;
-
         let (sw_row_index, sw_column_index) = Self::get_cell_indexes(bounding_box.south_west);
         let (ne_row_index, ne_column_index) = Self::get_cell_indexes(bounding_box.north_east);
 
@@ -362,17 +360,15 @@ impl<
         let ne_cell_page_index = Self::get_page_index(ne_row_index, ne_column_index);
 
         if sw_cell_page_index == ne_cell_page_index {
-            amount_of_pages = 1;
+            let amount_of_pages: u32 = 1;
             return amount_of_pages
         }
 
         let (sw_page_row_index, sw_page_column_index) = Self::extract_values_from_page_index(sw_cell_page_index);
         let (ne_page_row_index, ne_page_column_index) = Self::extract_values_from_page_index(ne_cell_page_index);
 
-        amount_of_pages += (ne_page_row_index - sw_page_row_index) / BITMAP_CELL_LENGTH as u32 +
-                           (sw_page_column_index - ne_page_column_index) / BITMAP_CELL_WIDTH as u32;
-
-        amount_of_pages
+        return (ne_page_row_index - sw_page_row_index) / PAGE_LENGTH as u32 +
+                (sw_page_column_index - ne_page_column_index) / PAGE_WIDTH as u32 + 1;
     }
 
     pub fn get_cell_indexes(point: Point3D<Coord>) -> (u32, u32) {
@@ -386,19 +382,23 @@ impl<
     }
 
     pub fn get_page_index(cell_row_index: u32, cell_column_index: u32) -> u32 {
-        let mut row_index: u32 = 0;
-        let mut column_index: u32 = 0;
+        let row_index: u32;
+        let column_index: u32;
 
         if cell_row_index > 0 && cell_row_index % PAGE_LENGTH as u32 != 0 {
             row_index = PAGE_LENGTH as u32 + cell_row_index - cell_row_index % PAGE_LENGTH as u32;
+        } else if cell_row_index == 0 {
+            row_index = PAGE_LENGTH as u32;
         } else {
-            row_index = PAGE_LENGTH as u32 * cell_row_index;
+            row_index = cell_row_index;
         }
 
         if cell_column_index > 0 && cell_column_index % PAGE_WIDTH as u32 != 0 {
             column_index = PAGE_WIDTH as u32 + cell_column_index - cell_column_index % PAGE_WIDTH as u32;
+        } else if cell_column_index == 0 {
+            column_index = PAGE_WIDTH as u32;
         } else {
-            column_index = PAGE_WIDTH as u32 * cell_column_index;
+            column_index = cell_column_index;
         }
 
         (row_index << 16) | column_index
