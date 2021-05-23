@@ -595,32 +595,21 @@ fn it_calculates_cell_indexes() {
 #[test]
 fn it_gets_amount_of_pages_to_extract() {
     let bounding_box = construct_custom_box("0.301", "0.0", "0.0", "0.491");
-/*
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(bounding_box.north_east);
-    assert_eq!(cell_row_index, 30);
-    assert_eq!(cell_column_index, 0);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0001_1110_0000_0000_0000_0000);
-    let (cell_row_index, cell_column_index) = Page::get_cell_indexes(bounding_box.south_west);
-    assert_eq!(cell_row_index, 0);
-    assert_eq!(cell_column_index, 49);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
-    assert_eq!(page_index, 0b0000_0000_0000_0011_0001);
 
     let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
     assert_eq!(pages_to_extract, 1);
-*/
-    // let bounding_box = construct_custom_box("0.301", "0.0", "0.0", "1.01");
-    // let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
-    // assert_eq!(pages_to_extract, 2);
 
-    // let bounding_box = construct_custom_box("0.641", "0.0", "0.0", "1.01");
-    // let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
-    // assert_eq!(pages_to_extract, 4);
+    let bounding_box = construct_custom_box("0.301", "0.0", "0.0", "1.011");
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    assert_eq!(pages_to_extract, 3);
 
-    // let bounding_box = construct_custom_box("0.641", "0.0", "0.211", "1.01");
-    // let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
-    // assert_eq!(pages_to_extract, 4);
+    let bounding_box = construct_custom_box("0.641", "0.0", "0.0", "1.011");
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    assert_eq!(pages_to_extract, 4);
+
+    let bounding_box = construct_custom_box("0.641", "0.0", "0.211", "1.011");
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    assert_eq!(pages_to_extract, 4);
 }
 
 #[test]
