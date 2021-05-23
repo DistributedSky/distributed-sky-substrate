@@ -45,7 +45,7 @@ impl CastToType for I10F22 {
         }
 
         let base: u32 = 10;
-        let integer_part: u32 = self.to_num::<u32>() * base.pow(degree_counter as u32) * coefficient;
+        integer_part = self.to_num::<u32>() * base.pow(degree_counter as u32) * coefficient;
         let frac_part: u32 = ((self - I10F22::from_num(self.to_num::<u32>()))
                                 * base.pow(max_digits_in_frac_part as u32) as i32).to_num::<u32>();
 
