@@ -369,8 +369,8 @@ impl<
         let (sw_page_row_index, sw_page_column_index) = Self::extract_values_from_page_index(sw_cell_page_index);
         let (ne_page_row_index, ne_page_column_index) = Self::extract_values_from_page_index(ne_cell_page_index);
 
-        amount_of_pages += (ne_page_row_index - sw_page_row_index) / MAX_ROW_INDEX as u32 +
-                           (ne_page_column_index - sw_page_column_index) / MAX_COLUMN_INDEX as u32;
+        amount_of_pages += (ne_page_row_index - sw_page_row_index) / BITMAP_CELL_LENGTH as u32 +
+                           (sw_page_column_index - ne_page_column_index) / BITMAP_CELL_WIDTH as u32;
 
         amount_of_pages
     }
@@ -389,15 +389,14 @@ impl<
         let mut row_index: u32 = 0;
         let mut column_index: u32 = 0;
 
-        if (cell_row_index - 1) % PAGE_LENGTH as u32 != 0 {
-            row_index = PAGE_LENGTH as u32 *
-                (cell_row_index + PAGE_LENGTH as u32 - (cell_row_index) % PAGE_LENGTH as u32);
+        if cell_row_index > 0 && cell_row_index % PAGE_LENGTH as u32 != 0 {
+            row_index = PAGE_LENGTH as u32 + cell_row_index - cell_row_index % PAGE_LENGTH as u32;
         } else {
             row_index = PAGE_LENGTH as u32 * cell_row_index;
         }
-        if (cell_column_index - 1) % PAGE_WIDTH as u32 != 0 {
-            column_index = PAGE_WIDTH as u32 *
-                (cell_column_index + PAGE_WIDTH as u32 - (cell_column_index) % PAGE_WIDTH as u32);
+
+        if cell_column_index > 0 && cell_column_index % PAGE_WIDTH as u32 != 0 {
+            column_index = PAGE_WIDTH as u32 + cell_column_index - cell_column_index % PAGE_WIDTH as u32;
         } else {
             column_index = PAGE_WIDTH as u32 * cell_column_index;
         }
