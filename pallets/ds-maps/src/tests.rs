@@ -106,7 +106,7 @@ fn construct_testing_rect() -> Rect2D<Coord> {
 }
 
 #[test]
-fn it_tries_add_root_unauthorized() {
+fn it_tries_to_add_root_unauthorized() {
     new_test_ext().execute_with(|| {
         let account = DSAccountsModule::account_registry(2);
         assert!(!account.is_enabled());
@@ -122,7 +122,33 @@ fn it_tries_add_root_unauthorized() {
 }
 
 #[test]
-fn it_tries_add_root_by_registrar() {
+fn it_tries_to_add_root_by_registrar() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
+            )
+        );
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_box(),
+            )
+        );
+        assert_noop!(
+            DSMapsModule::root_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                construct_testing_box(),
+            ),
+            Error::NotAuthorized
+        );
+    });
+}
+
+#[test]
+fn it_tries_to_add_too_big_root() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -130,17 +156,21 @@ fn it_tries_add_root_by_registrar() {
                 REGISTRAR_1_ACCOUNT_ID,
                 super::REGISTRAR_ROLE
         ));
-        assert_ok!(
-            DSMapsModule::root_add(
-                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_testing_box(),
-        ));
         assert_noop!(
             DSMapsModule::root_add(
-                Origin::signed(ADMIN_ACCOUNT_ID),
-                construct_testing_box(),
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_custom_box("250.0", "0.0",
+                                     "0.0", "250.0"),
             ),
-            Error::NotAuthorized
+            Error::PageLimitExceeded
+        );
+        assert_noop!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_custom_box("45.1", "0.0",
+                                     "0.0", "50.9"),
+            ),
+            Error::PageLimitExceeded
         );
     });
 }
