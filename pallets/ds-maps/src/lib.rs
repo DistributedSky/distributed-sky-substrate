@@ -41,7 +41,7 @@ pub const ZERO_DEGREE_COLUMN_INDEX: u16 = 9_000;
 
 /// Page parameters
 pub const MAX_PAGE_INDEX: u32 = 404_999;
-pub const MAX_PAGES_AMOUNT_TO_EXTRACT: u8 = 9;
+pub const MAX_PAGES_AMOUNT_TO_EXTRACT: u32 = 9;
 pub const PAGE_LENGTH: usize = 32;
 pub const PAGE_WIDTH: usize = 50;
 
@@ -228,23 +228,22 @@ impl<
 pub struct RootBox<Coord> {
     pub id: RootId,
     pub bounding_box: Box3D<Coord>,
-    pub delta: Coord,
 }
 
 impl<
     Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv + Div<Output = Coord> + Copy 
     > RootBox<Coord> {
-    pub fn new(id: RootId, bounding_box: Box3D<Coord>, delta: Coord) -> Self {
-        RootBox{id, bounding_box, delta}
+    pub fn new(id: RootId, bounding_box: Box3D<Coord>) -> Self {
+        RootBox{id, bounding_box}
     }
 
     /// Returns maximum area index of given root. Max is 65536.
     pub fn get_max_area(self) -> AreaId {
         let root_dimensions = self.bounding_box.projection_on_plane().get_dimensions();
-        let total_rows = root_dimensions.lat.integer_division_u16(self.delta);
-        let total_columns = root_dimensions.lon.integer_division_u16(self.delta);
-
-        total_rows * total_columns
+        // let total_rows = root_dimensions.lat.integer_division_u16(self.delta);
+        // let total_columns = root_dimensions.lon.integer_division_u16(self.delta);
+        0 * 1
+        // total_rows * total_columns
     }
 
     /// Returns id of an area in root, in which supplied point is located
@@ -256,11 +255,11 @@ impl<
         let root_dimensions = root_projection.get_dimensions();
         let touch_vector = root_projection.north_east.get_distance_vector(touch);
         
-        let row = touch_vector.lat.integer_division_u16(self.delta) + 1;
-        let column = touch_vector.lon.integer_division_u16(self.delta) + 1;
-        let total_rows = root_dimensions.lat.integer_division_u16(self.delta);
-
-        (total_rows * (column - 1)) + row
+        // let row = touch_vector.lat.integer_division_u16(self.delta) + 1;
+        // let column = touch_vector.lon.integer_division_u16(self.delta) + 1;
+        // let total_rows = root_dimensions.lat.integer_division_u16(self.delta);
+        1
+        // (total_rows * (column - 1)) + row
     }
 
     #[cfg(test)]
@@ -277,28 +276,28 @@ mod rootbox_tests {
     #[test]
     fn max_area_small_root() {
         let bbox = construct_custom_box("0", "0", "2", "3");
-        let root = RootBox::new(ROOT_ID, bbox, coord("1"));
+        let root = RootBox::new(ROOT_ID, bbox);
         assert_eq!(root.get_max_area(), 6); 
     }
     
     #[test]
     fn max_area_frac_delta() {
         let bbox = construct_custom_box("-0", "0", "2", "3");
-        let root = RootBox::new(ROOT_ID, bbox, coord("0.5"));
+        let root = RootBox::new(ROOT_ID, bbox);
         assert_eq!(root.get_max_area(), 24);
     } 
 
     #[test]
     fn max_area_big_root() {
         let bbox = construct_custom_box("-90", "-180", "0", "0");
-        let root = RootBox::new(ROOT_ID, bbox, coord("1"));
+        let root = RootBox::new(ROOT_ID, bbox);
         assert_eq!(root.get_max_area(), 16_200);
     } 
 
     #[test]
     fn area_detects_correct() {
         let bbox = construct_custom_box("0", "0", "2", "3");
-        let root = RootBox::new(100, bbox, coord("1"));
+        let root = RootBox::new(100, bbox);
 
         let point = Point2D::new(coord("0.5"),
                                  coord("0.5"));
@@ -367,8 +366,12 @@ impl<
         let (sw_page_row_index, sw_page_column_index) = Self::extract_values_from_page_index(sw_cell_page_index);
         let (ne_page_row_index, ne_page_column_index) = Self::extract_values_from_page_index(ne_cell_page_index);
 
+        if ne_page_row_index < sw_page_row_index || ne_page_column_index > sw_page_column_index {
+            return 0;
+        }
+
         return (ne_page_row_index - sw_page_row_index) / PAGE_LENGTH as u32 +
-                (sw_page_column_index - ne_page_column_index) / PAGE_WIDTH as u32 + 1;
+            (sw_page_column_index - ne_page_column_index) / PAGE_WIDTH as u32 + 1;
     }
 
     pub fn get_cell_indexes(point: Point3D<Coord>) -> (u32, u32) {
@@ -521,30 +524,34 @@ decl_event!(
 // learn more https://substrate.dev/docs/en/knowledgebase/runtime/errors
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// Error names should be descriptive.
-        NoneValue,
+        /// Area can't contain no more buildings
+        AreaFull,
+        /// Sizes are off bounds
+        BadDimesions,
+        /// Area is unavailable for operation
+        ForbiddenArea,
         /// Operation is not valid
         InvalidAction,
+        /// Incorrect coordinates were provided
+        InvalidCoords,
         /// Incorrect data provided
         InvalidData,
+        /// Error names should be descriptive
+        NoneValue,
         /// Origin do not have sufficient privileges to perform the operation
         NotAuthorized,
         /// Account doesn't exist
         NotExists,
-        /// Area is unavailable for operation
-        ForbiddenArea,
+        /// Added zone overlaps with another in current area
+        OverlappingZone,
+        /// The number of pages to be extracted exceeds the maximum
+        PageLimitExceeded,
         /// Root you are trying to access is not in storage
         RootDoesNotExist,
-        /// Sizes are off bounds
-        BadDimesions,
-        /// Area can't contain no more buildings
-        AreaFull,
         /// Zone points lies in different areas
         ZoneDoesntFit,
         /// Zone you are trying to access is not in storage
         ZoneDoesntExist,
-        /// Added zone overlaps with another in current area
-        OverlappingZone,
         // Add additional errors below
     }
 }
@@ -563,24 +570,31 @@ decl_module! {
         /// Adds new root to storage
         #[weight = <T as Trait>::WeightInfo::root_add()]
         pub fn root_add(origin, 
-                        bounding_box: Box3D<T::Coord>,
-                        delta: T::Coord) -> dispatch::DispatchResult {
+                        bounding_box: Box3D<T::Coord>) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
 
+            let amount_of_pages_to_extract = Page::<T::Coord>::get_amount_of_pages_to_extract(bounding_box);
+            ensure!(amount_of_pages_to_extract <= MAX_PAGES_AMOUNT_TO_EXTRACT, Error::<T>::PageLimitExceeded);
+
+            let (sw_cell_row_index, sw_cell_column_index) = Page::<T::Coord>::get_cell_indexes(bounding_box.south_west);
+            let sw_page_index = Page::<T::Coord>::get_page_index(sw_cell_row_index, sw_cell_column_index);
+            let (ne_cell_row_index, ne_cell_column_index) = Page::<T::Coord>::get_cell_indexes(bounding_box.north_east);
+            let ne_page_index = Page::<T::Coord>::get_page_index(ne_cell_row_index, ne_cell_column_index);
+            ensure!(ne_page_index == 0 || sw_page_index == 0, Error::<T>::InvalidCoords);
+
+            /*
             // TODO replace these ensures w inverted index (using global grid)
             let root_size = bounding_box.projection_on_plane().get_dimensions();
             ensure!(root_size.lat <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
             ensure!(root_size.lon <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
 
-            ensure!(delta <= Self::coord_from_str("0.1") &&
-                    delta >= Self::coord_from_str("0.002"), Error::<T>::InvalidData);
-
             let id = TotalRoots::get();
-            let root = RootBoxOf::<T>::new(id, bounding_box, delta);
+            let root = RootBoxOf::<T>::new(id, bounding_box);
             RootBoxes::<T>::insert(id, root);
             TotalRoots::put(id + 1);
             Self::deposit_event(RawEvent::RootCreated(id, who));
+            */
 
             Ok(())
         }
