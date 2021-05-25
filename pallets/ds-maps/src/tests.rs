@@ -176,6 +176,34 @@ fn it_tries_to_add_too_big_root() {
 }
 
 #[test]
+fn it_tries_to_add_root_with_incorrect_coordinates() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
+        ));
+        assert_noop!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_custom_box("0.0", "250.0",
+                                     "250.0", "0.0"),
+            ),
+            Error::InvalidCoords
+        );
+        assert_noop!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_custom_box("0.1", "0.0",
+                                     "100.0", "50.9"),
+            ),
+            Error::InvalidCoords
+        );
+    });
+}
+
+#[test]
 fn it_tries_to_remove_root() {
     new_test_ext().execute_with(|| {
         assert_ok!(
