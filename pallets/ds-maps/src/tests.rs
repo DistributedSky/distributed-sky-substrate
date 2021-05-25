@@ -176,7 +176,7 @@ fn it_tries_to_add_too_big_root() {
 }
 
 #[test]
-fn it_tries_remove_root() {
+fn it_tries_to_remove_root() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -202,7 +202,7 @@ fn it_tries_remove_root() {
 }
 
 #[test]
-fn it_tries_add_zone_unauthorized() {
+fn it_tries_to_add_zone_unauthorized() {
     new_test_ext().execute_with(|| {
         let account = DSAccountsModule::account_registry(2);
         assert!(!account.is_enabled());
@@ -220,7 +220,7 @@ fn it_tries_add_zone_unauthorized() {
 }
 
 #[test]
-fn it_tries_add_zone_to_not_existing_root() {
+fn it_tries_to_add_zone_to_not_existing_root() {
     new_test_ext().execute_with(|| {
         let account = DSAccountsModule::account_registry(2);
         assert!(!account.is_enabled());
@@ -243,7 +243,7 @@ fn it_tries_add_zone_to_not_existing_root() {
 }
 
 #[test]
-fn it_tries_add_zone_by_registrar() {
+fn it_tries_to_add_zone_by_registrar() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -276,7 +276,7 @@ fn it_tries_add_zone_by_registrar() {
 }
 
 #[test]
-fn it_tries_get_zone() {
+fn it_tries_to_get_zone() {
     new_test_ext().execute_with(|| {
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
@@ -301,7 +301,7 @@ fn it_tries_get_zone() {
 }
 
 #[test]
-fn it_tries_remove_zone() {
+fn it_tries_to_remove_zone() {
     new_test_ext().execute_with(|| {
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
@@ -335,7 +335,7 @@ fn it_tries_remove_zone() {
 }
 
 #[test]
-fn it_tries_add_zone_which_lies_in_different_areas() {
+fn it_tries_to_add_zone_which_lies_in_different_areas() {
     new_test_ext().execute_with(|| {
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
@@ -361,7 +361,7 @@ fn it_tries_add_zone_which_lies_in_different_areas() {
 }
 
 #[test]
-fn it_tries_add_overlapping_zones() {
+fn it_tries_to_add_overlapping_zones() {
     new_test_ext().execute_with(|| {
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
@@ -393,7 +393,7 @@ fn it_tries_add_overlapping_zones() {
 }
 
 #[test]
-fn it_tries_add_not_overlapping_zones() {
+fn it_tries_to_add_not_overlapping_zones() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -425,7 +425,7 @@ fn it_tries_add_not_overlapping_zones() {
 }
 
 #[test]
-fn it_tries_add_more_than_max_zones() {
+fn it_tries_to_add_more_than_max_zones() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -467,7 +467,7 @@ fn it_tries_add_more_than_max_zones() {
 }
 
 #[test]
-fn it_changes_not_existing_area_type() {    
+fn it_changes_not_existing_area_type() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
