@@ -2,7 +2,8 @@ use crate::mock::*;
 use crate::{Point3D, Box3D,
             Point2D, Rect2D,
             Page,
-            PAGE_LENGTH, PAGE_WIDTH
+            PAGE_LENGTH, PAGE_WIDTH,
+            RootBox,
 };
 use frame_support::{
     assert_noop, assert_ok,
@@ -740,4 +741,21 @@ fn it_gets_page_index() {
     assert_eq!(cell_column_index, 23521);
     let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
     assert_eq!(page_index, 0b0100_1110_0000_0101_1011_1111_1110);
+}
+
+#[test]
+fn it_extracts_values_from_rootbox_index() {
+    let rootbox_index = 0b0101_0000_0000_0000_1010_0000_0000_0000_1111_0000_0000_0000_0010;
+    let indexes: [u16; 4] = RootBox::<Coord>::get_boundary_cells_indexes(rootbox_index);
+    assert_eq!(indexes[0], 5);
+    assert_eq!(indexes[1], 10);
+    assert_eq!(indexes[2], 15);
+    assert_eq!(indexes[3], 2);
+
+    let rootbox_index = 0b0101_0000_0101_0011_1001_0000_0000_0000_1111_0111_1001_0001_1000;
+    let indexes: [u16; 4] = RootBox::<Coord>::get_boundary_cells_indexes(rootbox_index);
+    assert_eq!(indexes[0], 5);
+    assert_eq!(indexes[1], 1337);
+    assert_eq!(indexes[2], 15);
+    assert_eq!(indexes[3], 31000);
 }
