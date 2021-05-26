@@ -759,3 +759,18 @@ fn it_extracts_values_from_rootbox_index() {
     assert_eq!(indexes[2], 15);
     assert_eq!(indexes[3], 31000);
 }
+
+#[test]
+fn it_gets_rootbox_index() {
+    let cell_indexes: [u16; 4] = [5, 10, 15, 2];
+    let rootbox_index = RootBox::<Coord>::get_index(cell_indexes[0], cell_indexes[1],
+                                                    cell_indexes[2], cell_indexes[3]
+    );
+    assert_eq!(rootbox_index, 0b0101_0000_0000_0000_1010_0000_0000_0000_1111_0000_0000_0000_0010);
+
+    let cell_indexes: [u16; 4] = [5, 1337, 15, 31000];
+    let rootbox_index = RootBox::<Coord>::get_index(cell_indexes[0], cell_indexes[1],
+                                                    cell_indexes[2], cell_indexes[3]
+    );
+    assert_eq!(rootbox_index, 0b0101_0000_0101_0011_1001_0000_0000_0000_1111_0111_1001_0001_1000);
+}
