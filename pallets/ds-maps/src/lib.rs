@@ -379,8 +379,8 @@ impl<
         let (sw_row_index, sw_column_index) = Self::get_cell_indexes(bounding_box.south_west);
         let (ne_row_index, ne_column_index) = Self::get_cell_indexes(bounding_box.north_east);
 
-        let sw_cell_page_index = Self::get_page_index(sw_row_index, sw_column_index);
-        let ne_cell_page_index = Self::get_page_index(ne_row_index, ne_column_index);
+        let sw_cell_page_index = Self::get_index(sw_row_index, sw_column_index);
+        let ne_cell_page_index = Self::get_index(ne_row_index, ne_column_index);
 
         if sw_cell_page_index == ne_cell_page_index {
             let amount_of_pages: u32 = 1;
@@ -408,7 +408,7 @@ impl<
         (row_index, column_index)
     }
 
-    pub fn get_page_index(cell_row_index: u32, cell_column_index: u32) -> u32 {
+    pub fn get_index(cell_row_index: u32, cell_column_index: u32) -> u32 {
         let row_index: u32;
         let column_index: u32;
 
@@ -602,9 +602,9 @@ decl_module! {
             ensure!(amount_of_pages_to_extract <= MAX_PAGES_AMOUNT_TO_EXTRACT, Error::<T>::PageLimitExceeded);
 
             let (sw_cell_row_index, sw_cell_column_index) = Page::<T::Coord>::get_cell_indexes(bounding_box.south_west);
-            let sw_page_index = Page::<T::Coord>::get_page_index(sw_cell_row_index, sw_cell_column_index);
+            let sw_page_index = Page::<T::Coord>::get_index(sw_cell_row_index, sw_cell_column_index);
             let (ne_cell_row_index, ne_cell_column_index) = Page::<T::Coord>::get_cell_indexes(bounding_box.north_east);
-            let ne_page_index = Page::<T::Coord>::get_page_index(ne_cell_row_index, ne_cell_column_index);
+            let ne_page_index = Page::<T::Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
             ensure!(ne_page_index == 0 || sw_page_index == 0, Error::<T>::InvalidCoords);
 
             /*

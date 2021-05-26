@@ -661,7 +661,7 @@ fn it_extracts_values_from_page_index() {
     let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
     assert_eq!(cell_row_index, 1);
     assert_eq!(cell_column_index, 1);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
+    let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
     assert_eq!(page_index, 0b0010_0000_0000_0000_0011_0010);
     let (row_index, column_index) = Page::<Coord>::extract_values_from_page_index(page_index);
     assert_eq!(row_index, PAGE_LENGTH as u32);
@@ -671,7 +671,7 @@ fn it_extracts_values_from_page_index() {
     let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
     assert_eq!(cell_row_index, 1225);
     assert_eq!(cell_column_index, 1);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
+    let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
     assert_eq!(page_index, 0b0100_1110_0000_0000_0000_0011_0010);
     let (row_index, column_index) = Page::<Coord>::extract_values_from_page_index(page_index);
     assert_eq!(row_index, 1248);
@@ -681,7 +681,7 @@ fn it_extracts_values_from_page_index() {
     let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
     assert_eq!(cell_row_index, 1225);
     assert_eq!(cell_column_index, 23521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
+    let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
     assert_eq!(page_index, 0b0100_1110_0000_0101_1011_1111_1110);
     let (row_index, column_index) = Page::<Coord>::extract_values_from_page_index(page_index);
     assert_eq!(row_index, 1248);
@@ -699,7 +699,7 @@ fn it_gets_page_index() {
     let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
     assert_eq!(cell_row_index, 1);
     assert_eq!(cell_column_index, 1);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
+    let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
     assert_eq!(page_index, 0b0010_0000_0000_0000_0011_0010);
 
     // case 2-1
@@ -707,7 +707,7 @@ fn it_gets_page_index() {
     let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
     assert_eq!(cell_row_index, 25);
     assert_eq!(cell_column_index, 1);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
+    let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
     assert_eq!(page_index, 0b0010_0000_0000_0000_0011_0010);
 
     // case 3-1
@@ -715,7 +715,7 @@ fn it_gets_page_index() {
     let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
     assert_eq!(cell_row_index, 225);
     assert_eq!(cell_column_index, 1);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
+    let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
     assert_eq!(page_index, 0b0001_0000_0000_0000_0000_0011_0010);
 
     // case 4-1
@@ -723,7 +723,7 @@ fn it_gets_page_index() {
     let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
     assert_eq!(cell_row_index, 1225);
     assert_eq!(cell_column_index, 1);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
+    let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
     assert_eq!(page_index, 0b0100_1110_0000_0000_0000_0011_0010);
 
     // case 5-1
@@ -731,7 +731,7 @@ fn it_gets_page_index() {
     let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
     assert_eq!(cell_row_index, 13325);
     assert_eq!(cell_column_index, 1);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
+    let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
     assert_eq!(page_index, 0b0011_0100_0010_0000_0000_0000_0011_0010);
 
     // case 4-5
@@ -739,7 +739,7 @@ fn it_gets_page_index() {
     let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
     assert_eq!(cell_row_index, 1225);
     assert_eq!(cell_column_index, 23521);
-    let page_index = Page::<Coord>::get_page_index(cell_row_index, cell_column_index);
+    let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
     assert_eq!(page_index, 0b0100_1110_0000_0101_1011_1111_1110);
 }
 
