@@ -237,6 +237,30 @@ impl<
         RootBox{id, bounding_box}
     }
 
+    /// Gets page index from boundary cells indexes (southwest and northeast)
+    pub fn get_index(sw_cell_row_index: u16, sw_cell_column_index: u16,
+                     ne_cell_row_index: u16, ne_cell_column_index: u16) -> u64 {
+        (sw_cell_row_index as u64) << 48 | (sw_cell_column_index as u64) << 32 |
+            (ne_cell_row_index as u64) << 16 | ne_cell_column_index as u64
+    }
+
+    /// Gets boundary cells (southwest and northeast) indexes from RootBox index.
+    /// Returns the row and column of the southwest cell and the row and column of the northeast
+    /// cell, respectively.
+    pub fn get_boundary_cells_indexes(index: u64) -> [u16; 4] {
+        let mask = 0b1111_1111_1111_1111;
+
+        let sw_cell_row_index = index >> 48;
+        let sw_cell_column_index = (index >> 32) & mask;
+        let ne_cell_row_index = (index >> 16) & mask;
+        let ne_cell_column_index = index & mask;
+
+        let indexes: [u16; 4] = [sw_cell_row_index as u16, sw_cell_column_index as u16,
+                                 ne_cell_row_index as u16, ne_cell_column_index as u16];
+
+        indexes
+    }
+
     /// Returns maximum area index of given root. Max is 65536.
     pub fn get_max_area(self) -> AreaId {
         let root_dimensions = self.bounding_box.projection_on_plane().get_dimensions();
