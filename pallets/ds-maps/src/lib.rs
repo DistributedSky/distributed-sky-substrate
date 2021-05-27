@@ -712,7 +712,7 @@ decl_module! {
                 let mut page = Page::new();
                 page.bitmap = current_bitmap;
                 updated_pages.push(page);
-            }g
+            }
 
             let mut page_number = 0;
             for page_index in page_indexes {
