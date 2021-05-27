@@ -238,8 +238,8 @@ impl<
     }
 
     /// Gets page index from boundary cells indexes (southwest and northeast)
-    pub fn get_index(sw_cell_row_index: u16, sw_cell_column_index: u16,
-                     ne_cell_row_index: u16, ne_cell_column_index: u16) -> u64 {
+    pub fn get_index(sw_cell_row_index: u32, sw_cell_column_index: u32,
+                     ne_cell_row_index: u32, ne_cell_column_index: u32) -> u64 {
         (sw_cell_row_index as u64) << 48 | (sw_cell_column_index as u64) << 32 |
             (ne_cell_row_index as u64) << 16 | ne_cell_column_index as u64
     }
@@ -247,7 +247,7 @@ impl<
     /// Gets boundary cells (southwest and northeast) indexes from RootBox index.
     /// Returns the row and column of the southwest cell and the row and column of the northeast
     /// cell, respectively.
-    pub fn get_boundary_cells_indexes(index: u64) -> [u16; 4] {
+    pub fn get_boundary_cells_indexes(index: u64) -> [u32; 4] {
         let mask = 0b1111_1111_1111_1111;
 
         let sw_cell_row_index = index >> 48;
@@ -255,8 +255,8 @@ impl<
         let ne_cell_row_index = (index >> 16) & mask;
         let ne_cell_column_index = index & mask;
 
-        let indexes: [u16; 4] = [sw_cell_row_index as u16, sw_cell_column_index as u16,
-                                 ne_cell_row_index as u16, ne_cell_column_index as u16];
+        let indexes: [u32; 4] = [sw_cell_row_index as u32, sw_cell_column_index as u32,
+                                 ne_cell_row_index as u32, ne_cell_column_index as u32];
 
         indexes
     }
@@ -450,7 +450,7 @@ impl<Coord: Default + FromStr> Default for Page<Coord> {
 
 type AreaId = u16;
 type PageId = u32;
-type RootId = u32;
+type RootId = u64;
 type ZoneId = u64;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
@@ -607,19 +607,21 @@ decl_module! {
             let ne_page_index = Page::<T::Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
             ensure!(ne_page_index == 0 || sw_page_index == 0, Error::<T>::InvalidCoords);
 
+            let id = RootBox::<T::Coord>::get_index(sw_cell_row_index, sw_cell_column_index,
+                                                    ne_cell_row_index, ne_cell_column_index);
+
+            let root = RootBoxOf::<T>::new(id, bounding_box);
             /*
             // TODO replace these ensures w inverted index (using global grid)
             let root_size = bounding_box.projection_on_plane().get_dimensions();
-            ensure!(root_size.lat <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
-            ensure!(root_size.lon <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
 
             let id = TotalRoots::get();
             let root = RootBoxOf::<T>::new(id, bounding_box);
             RootBoxes::<T>::insert(id, root);
             TotalRoots::put(id + 1);
-            Self::deposit_event(RawEvent::RootCreated(id, who));
             */
 
+            Self::deposit_event(RawEvent::RootCreated(id, who));
             Ok(())
         }
         

@@ -58,7 +58,7 @@ pub type Coord = I10F22;
 // Constants to make tests more readable
 const ADMIN_ACCOUNT_ID: u64 = 1;
 const REGISTRAR_1_ACCOUNT_ID: u64 = 2;
-pub const ROOT_ID: u32 = 1;
+pub const ROOT_ID: u64 = 1;
 // this value, and values in construct_testing_..() was calculated
 const AREA_ID: u16 = 58;
 const DEFAULT_HEIGHT: u16 = 30;
@@ -746,14 +746,14 @@ fn it_gets_page_index() {
 #[test]
 fn it_extracts_values_from_rootbox_index() {
     let rootbox_index = 0b0101_0000_0000_0000_1010_0000_0000_0000_1111_0000_0000_0000_0010;
-    let indexes: [u16; 4] = RootBox::<Coord>::get_boundary_cells_indexes(rootbox_index);
+    let indexes: [u32; 4] = RootBox::<Coord>::get_boundary_cells_indexes(rootbox_index);
     assert_eq!(indexes[0], 5);
     assert_eq!(indexes[1], 10);
     assert_eq!(indexes[2], 15);
     assert_eq!(indexes[3], 2);
 
     let rootbox_index = 0b0101_0000_0101_0011_1001_0000_0000_0000_1111_0111_1001_0001_1000;
-    let indexes: [u16; 4] = RootBox::<Coord>::get_boundary_cells_indexes(rootbox_index);
+    let indexes: [u32; 4] = RootBox::<Coord>::get_boundary_cells_indexes(rootbox_index);
     assert_eq!(indexes[0], 5);
     assert_eq!(indexes[1], 1337);
     assert_eq!(indexes[2], 15);
@@ -762,13 +762,13 @@ fn it_extracts_values_from_rootbox_index() {
 
 #[test]
 fn it_gets_rootbox_index() {
-    let cell_indexes: [u16; 4] = [5, 10, 15, 2];
+    let cell_indexes: [u32; 4] = [5, 10, 15, 2];
     let rootbox_index = RootBox::<Coord>::get_index(cell_indexes[0], cell_indexes[1],
                                                     cell_indexes[2], cell_indexes[3]
     );
     assert_eq!(rootbox_index, 0b0101_0000_0000_0000_1010_0000_0000_0000_1111_0000_0000_0000_0010);
 
-    let cell_indexes: [u16; 4] = [5, 1337, 15, 31000];
+    let cell_indexes: [u32; 4] = [5, 1337, 15, 31000];
     let rootbox_index = RootBox::<Coord>::get_index(cell_indexes[0], cell_indexes[1],
                                                     cell_indexes[2], cell_indexes[3]
     );
