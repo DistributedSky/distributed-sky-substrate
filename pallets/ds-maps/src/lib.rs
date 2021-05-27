@@ -357,7 +357,7 @@ const CELL_SIZE_DEGREE: u8 = 2;
 
 #[derive(Encode, Decode, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Page<Coord> {
-    pub bitmap: [[u32; PAGE_WIDTH]; PAGE_LENGTH],
+    pub bitmap: [[u64; PAGE_WIDTH]; PAGE_LENGTH],
     _phantom: PhantomData<Coord>,
 }
 
@@ -370,7 +370,7 @@ impl<
 > Page<Coord> {
     fn new() -> Self {
         Page{
-            bitmap: [[0u32; PAGE_WIDTH]; PAGE_LENGTH],
+            bitmap: [[0u64; PAGE_WIDTH]; PAGE_LENGTH],
             _phantom: PhantomData,
         }
     }
@@ -442,7 +442,7 @@ impl<
 impl<Coord: Default + FromStr> Default for Page<Coord> {
     fn default() -> Self {
         Page{
-            bitmap: [[0u32; PAGE_WIDTH]; PAGE_LENGTH],
+            bitmap: [[0u64; PAGE_WIDTH]; PAGE_LENGTH],
             _phantom: PhantomData,
         }
     }
@@ -563,6 +563,8 @@ decl_error! {
         NotAuthorized,
         /// Account doesn't exist
         NotExists,
+        /// Added root overlaps with another in current area
+        OverlappingRoot,
         /// Added zone overlaps with another in current area
         OverlappingZone,
         /// The number of pages to be extracted exceeds the maximum
@@ -688,12 +690,36 @@ decl_module! {
                 }
             }
 
-            for page_number in 0..amount_of_pages_to_extract {
-                let current_page = EarthBitmap::<T>::get(sw_page_index);
-            }
-
             let id = RootBox::<T::Coord>::get_index(sw_cell_row_index, sw_cell_column_index,
                                                     ne_cell_row_index, ne_cell_column_index);
+
+            let mut updated_pages: Vec<Page<<T as Trait>::Coord>> = Vec::new();
+            for page_index in page_indexes.clone() {
+                let mut current_bitmap = EarthBitmap::<T>::get(page_index).bitmap;
+
+                let row_start = 0;
+                let row_end = PAGE_LENGTH as u32;
+
+                for index_row in row_start..row_end as usize {
+                    let column_start = 0;
+                    let column_end = PAGE_WIDTH as u32;
+
+                    for index_column in column_start..column_end as usize {
+                        ensure!(current_bitmap[index_row][index_column] == 0, Error::<T>::OverlappingRoot);
+                        current_bitmap[index_row][index_column] = id;
+                    }
+                }
+                let mut page = Page::new();
+                page.bitmap = current_bitmap;
+                updated_pages.push(page);
+            }g
+
+            let mut page_number = 0;
+            for page_index in page_indexes {
+                EarthBitmap::<T>::insert(page_index, updated_pages[page_number]);
+                page_number += 1;
+            }
+
             let root = RootBoxOf::<T>::new(id, bounding_box);
             RootBoxes::<T>::insert(id, root);
 
