@@ -6,7 +6,7 @@ use frame_support::{
     codec::{Decode, Encode},
     storage::StorageDoubleMap,
     dispatch::fmt::Debug,
-    sp_runtime::sp_std::ops::{Sub, Div},
+    sp_runtime::sp_std::{ops::{Sub, Div}, vec::Vec},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,    
     weights::Weight,
     Parameter,
@@ -501,10 +501,7 @@ decl_storage! {
     // This name may be updated, but each pallet in the runtime must use a unique name.
     // ---------------------------------vvvvvvvvvvvv
     trait Store for Module<T: Trait> as DSMapsModule {
-        // MAX is 4_294_967_295. Change if required more.
-        TotalRoots get(fn total_roots): RootId = 1;    
-
-        RootBoxes get(fn root_box_data): 
+        RootBoxes get(fn root_box_data):
             map hasher(blake2_128_concat) RootId => RootBoxOf<T>;
 
         EarthBitmap get(fn bitmap_cells):
@@ -591,7 +588,7 @@ decl_module! {
         // Events must be initialized if they are used by the pallet.
         fn deposit_event() = default;
 
-        /// Adds new root to storage
+        /// Adds new RootBox to storage
         #[weight = <T as Trait>::WeightInfo::root_add()]
         pub fn root_add(origin, 
                         bounding_box: Box3D<T::Coord>) -> dispatch::DispatchResult {
@@ -607,19 +604,98 @@ decl_module! {
             let ne_page_index = Page::<T::Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
             ensure!(ne_page_index == 0 || sw_page_index == 0, Error::<T>::InvalidCoords);
 
+            // Get the indexes of the pages to be extracted
+            let mut page_indexes: Vec<u32> = Vec::new();
+            page_indexes.push(sw_page_index);
+
+            // Pages's bypass direction
+            let right = 1;
+            let up = 2;
+            let left = 3;
+            let down = 4;
+            let mut direction = right;
+
+            let mut current_cell_row_index: u32 = sw_cell_row_index;
+            let mut current_cell_column_index: u32 = sw_cell_column_index;
+
+            let first_page_index: u32 = sw_page_index;
+            let (first_cell_row_index, first_cell_column_index) =
+                        Page::<T::Coord>::extract_values_from_page_index(first_page_index);
+            let last_page_index: u32 = ne_page_index;
+            let (last_cell_row_index, last_cell_column_index) =
+                        Page::<T::Coord>::extract_values_from_page_index(last_page_index);
+
+            let mut next_page_index: u32;
+
+            for page_number in 1..amount_of_pages_to_extract {
+                next_page_index = Page::<T::Coord>::get_index(current_cell_row_index + PAGE_LENGTH as u32,
+                                                                  current_cell_column_index);
+                let (next_cell_row_index, next_cell_column_index) =
+                        Page::<T::Coord>::extract_values_from_page_index(next_page_index);
+
+                if direction == right {
+                    if next_cell_row_index <= last_cell_row_index {
+                        current_cell_row_index += PAGE_LENGTH as u32;
+                        page_indexes.push(next_page_index);
+                        continue;
+                    } else {
+                        direction = up;
+                    }
+                }
+
+                next_page_index = Page::<T::Coord>::get_index(current_cell_row_index,
+                                                        current_cell_column_index - PAGE_WIDTH as u32);
+                let (next_cell_row_index, next_cell_column_index) =
+                        Page::<T::Coord>::extract_values_from_page_index(next_page_index);
+
+                if direction == up {
+                    if next_cell_column_index >= last_cell_column_index {
+                        current_cell_column_index -= PAGE_WIDTH as u32;
+                        page_indexes.push(next_page_index);
+                        continue;
+                    } else {
+                        direction = left;
+                    }
+                }
+
+                next_page_index = Page::<T::Coord>::get_index(current_cell_row_index - PAGE_LENGTH as u32,
+                                                        current_cell_column_index);
+                let (next_cell_row_index, next_cell_column_index) =
+                        Page::<T::Coord>::extract_values_from_page_index(next_page_index);
+
+                if direction == left {
+                    if next_cell_row_index >= first_cell_row_index {
+                        current_cell_row_index -= PAGE_LENGTH as u32;
+                        page_indexes.push(next_page_index);
+                        continue;
+                    } else {
+                        direction = down;
+                    }
+                }
+
+                next_page_index = Page::<T::Coord>::get_index(current_cell_row_index,
+                                                        current_cell_column_index + PAGE_WIDTH as u32);
+                let (next_cell_row_index, next_cell_column_index) =
+                        Page::<T::Coord>::extract_values_from_page_index(next_page_index);
+                if direction == down {
+                    if next_cell_column_index >= last_cell_column_index {
+                        current_cell_column_index += PAGE_WIDTH as u32;
+                        page_indexes.push(next_page_index);
+                        continue;
+                    } else {
+                        direction = right;
+                    }
+                }
+            }
+
+            for page_number in 0..amount_of_pages_to_extract {
+                let current_page = EarthBitmap::<T>::get(sw_page_index);
+            }
+
             let id = RootBox::<T::Coord>::get_index(sw_cell_row_index, sw_cell_column_index,
                                                     ne_cell_row_index, ne_cell_column_index);
-
-            let root = RootBoxOf::<T>::new(id, bounding_box);
-            /*
-            // TODO replace these ensures w inverted index (using global grid)
-            let root_size = bounding_box.projection_on_plane().get_dimensions();
-
-            let id = TotalRoots::get();
             let root = RootBoxOf::<T>::new(id, bounding_box);
             RootBoxes::<T>::insert(id, root);
-            TotalRoots::put(id + 1);
-            */
 
             Self::deposit_event(RawEvent::RootCreated(id, who));
             Ok(())
