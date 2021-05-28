@@ -41,7 +41,7 @@ pub const ZERO_DEGREE_COLUMN_INDEX: u16 = 9_000;
 
 /// Page parameters
 pub const MAX_PAGE_INDEX: u32 = 404_999;
-pub const MAX_PAGES_AMOUNT_TO_EXTRACT: u32 = 9;
+pub const MAX_PAGES_AMOUNT_TO_EXTRACT: u32 = 4;
 pub const PAGE_LENGTH: usize = 32;
 pub const PAGE_WIDTH: usize = 50;
 
