@@ -398,6 +398,89 @@ impl<
             (sw_page_column_index - ne_page_column_index) / PAGE_WIDTH as u32 + 1;
     }
 
+    /// Gets the indexes of the pages to be extracted
+    pub fn get_pages_indexes_to_be_extracted(
+        amount_of_pages_to_extract: u32,
+        sw_cell_row_index: u32, sw_cell_column_index: u32,
+        sw_page_index: u32, ne_page_index: u32,
+    ) -> Vec<u32> {
+        // Get the indexes of the pages to be extracted
+        let mut page_indexes: Vec<u32> = Vec::new();
+        page_indexes.push(sw_page_index);
+
+        // Pages's bypass direction
+        let right = 1;
+        let up = 2;
+        let left = 3;
+        let down = 4;
+        let mut direction = right;
+
+        let mut current_cell_row_index: u32 = sw_cell_row_index;
+        let mut current_cell_column_index: u32 = sw_cell_column_index;
+
+        let first_page_index: u32 = sw_page_index;
+        let (first_cell_row_index, first_cell_column_index) = Self::extract_values_from_page_index(first_page_index);
+        let last_page_index: u32 = ne_page_index;
+        let (last_cell_row_index, last_cell_column_index) = Self::extract_values_from_page_index(last_page_index);
+
+        let mut next_page_index: u32;
+
+        for _ in 1..amount_of_pages_to_extract {
+            next_page_index = Self::get_index(current_cell_row_index + PAGE_LENGTH as u32, current_cell_column_index);
+            let (next_cell_row_index, _) = Self::extract_values_from_page_index(next_page_index);
+
+            if direction == right {
+                if next_cell_row_index <= last_cell_row_index {
+                    current_cell_row_index += PAGE_LENGTH as u32;
+                    page_indexes.push(next_page_index);
+                    continue;
+                } else {
+                    direction = up;
+                }
+            }
+
+            next_page_index = Self::get_index(current_cell_row_index, current_cell_column_index - PAGE_WIDTH as u32);
+            let (_, next_cell_column_index) = Self::extract_values_from_page_index(next_page_index);
+
+            if direction == up {
+                if next_cell_column_index >= last_cell_column_index {
+                    current_cell_column_index -= PAGE_WIDTH as u32;
+                    page_indexes.push(next_page_index);
+                    continue;
+                } else {
+                    direction = left;
+                }
+            }
+
+            next_page_index = Self::get_index(current_cell_row_index - PAGE_LENGTH as u32, current_cell_column_index);
+            let (next_cell_row_index, _) = Self::extract_values_from_page_index(next_page_index);
+
+            if direction == left {
+                if next_cell_row_index >= first_cell_row_index {
+                    current_cell_row_index -= PAGE_LENGTH as u32;
+                    page_indexes.push(next_page_index);
+                    continue;
+                } else {
+                    direction = down;
+                }
+            }
+
+            next_page_index = Self::get_index(current_cell_row_index, current_cell_column_index + PAGE_WIDTH as u32);
+            let (_, next_cell_column_index) = Self::extract_values_from_page_index(next_page_index);
+            if direction == down {
+                if next_cell_column_index >= first_cell_column_index {
+                    current_cell_column_index += PAGE_WIDTH as u32;
+                    page_indexes.push(next_page_index);
+                    continue;
+                } else {
+                    direction = right;
+                }
+            }
+        }
+
+        page_indexes
+    }
+
     pub fn get_cell_indexes(point: Point3D<Coord>) -> (u32, u32) {
         let lat: u32 = point.lat.to_u32_with_frac_part(BITMAP_CELL_LENGTH, CELL_SIZE_DEGREE);
         let lon: u32 = point.lon.to_u32_with_frac_part(BITMAP_CELL_WIDTH, CELL_SIZE_DEGREE);
@@ -606,89 +689,11 @@ decl_module! {
             let ne_page_index = Page::<T::Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
             ensure!(ne_page_index == 0 || sw_page_index == 0, Error::<T>::InvalidCoords);
 
-            // Get the indexes of the pages to be extracted
-            let mut page_indexes: Vec<u32> = Vec::new();
-            page_indexes.push(sw_page_index);
-
-            // Pages's bypass direction
-            let right = 1;
-            let up = 2;
-            let left = 3;
-            let down = 4;
-            let mut direction = right;
-
-            let mut current_cell_row_index: u32 = sw_cell_row_index;
-            let mut current_cell_column_index: u32 = sw_cell_column_index;
-
-            let first_page_index: u32 = sw_page_index;
-            let (first_cell_row_index, first_cell_column_index) =
-                        Page::<T::Coord>::extract_values_from_page_index(first_page_index);
-            let last_page_index: u32 = ne_page_index;
-            let (last_cell_row_index, last_cell_column_index) =
-                        Page::<T::Coord>::extract_values_from_page_index(last_page_index);
-
-            let mut next_page_index: u32;
-
-            for page_number in 1..amount_of_pages_to_extract {
-                next_page_index = Page::<T::Coord>::get_index(current_cell_row_index + PAGE_LENGTH as u32,
-                                                                  current_cell_column_index);
-                let (next_cell_row_index, next_cell_column_index) =
-                        Page::<T::Coord>::extract_values_from_page_index(next_page_index);
-
-                if direction == right {
-                    if next_cell_row_index <= last_cell_row_index {
-                        current_cell_row_index += PAGE_LENGTH as u32;
-                        page_indexes.push(next_page_index);
-                        continue;
-                    } else {
-                        direction = up;
-                    }
-                }
-
-                next_page_index = Page::<T::Coord>::get_index(current_cell_row_index,
-                                                        current_cell_column_index - PAGE_WIDTH as u32);
-                let (next_cell_row_index, next_cell_column_index) =
-                        Page::<T::Coord>::extract_values_from_page_index(next_page_index);
-
-                if direction == up {
-                    if next_cell_column_index >= last_cell_column_index {
-                        current_cell_column_index -= PAGE_WIDTH as u32;
-                        page_indexes.push(next_page_index);
-                        continue;
-                    } else {
-                        direction = left;
-                    }
-                }
-
-                next_page_index = Page::<T::Coord>::get_index(current_cell_row_index - PAGE_LENGTH as u32,
-                                                        current_cell_column_index);
-                let (next_cell_row_index, next_cell_column_index) =
-                        Page::<T::Coord>::extract_values_from_page_index(next_page_index);
-
-                if direction == left {
-                    if next_cell_row_index >= first_cell_row_index {
-                        current_cell_row_index -= PAGE_LENGTH as u32;
-                        page_indexes.push(next_page_index);
-                        continue;
-                    } else {
-                        direction = down;
-                    }
-                }
-
-                next_page_index = Page::<T::Coord>::get_index(current_cell_row_index,
-                                                        current_cell_column_index + PAGE_WIDTH as u32);
-                let (next_cell_row_index, next_cell_column_index) =
-                        Page::<T::Coord>::extract_values_from_page_index(next_page_index);
-                if direction == down {
-                    if next_cell_column_index >= last_cell_column_index {
-                        current_cell_column_index += PAGE_WIDTH as u32;
-                        page_indexes.push(next_page_index);
-                        continue;
-                    } else {
-                        direction = right;
-                    }
-                }
-            }
+            let page_indexes: Vec<u32> = Page::<T::Coord>::get_pages_indexes_to_be_extracted(
+                amount_of_pages_to_extract,
+                sw_cell_row_index, sw_cell_column_index,
+                sw_page_index, ne_page_index,
+            );
 
             let id = RootBox::<T::Coord>::get_index(sw_cell_row_index, sw_cell_column_index,
                                                     ne_cell_row_index, ne_cell_column_index);
