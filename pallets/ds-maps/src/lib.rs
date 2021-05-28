@@ -675,8 +675,7 @@ decl_module! {
 
         /// Adds new RootBox to storage
         #[weight = <T as Trait>::WeightInfo::root_add()]
-        pub fn root_add(origin, 
-                        bounding_box: Box3D<T::Coord>) -> dispatch::DispatchResult {
+        pub fn root_add(origin, bounding_box: Box3D<T::Coord>) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
 
@@ -688,6 +687,10 @@ decl_module! {
             let (ne_cell_row_index, ne_cell_column_index) = Page::<T::Coord>::get_cell_indexes(bounding_box.north_east);
             let ne_page_index = Page::<T::Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
             ensure!(ne_page_index == 0 || sw_page_index == 0, Error::<T>::InvalidCoords);
+            ensure!(sw_cell_column_index >= ne_cell_column_index, Error::<T>::InvalidCoords);
+            if ne_page_index == sw_page_index {
+                ensure!(sw_cell_row_index <= ne_cell_row_index, Error::<T>::InvalidCoords);
+            }
 
             let page_indexes: Vec<u32> = Page::<T::Coord>::get_pages_indexes_to_be_extracted(
                 amount_of_pages_to_extract,
