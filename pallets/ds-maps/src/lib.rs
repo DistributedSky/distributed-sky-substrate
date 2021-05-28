@@ -514,6 +514,25 @@ impl<
         (row_index << 16) | column_index
     }
 
+    /// Gets boundary cells (southwest and northeast) indexes from Page index.
+    /// Returns the row and column of the southwest cell and the row and column of the northeast
+    /// cell, respectively.
+    pub fn get_boundary_cells_indexes(
+        index: u32, sw_cell_row_index: u32, ne_cell_column_index: u32,
+    ) -> [u32; 4] {
+        let mask = 0b1111_1111_1111_1111;
+
+        let sw_cell_row_index = sw_cell_row_index - sw_cell_row_index % PAGE_LENGTH as u32;
+        let sw_cell_column_index = index & mask;
+        let ne_cell_column_index = ne_cell_column_index - ne_cell_column_index % PAGE_WIDTH as u32;
+        let ne_cell_row_index = index >> 16;
+
+        let indexes: [u32; 4] = [sw_cell_row_index as u32, sw_cell_column_index as u32,
+            ne_cell_row_index as u32, ne_cell_column_index as u32];
+
+        indexes
+    }
+
     fn extract_values_from_page_index(page_index: u32) -> (u32, u32) {
         let mask_u16: u32 = 0b1111_1111_1111_1111;
         let row_index: u32 = page_index >> 16;
@@ -700,19 +719,37 @@ decl_module! {
 
             let id = RootBox::<T::Coord>::get_index(sw_cell_row_index, sw_cell_column_index,
                                                     ne_cell_row_index, ne_cell_column_index);
+            let rootbox_boundary_cells_indexes = RootBox::<T::Coord>::get_boundary_cells_indexes(id);
 
             let mut updated_pages: Vec<Page<<T as Trait>::Coord>> = Vec::new();
             for page_index in page_indexes.clone() {
                 let mut current_bitmap = EarthBitmap::<T>::get(page_index).bitmap;
+                let page_boundary_cells_indexes = Page::<T::Coord>::get_boundary_cells_indexes(
+                    page_index, sw_cell_row_index, ne_cell_column_index
+                );
 
-                let row_start = 0;
-                let row_end = PAGE_LENGTH as u32;
+                let mut row_start = 0;
+                if rootbox_boundary_cells_indexes[0] == page_boundary_cells_indexes[0] {
+                    row_start = sw_cell_row_index % PAGE_LENGTH as u32;
+                }
 
-                for index_row in row_start..row_end as usize {
-                    let column_start = 0;
-                    let column_end = PAGE_WIDTH as u32;
+                let mut row_end = PAGE_LENGTH as u32;
+                if rootbox_boundary_cells_indexes[2] == page_boundary_cells_indexes[2] {
+                    row_end = ne_cell_row_index % PAGE_LENGTH as u32;
+                }
 
-                    for index_column in column_start..column_end as usize {
+                for index_row in row_start as usize..row_end as usize {
+                    let mut column_start = 0;
+                    if rootbox_boundary_cells_indexes[1] == page_boundary_cells_indexes[1] {
+                        column_start = sw_cell_column_index % PAGE_WIDTH as u32;
+                    }
+
+                    let mut column_end = PAGE_WIDTH as u32;
+                    if rootbox_boundary_cells_indexes[3] == page_boundary_cells_indexes[3] {
+                        column_end = ne_cell_column_index % PAGE_WIDTH as u32;
+                    }
+
+                    for index_column in column_start as usize..column_end as usize {
                         ensure!(current_bitmap[index_row][index_column] == 0, Error::<T>::OverlappingRoot);
                         current_bitmap[index_row][index_column] = id;
                     }
