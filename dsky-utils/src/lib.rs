@@ -10,10 +10,20 @@ pub trait Signed {
     fn abs(self) -> Self;
 }
 
+pub trait FromRaw {
+    fn from_raw(input: i32) -> Self;
+}
+
 // Want to change Coord type => impl trait for it here
 impl IntDiv for I9F23 {
     fn integer_divide(self, rhs: I9F23) -> u16 {
         (self / rhs).to_num::<u16>()
+    }
+}
+
+impl FromRaw for I9F23 {
+    fn from_raw(input: i32) -> Self {
+        I9F23::from_bits(input)
     }
 }
 

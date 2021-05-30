@@ -13,7 +13,7 @@ use frame_support::{
     traits::Get,
 };
 use sp_std::str::FromStr;
-use dsky_utils::{Signed, IntDiv};
+use dsky_utils::{Signed, IntDiv, FromRaw};
 
 use frame_system::ensure_signed;
 use pallet_ds_accounts as accounts;
@@ -52,36 +52,36 @@ impl<
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rect2D<Coord> {
-    north_west: Point2D<Coord>,
-    south_east: Point2D<Coord>,
+    south_west: Point2D<Coord>,
+    north_east: Point2D<Coord>,
 }
 
 impl<
     Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv
     > Rect2D<Coord> {
-    pub fn new(north_west: Point2D<Coord>, south_east: Point2D<Coord>) -> Self {
-        Rect2D{north_west, south_east}
+    pub fn new(south_west: Point2D<Coord>, north_east: Point2D<Coord>) -> Self {
+        Rect2D{south_west, north_east}
     }
 
     // Here Point2D actually represent not a point, but rect's size
     pub fn get_dimensions(self) -> Point2D<Coord> {
-        self.north_west.get_distance_vector(self.south_east)
+        self.south_west.get_distance_vector(self.north_east)
     }
     
     /// True if this rect intersects other, excluding edges.
     pub fn intersects_rect(self, target: Rect2D<Coord>) -> bool {
-        !(self.south_east.lon <= target.north_west.lon || 
-          self.north_west.lon >= target.south_east.lon ||
-          self.south_east.lat <= target.north_west.lat || 
-          self.north_west.lat >= target.south_east.lat)
+        !(self.north_east.lon <= target.south_west.lon || 
+          self.south_west.lon >= target.north_east.lon ||
+          self.north_east.lat <= target.south_west.lat || 
+          self.south_west.lat >= target.north_east.lat)
     }
 
     /// True, if given point lies inside the rect, excluding edges. 
     pub fn is_point_inside(&self, target: Point2D<Coord>) -> bool {
-        !(self.south_east.lon <= target.lon || 
-          self.north_west.lon >= target.lon ||
-          self.south_east.lat <= target.lat || 
-          self.north_west.lat >= target.lat)
+        !(self.north_east.lon <= target.lon || 
+          self.south_west.lon >= target.lon ||
+          self.north_east.lat <= target.lat || 
+          self.south_west.lat >= target.lat)
     }
 }
 
@@ -178,26 +178,26 @@ impl<Coord> Point3D<Coord> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Box3D<Coord> {
-    pub north_west: Point3D<Coord>,
-    pub south_east: Point3D<Coord>,
+    pub south_west: Point3D<Coord>,
+    pub north_east: Point3D<Coord>,
 }
 
 impl<
     Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv
     > Box3D<Coord> {
-    pub fn new(north_west: Point3D<Coord>, south_east: Point3D<Coord>) -> Self {
-        Box3D{north_west, south_east}
+    pub fn new(south_west: Point3D<Coord>, north_east: Point3D<Coord>) -> Self {
+        Box3D{south_west, north_east}
     }
 
     /// Gets rect 2D projection from a box
     pub fn projection_on_plane(self) -> Rect2D<Coord> {
-        let north_west = 
-        Point2D::new(self.north_west.lat,
-                     self.north_west.lon); 
-        let south_east = 
-        Point2D::new(self.south_east.lat,
-                    self.south_east.lon); 
-        Rect2D::new(north_west, south_east)
+        let south_west = 
+        Point2D::new(self.south_west.lat,
+                     self.south_west.lon); 
+        let north_east = 
+        Point2D::new(self.north_east.lat,
+                    self.north_east.lon); 
+        Rect2D::new(south_west, north_east)
     }
 }
 
@@ -232,7 +232,7 @@ impl<
             return 0;
         }
         let root_dimensions = root_projection.get_dimensions();
-        let touch_vector = root_projection.north_west.get_distance_vector(touch);
+        let touch_vector = root_projection.south_west.get_distance_vector(touch);
         
         let row = touch_vector.lat.integer_divide(self.delta) + 1;
         let column = touch_vector.lon.integer_divide(self.delta) + 1;
@@ -330,8 +330,14 @@ pub trait Trait: accounts::Trait {
     + Default
     + IntDiv
     + Signed
+    + FromRaw
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>;
+
+    type RawCoord: Default 
+    + Parameter 
+    + Into<i32>
+    + Copy;
 
     /// Used in places where u32 is too much (as altitude)
     type LightCoord: Default 
@@ -450,8 +456,8 @@ decl_module! {
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             // TODO replace these ensures w inverted index (using global grid)
             let root_size = bounding_box.projection_on_plane().get_dimensions();
-            ensure!(root_size.lat <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
-            ensure!(root_size.lon <= Self::coord_from_str("1"), Error::<T>::BadDimesions);
+            ensure!(root_size.lat <= Self::coord_from_str("2"), Error::<T>::BadDimesions);
+            ensure!(root_size.lon <= Self::coord_from_str("2"), Error::<T>::BadDimesions);
             ensure!(delta <= Self::coord_from_str("0.1") && 
                     delta >= Self::coord_from_str("0.002"), Error::<T>::InvalidData);
 
@@ -463,6 +469,27 @@ decl_module! {
             Ok(())
         }
         
+        /// Adds new root to storage
+        #[weight = <T as Trait>::WeightInfo::root_add()]
+        pub fn raw_root_add(origin, 
+                            // Coords is SW {lat, lon, alt} NE {lat, lon, alt} 
+                            raw_box: [T::RawCoord; 6],
+                            raw_delta: T::RawCoord) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin.clone())?;
+            ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
+
+            let south_west = Point3D::new(T::Coord::from_raw(raw_box[0].into()), 
+                                          T::Coord::from_raw(raw_box[1].into()), 
+                                          T::Coord::from_raw(raw_box[2].into()));
+            let north_east = Point3D::new(T::Coord::from_raw(raw_box[3].into()), 
+                                          T::Coord::from_raw(raw_box[4].into()), 
+                                          T::Coord::from_raw(raw_box[5].into()));
+            let bounding_box = Box3D::new(south_west, north_east);
+            let delta = T::Coord::from_raw(raw_delta.into()); 
+
+            Module::<T>::root_add(origin, bounding_box, delta)
+        }
+
         /// Form index and store input to redzones, creates area struct if it doesnt exist
         #[weight = <T as Trait>::WeightInfo::zone_add()]
         pub fn zone_add(origin, 
@@ -474,8 +501,8 @@ decl_module! {
             ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
             ensure!(height < T::MaxHeight::get(), Error::<T>::InvalidData);
             // Check if zone lies in one single area 
-            let area_id = RootBoxes::<T>::get(root_id).detect_intersected_area(rect.north_west);
-            let se_area_id = RootBoxes::<T>::get(root_id).detect_intersected_area(rect.south_east);
+            let area_id = RootBoxes::<T>::get(root_id).detect_intersected_area(rect.south_west);
+            let se_area_id = RootBoxes::<T>::get(root_id).detect_intersected_area(rect.north_east);
             ensure!(area_id == se_area_id, Error::<T>::ZoneDoesntFit);
             // Getting area from storage, or creating it
             let (area, area_existed) = if AreaData::contains_key(root_id, area_id) {
