@@ -384,7 +384,7 @@ impl<
 
         if sw_cell_page_index == ne_cell_page_index {
             let amount_of_pages: u32 = 1;
-            return amount_of_pages
+            return amount_of_pages;
         }
 
         let (sw_page_row_index, sw_page_column_index) = Self::extract_values_from_page_index(sw_cell_page_index);
@@ -394,8 +394,13 @@ impl<
             return 0;
         }
 
-        return (ne_page_row_index - sw_page_row_index) / PAGE_LENGTH as u32 +
-            (sw_page_column_index - ne_page_column_index) / PAGE_WIDTH as u32 + 1;
+        if ne_page_row_index == sw_page_row_index || sw_page_column_index == ne_page_column_index {
+            return (ne_page_row_index - sw_page_row_index) / PAGE_LENGTH as u32 +
+                (sw_page_column_index - ne_page_column_index) / PAGE_WIDTH as u32 + 1;
+        }
+
+        return ((ne_page_row_index - sw_page_row_index) / PAGE_LENGTH as u32 + 1) +
+            ((sw_page_column_index - ne_page_column_index) / PAGE_WIDTH as u32 + 1);
     }
 
     /// Gets the indexes of the pages to be extracted
