@@ -394,13 +394,28 @@ impl<
             return 0;
         }
 
-        if ne_page_row_index == sw_page_row_index || sw_page_column_index == ne_page_column_index {
-            return (ne_page_row_index - sw_page_row_index) / PAGE_LENGTH as u32 +
-                (sw_page_column_index - ne_page_column_index) / PAGE_WIDTH as u32 + 1;
+        let mut offset: u32 = 1;
+
+        if ne_page_row_index == sw_page_row_index {
+            if ne_column_index / PAGE_WIDTH as u32 == 0 {
+                return sw_page_column_index / PAGE_WIDTH as u32;
+            }
+            return sw_page_column_index / PAGE_WIDTH as u32 - ne_page_column_index / PAGE_WIDTH as u32 + offset;
         }
 
-        return ((ne_page_row_index - sw_page_row_index) / PAGE_LENGTH as u32 + 1) +
-            ((sw_page_column_index - ne_page_column_index) / PAGE_WIDTH as u32 + 1);
+        if sw_page_column_index == ne_page_column_index {
+            if sw_row_index / PAGE_LENGTH as u32 == 0 {
+                return ne_page_row_index / PAGE_LENGTH as u32;
+            }
+            return ne_page_row_index / PAGE_LENGTH as u32 - sw_page_row_index / PAGE_LENGTH as u32 + offset;
+        }
+
+        if sw_row_index / PAGE_LENGTH as u32 == 0 && ne_column_index / PAGE_WIDTH as u32 == 0 {
+            offset = 2;
+        }
+
+        return (ne_page_row_index / PAGE_LENGTH as u32 - sw_page_row_index / PAGE_LENGTH as u32) +
+            (sw_page_column_index / PAGE_WIDTH as u32 - ne_page_column_index / PAGE_WIDTH as u32) + offset;
     }
 
     /// Gets the indexes of the pages to be extracted
@@ -444,12 +459,12 @@ impl<
                 }
             }
 
-            next_page_index = Self::get_index(current_cell_row_index, current_cell_column_index - PAGE_WIDTH as u32);
+            next_page_index = Self::get_index(current_cell_row_index, current_cell_column_index + PAGE_WIDTH as u32);
             let (_, next_cell_column_index) = Self::extract_values_from_page_index(next_page_index);
 
             if direction == up {
                 if next_cell_column_index >= last_cell_column_index {
-                    current_cell_column_index -= PAGE_WIDTH as u32;
+                    current_cell_column_index += PAGE_WIDTH as u32;
                     page_indexes.push(next_page_index);
                     continue;
                 } else {
@@ -470,11 +485,11 @@ impl<
                 }
             }
 
-            next_page_index = Self::get_index(current_cell_row_index, current_cell_column_index + PAGE_WIDTH as u32);
+            next_page_index = Self::get_index(current_cell_row_index, current_cell_column_index - PAGE_WIDTH as u32);
             let (_, next_cell_column_index) = Self::extract_values_from_page_index(next_page_index);
             if direction == down {
                 if next_cell_column_index >= first_cell_column_index {
-                    current_cell_column_index += PAGE_WIDTH as u32;
+                    current_cell_column_index -= PAGE_WIDTH as u32;
                     page_indexes.push(next_page_index);
                     continue;
                 } else {
@@ -698,6 +713,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Adds new RootBox to storage
+        // TODO add the delta to the function arguments
         #[weight = <T as Trait>::WeightInfo::root_add()]
         pub fn root_add(origin, bounding_box: Box3D<T::Coord>) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
@@ -710,8 +726,10 @@ decl_module! {
             let sw_page_index = Page::<T::Coord>::get_index(sw_cell_row_index, sw_cell_column_index);
             let (ne_cell_row_index, ne_cell_column_index) = Page::<T::Coord>::get_cell_indexes(bounding_box.north_east);
             let ne_page_index = Page::<T::Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
-            ensure!(ne_page_index == 0 || sw_page_index == 0, Error::<T>::InvalidCoords);
+
+            ensure!(ne_page_index != 0 && sw_page_index != 0, Error::<T>::InvalidCoords);
             ensure!(sw_cell_column_index >= ne_cell_column_index, Error::<T>::InvalidCoords);
+            ensure!(sw_cell_row_index <= ne_cell_row_index, Error::<T>::InvalidCoords);
             if ne_page_index == sw_page_index {
                 ensure!(sw_cell_row_index <= ne_cell_row_index, Error::<T>::InvalidCoords);
             }
