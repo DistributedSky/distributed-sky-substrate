@@ -1,7 +1,8 @@
 use crate::mock::*;
-use crate::{Point3D, Box3D,
-            Point2D, Rect2D,
+use crate::{
             Page,
+            Point3D, Box3D,
+            Point2D, Rect2D,
             PAGE_LENGTH, PAGE_WIDTH,
             RootBox,
 };
@@ -135,7 +136,7 @@ fn it_tries_to_add_root_by_registrar() {
         assert_ok!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_testing_box(),
+                construct_custom_box("55.92", "37.37", "55.37", "37.90"),
             )
         );
         assert_noop!(
@@ -201,6 +202,151 @@ fn it_tries_to_add_root_with_incorrect_coordinates() {
             ),
             Error::InvalidCoords
         );
+    });
+}
+
+// 4 pages as square (2x2)
+// +++++++++
+// |___+___|
+// |___+___|
+// |+++++++|
+// |___+___|
+// |___+___|
+// +++++++++
+#[test]
+fn it_tries_to_add_root_as_square_2x2() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
+        ));
+
+        let bounding_box = construct_custom_box("0.5", "0.0", "0.051", "0.75");
+        let (sw_cell_row_index, sw_cell_column_index) = Page::get_cell_indexes(bounding_box.south_west);
+        assert_eq!(sw_cell_row_index, 5);
+        assert_eq!(sw_cell_column_index, 75);
+        let (ne_cell_row_index, ne_cell_column_index) = Page::get_cell_indexes(bounding_box.north_east);
+        assert_eq!(ne_cell_row_index, 50);
+        assert_eq!(ne_cell_column_index, 0);
+
+        let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract(bounding_box);
+        assert_eq!(amount_of_pages_to_extract, 4);
+
+        let sw_page_index = Page::<Coord>::get_index(sw_cell_row_index, sw_cell_column_index);
+        let ne_page_index = Page::<Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
+
+        let pages_indexes = Page::<Coord>::get_pages_indexes_to_be_extracted(
+            amount_of_pages_to_extract,
+            sw_cell_row_index, sw_cell_column_index,
+            sw_page_index, ne_page_index,
+        );
+
+        let root_id = RootBox::<Coord>::get_index(sw_cell_row_index, sw_cell_column_index,
+                                                     ne_cell_row_index, ne_cell_column_index);
+        let root = RootBox::<Coord>::new(root_id, bounding_box);
+
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                bounding_box,
+        ));
+    });
+}
+
+// 4 pages as rectangle (4x1)
+// +++++++++++++++++
+// |___+___+___+___|
+// |___+___+___+___|
+// +++++++++++++++++
+#[test]
+fn it_tries_to_add_root_as_rectangle_4x1() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
+        ));
+
+        let bounding_box = construct_custom_box("1.271", "0.0", "0.051", "0.011");
+        let (sw_cell_row_index, sw_cell_column_index) = Page::get_cell_indexes(bounding_box.south_west);
+        assert_eq!(sw_cell_row_index, 5);
+        assert_eq!(sw_cell_column_index, 1);
+        let (ne_cell_row_index, ne_cell_column_index) = Page::get_cell_indexes(bounding_box.north_east);
+        assert_eq!(ne_cell_row_index, 127);
+        assert_eq!(ne_cell_column_index, 0);
+
+        let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract(bounding_box);
+        assert_eq!(amount_of_pages_to_extract, 4);
+
+        let sw_page_index = Page::<Coord>::get_index(sw_cell_row_index, sw_cell_column_index);
+        let ne_page_index = Page::<Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
+
+        let pages_indexes = Page::<Coord>::get_pages_indexes_to_be_extracted(
+            amount_of_pages_to_extract,
+            sw_cell_row_index, sw_cell_column_index,
+            sw_page_index, ne_page_index,
+        );
+
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                bounding_box,
+        ));
+    });
+}
+
+// 4 pages as rectangle (1x4)
+// +++++
+// |___|
+// |___|
+// |+++|
+// |___|
+// |___|
+// |+++|
+// |___|
+// |___|
+// |+++|
+// |___|
+// |___|
+// +++++
+#[test]
+fn it_tries_to_add_root_as_rectangle_1x4() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
+        ));
+
+        let bounding_box = construct_custom_box("0.011", "0.0", "0.0", "1.751");
+        let (sw_cell_row_index, sw_cell_column_index) = Page::get_cell_indexes(bounding_box.south_west);
+        assert_eq!(sw_cell_row_index, 0);
+        assert_eq!(sw_cell_column_index, 175);
+        let (ne_cell_row_index, ne_cell_column_index) = Page::get_cell_indexes(bounding_box.north_east);
+        assert_eq!(ne_cell_row_index, 1);
+        assert_eq!(ne_cell_column_index, 0);
+
+        let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract(bounding_box);
+        assert_eq!(amount_of_pages_to_extract, 4);
+
+        let sw_page_index = Page::<Coord>::get_index(sw_cell_row_index, sw_cell_column_index);
+        let ne_page_index = Page::<Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
+
+        let pages_indexes = Page::<Coord>::get_pages_indexes_to_be_extracted(
+            amount_of_pages_to_extract,
+            sw_cell_row_index, sw_cell_column_index,
+            sw_page_index, ne_page_index,
+        );
+
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                bounding_box,
+        ));
     });
 }
 
@@ -636,21 +782,61 @@ fn it_calculates_cell_indexes() {
     assert_eq!(cell_column_index, 2530);
 }
 
+// These tests are built taking into account all possible rectangles from 4 Pages
 #[test]
 fn it_gets_amount_of_pages_to_extract() {
+    // 1 x 1
     let bounding_box = construct_custom_box("0.301", "0.0", "0.0", "0.491");
     let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
     assert_eq!(pages_to_extract, 1);
 
+    // 1 x 2
+    let bounding_box = construct_custom_box("0.301", "0.0", "0.0", "1.0");
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    assert_eq!(pages_to_extract, 2);
+
+    // 2 x 1
+    let bounding_box = construct_custom_box("0.331", "0.0", "0.0", "0.01");
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    assert_eq!(pages_to_extract, 2);
+
+    // 1 x 3
     let bounding_box = construct_custom_box("0.301", "0.0", "0.0", "1.011");
     let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
     assert_eq!(pages_to_extract, 3);
 
-    let bounding_box = construct_custom_box("0.641", "0.0", "0.0", "1.011");
+    // 3 x 1
+    let bounding_box = construct_custom_box("0.651", "0.0", "0.011", "0.011");
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    assert_eq!(pages_to_extract, 3);
+
+    // 1 x 4
+    let bounding_box = construct_custom_box("0.301", "0.0", "0.0", "1.511");
     let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
     assert_eq!(pages_to_extract, 4);
 
-    let bounding_box = construct_custom_box("0.641", "0.0", "0.211", "1.011");
+    // 4 x 1
+    let bounding_box = construct_custom_box("0.981", "0.0", "0.011", "0.011");
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    assert_eq!(pages_to_extract, 4);
+
+    // 4 x 1
+    let bounding_box = construct_custom_box("1.271", "0.0", "0.051", "0.011");
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    assert_eq!(pages_to_extract, 4);
+
+    // 2 x 2
+    let bounding_box = construct_custom_box("0.631", "0.011", "0.211", "0.991");
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    assert_eq!(pages_to_extract, 4);
+
+    // 2 x 2
+    let bounding_box = construct_custom_box("0.5", "0.0", "0.05", "0.75");
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    assert_eq!(pages_to_extract, 4);
+
+    // 2 x 2
+    let bounding_box = construct_custom_box("55.92", "37.37", "55.37", "37.90");
     let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
     assert_eq!(pages_to_extract, 4);
 }
