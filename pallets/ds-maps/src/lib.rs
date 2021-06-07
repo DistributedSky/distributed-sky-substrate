@@ -228,13 +228,14 @@ impl<
 pub struct RootBox<Coord> {
     pub id: RootId,
     pub bounding_box: Box3D<Coord>,
+    pub delta: Coord,
 }
 
 impl<
     Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv + Div<Output = Coord> + Copy 
     > RootBox<Coord> {
-    pub fn new(id: RootId, bounding_box: Box3D<Coord>) -> Self {
-        RootBox{id, bounding_box}
+    pub fn new(id: RootId, bounding_box: Box3D<Coord>, delta: Coord) -> Self {
+        RootBox{id, bounding_box, delta}
     }
 
     /// Gets page index from boundary cells indexes (southwest and northeast)
@@ -264,10 +265,10 @@ impl<
     /// Returns maximum area index of given root. Max is 65536.
     pub fn get_max_area(self) -> AreaId {
         let root_dimensions = self.bounding_box.projection_on_plane().get_dimensions();
-        // let total_rows = root_dimensions.lat.integer_division_u16(self.delta);
-        // let total_columns = root_dimensions.lon.integer_division_u16(self.delta);
-        0 * 1
-        // total_rows * total_columns
+        let total_rows = root_dimensions.lat.integer_division_u16(self.delta);
+        let total_columns = root_dimensions.lon.integer_division_u16(self.delta);
+
+        total_rows * total_columns
     }
 
     /// Returns id of an area in root, in which supplied point is located
@@ -279,11 +280,11 @@ impl<
         let root_dimensions = root_projection.get_dimensions();
         let touch_vector = root_projection.south_west.get_distance_vector(touch);
         
-        // let row = touch_vector.lat.integer_division_u16(self.delta) + 1;
-        // let column = touch_vector.lon.integer_division_u16(self.delta) + 1;
-        // let total_rows = root_dimensions.lat.integer_division_u16(self.delta);
-        1
-        // (total_rows * (column - 1)) + row
+        let row = touch_vector.lat.integer_division_u16(self.delta) + 1;
+        let column = touch_vector.lon.integer_division_u16(self.delta) + 1;
+        let total_rows = root_dimensions.lat.integer_division_u16(self.delta);
+
+        (total_rows * (column - 1)) + row
     }
 
     #[cfg(test)]
@@ -300,28 +301,28 @@ mod rootbox_tests {
     #[test]
     fn max_area_small_root() {
         let bbox = construct_custom_box("0", "0", "2", "3");
-        let root = RootBox::new(ROOT_ID, bbox);
+        let root = RootBox::new(ROOT_ID, bbox, coord("1"));
         assert_eq!(root.get_max_area(), 6); 
     }
     
     #[test]
     fn max_area_frac_delta() {
         let bbox = construct_custom_box("-0", "0", "2", "3");
-        let root = RootBox::new(ROOT_ID, bbox);
+        let root = RootBox::new(ROOT_ID, bbox, coord("1"));
         assert_eq!(root.get_max_area(), 24);
     } 
 
     #[test]
     fn max_area_big_root() {
         let bbox = construct_custom_box("-90", "-180", "0", "0");
-        let root = RootBox::new(ROOT_ID, bbox);
+        let root = RootBox::new(ROOT_ID, bbox, coord("1"));
         assert_eq!(root.get_max_area(), 16_200);
     } 
 
     #[test]
     fn area_detects_correct() {
         let bbox = construct_custom_box("0", "0", "2", "3");
-        let root = RootBox::new(100, bbox);
+        let root = RootBox::new(100, bbox, coord("1"));
 
         let point = Point2D::new(coord("0.5"),
                                  coord("0.5"));
@@ -721,9 +722,11 @@ decl_module! {
         /// Adds new RootBox to storage
         // TODO add the delta to the function arguments
         #[weight = <T as Trait>::WeightInfo::root_add()]
-        pub fn root_add(origin, bounding_box: Box3D<T::Coord>) -> dispatch::DispatchResult {
+        pub fn root_add(origin, bounding_box: Box3D<T::Coord>, delta: T::Coord) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
+
+            ensure!(delta <= Self::coord_from_str("0.1") && delta >= Self::coord_from_str("0.002"), Error::<T>::InvalidData);
 
             let amount_of_pages_to_extract = Page::<T::Coord>::get_amount_of_pages_to_extract(bounding_box);
             ensure!(amount_of_pages_to_extract <= MAX_PAGES_AMOUNT_TO_EXTRACT, Error::<T>::PageLimitExceeded);
@@ -732,7 +735,6 @@ decl_module! {
             let sw_page_index = Page::<T::Coord>::get_index(sw_cell_row_index, sw_cell_column_index);
             let (ne_cell_row_index, ne_cell_column_index) = Page::<T::Coord>::get_cell_indexes(bounding_box.north_east);
             let ne_page_index = Page::<T::Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
-
             ensure!(ne_page_index != 0 && sw_page_index != 0, Error::<T>::InvalidCoords);
             ensure!(sw_cell_column_index >= ne_cell_column_index, Error::<T>::InvalidCoords);
             ensure!(sw_cell_row_index <= ne_cell_row_index, Error::<T>::InvalidCoords);
@@ -794,7 +796,7 @@ decl_module! {
                 page_number += 1;
             }
 
-            let root = RootBoxOf::<T>::new(id, bounding_box);
+            let root = RootBoxOf::<T>::new(id, bounding_box, delta);
             RootBoxes::<T>::insert(id, root);
 
             Self::deposit_event(RawEvent::RootCreated(id, who));
@@ -819,7 +821,7 @@ decl_module! {
             let bounding_box = Box3D::new(south_west, north_east);
             let delta = T::Coord::from_raw(raw_delta.into()); 
 
-            Module::<T>::root_add(origin, bounding_box)
+            Module::<T>::root_add(origin, bounding_box, delta)
         }
 
         /// Form index and store input to redzones, creates area struct if it doesnt exist

@@ -117,6 +117,7 @@ fn it_tries_to_add_root_unauthorized() {
             DSMapsModule::root_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
                 construct_testing_box(),
+                coord(DELTA),
             ),
             Error::NotAuthorized
         );
@@ -137,12 +138,14 @@ fn it_tries_to_add_root_by_registrar() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_custom_box("55.37", "37.90", "55.92", "37.37"),
+                coord(DELTA),
             )
         );
         assert_noop!(
             DSMapsModule::root_add(
                 Origin::signed(ADMIN_ACCOUNT_ID),
                 construct_testing_box(),
+                coord(DELTA),
             ),
             Error::NotAuthorized
         );
@@ -193,6 +196,7 @@ fn it_tries_to_add_too_big_root() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_custom_box("0.0", "250.0", "250.0", "0.0",),
+                coord(DELTA),
             ),
             Error::PageLimitExceeded
         );
@@ -200,6 +204,7 @@ fn it_tries_to_add_too_big_root() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_custom_box("0.0", "50.9", "45.1", "0.0"),
+                coord(DELTA),
             ),
             Error::PageLimitExceeded
         );
@@ -219,6 +224,7 @@ fn it_tries_to_add_root_with_incorrect_coordinates() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_custom_box("250.0", "0.0", "0.0", "250.0"),
+                coord(DELTA),
             ),
             Error::InvalidCoords
         );
@@ -226,6 +232,7 @@ fn it_tries_to_add_root_with_incorrect_coordinates() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_custom_box("100.0", "50.9", "0.1", "0.0"),
+                coord(DELTA),
             ),
             Error::InvalidCoords
         );
@@ -272,12 +279,13 @@ fn it_tries_to_add_root_as_square_2x2() {
 
         let root_id = RootBox::<Coord>::get_index(sw_cell_row_index, sw_cell_column_index,
                                                      ne_cell_row_index, ne_cell_column_index);
-        let root = RootBox::<Coord>::new(root_id, bounding_box);
+        let root = RootBox::<Coord>::new(root_id, bounding_box, coord(DELTA));
 
         assert_ok!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 bounding_box,
+                coord(DELTA),
         ));
     });
 }
@@ -321,6 +329,7 @@ fn it_tries_to_add_root_as_rectangle_4x1() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 bounding_box,
+                coord(DELTA),
         ));
     });
 }
@@ -373,6 +382,7 @@ fn it_tries_to_add_root_as_rectangle_1x4() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 bounding_box,
+                coord(DELTA),
         ));
     });
 }
@@ -390,6 +400,7 @@ fn it_tries_to_remove_root() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_testing_box(),
+                coord(DELTA),
         ));
         let root = DSMapsModule::root_box_data(ROOT_ID);
         assert!(root.is_active());
@@ -457,6 +468,7 @@ fn it_tries_to_add_zone_by_registrar() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_testing_box(),
+                coord(DELTA),
         ));
         assert_ok!(
             DSMapsModule::zone_add(
@@ -489,6 +501,7 @@ fn it_tries_to_get_zone() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_testing_box(),
+                coord(DELTA),
         ));
         assert_ok!(
             DSMapsModule::zone_add(
@@ -514,6 +527,7 @@ fn it_tries_to_remove_zone() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_testing_box(),
+                coord(DELTA),
         ));
         assert_ok!(
             DSMapsModule::zone_add(
@@ -548,6 +562,7 @@ fn it_tries_to_add_zone_which_lies_in_different_areas() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_testing_box(),
+                coord(DELTA),
         ));
         assert_noop!(
             DSMapsModule::zone_add(
@@ -574,6 +589,7 @@ fn it_tries_to_add_overlapping_zones() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_testing_box(),
+                coord(DELTA),
         ));
         assert_ok!(
             DSMapsModule::zone_add(
@@ -607,6 +623,7 @@ fn it_tries_to_add_not_overlapping_zones() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_testing_box(),
+                coord(DELTA),
         ));
         assert_ok!(
             DSMapsModule::zone_add(
@@ -639,6 +656,7 @@ fn it_tries_to_add_more_than_max_zones() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_testing_box(),
+                coord(DELTA),
         ));
         assert_ok!(
             DSMapsModule::zone_add(
@@ -681,6 +699,7 @@ fn it_changes_not_existing_area_type() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_testing_box(),
+                coord(DELTA),
         ));
         assert_noop!(
             DSMapsModule::change_area_type(
@@ -707,6 +726,7 @@ fn it_changes_existing_area_type() {
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 construct_testing_box(),
+                coord(DELTA),
         ));
         assert_ok!(
             DSMapsModule::zone_add(
