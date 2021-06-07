@@ -18,7 +18,6 @@ use sp_std::{
     marker::PhantomData,
 };
 
-use sp_std::str::FromStr;
 use dsky_utils::{CastToType, FromRaw, IntDiv, Signed};
 use frame_system::ensure_signed;
 use pallet_ds_accounts as accounts;
@@ -820,7 +819,7 @@ decl_module! {
             let bounding_box = Box3D::new(south_west, north_east);
             let delta = T::Coord::from_raw(raw_delta.into()); 
 
-            Module::<T>::root_add(origin, bounding_box, delta)
+            Module::<T>::root_add(origin, bounding_box)
         }
 
         /// Form index and store input to redzones, creates area struct if it doesnt exist
