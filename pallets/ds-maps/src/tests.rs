@@ -72,39 +72,39 @@ pub fn coord<Coord>(s: &str) -> Coord
         <Coord as FromStr>::Err: std::fmt::Debug { Coord::from_str(s).unwrap() }
 
 fn construct_testing_box() -> Box3D<Coord> {
-    let north_east = Point3D::new(coord("55.37"),
+    let south_west = Point3D::new(coord("55.37"),
                                   coord("37.37"), 
                                   coord("1"));
-    let south_west = Point3D::new(coord("55.92"),
+    let north_east = Point3D::new(coord("55.92"),
                                   coord("37.90"),       
                                   coord("3"));      
-    Box3D::new(north_east, south_west)
+    Box3D::new(south_west, north_east)
 }
 
-pub fn construct_custom_box(ne_lat: &str, ne_lon: &str, sw_lat: &str, sw_lon: &str) -> Box3D<Coord> {
-    let north_east = Point3D::new(coord(ne_lat),
-                                  coord(ne_lon),
+pub fn construct_custom_box(nw_lat: &str, nw_lon: &str, se_lat: &str, se_lon: &str) -> Box3D<Coord> {
+    let south_west = Point3D::new(coord(nw_lat),
+                                  coord(nw_lon), 
                                   coord("1"));
-    let south_west = Point3D::new(coord(sw_lat),
-                                  coord(sw_lon),
+    let north_east = Point3D::new(coord(se_lat),
+                                  coord(se_lon),       
                                   coord("3"));      
-    Box3D::new(north_east, south_west)
-}
-
-pub fn construct_custom_rect(ne_lat: &str, ne_lon: &str, sw_lat: &str, sw_lon: &str) -> Rect2D<Coord> {
-    let north_east = Point2D::new(coord(ne_lat),
-                                  coord(ne_lon));
-    let south_west = Point2D::new(coord(sw_lat),
-                                  coord(sw_lon));
-    Rect2D::new(north_east, south_west)
+    Box3D::new(south_west, north_east)
 }
 
 fn construct_testing_rect() -> Rect2D<Coord> {
-    let north_east = Point2D::new(coord("55.395"),
+    let south_west = Point2D::new(coord("55.395"),
                                   coord("37.385"));
-    let south_west = Point2D::new(coord("55.396"),
+    let north_east = Point2D::new(coord("55.396"),
                                   coord("37.386"));
-    Rect2D::new(north_east, south_west)
+    Rect2D::new(south_west, north_east)
+}
+
+pub fn construct_custom_rect(nw_lat: &str, nw_lon: &str, se_lat: &str, se_lon: &str) -> Rect2D<Coord> {
+    let south_west = Point2D::new(coord(nw_lat),
+                                  coord(nw_lon));
+    let north_east = Point2D::new(coord(se_lat),
+                                  coord(se_lon));
+    Rect2D::new(south_west, north_east)
 }
 
 #[test]
@@ -150,7 +150,35 @@ fn it_tries_to_add_root_by_registrar() {
 }
 
 #[test]
+fn it_tries_add_raw_root() {
+      new_test_ext().execute_with(|| {
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
+        ));
+        let raw_coords: [i32; 6] = [465587600,
+                                    312529919,
+                                    8388608,
+                                    469815744,
+                                    318558719,
+                                    16777216];
+        let delta: i32 = 838860;                       
+        assert_ok!(
+            DSMapsModule::raw_root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                raw_coords,
+                delta
+        ));
+
+        let root = DSMapsModule::root_box_data(ROOT_ID);
+        assert!(root.is_active());
+        assert!(DSMapsModule::total_roots() == 2);
+}
+
 fn it_tries_to_add_too_big_root() {
+
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
