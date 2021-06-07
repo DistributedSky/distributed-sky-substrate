@@ -720,13 +720,10 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Adds new RootBox to storage
-        // TODO add the delta to the function arguments
         #[weight = <T as Trait>::WeightInfo::root_add()]
         pub fn root_add(origin, bounding_box: Box3D<T::Coord>, delta: T::Coord) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
-
-            ensure!(delta <= Self::coord_from_str("0.1") && delta >= Self::coord_from_str("0.002"), Error::<T>::InvalidData);
 
             let amount_of_pages_to_extract = Page::<T::Coord>::get_amount_of_pages_to_extract(bounding_box);
             ensure!(amount_of_pages_to_extract <= MAX_PAGES_AMOUNT_TO_EXTRACT, Error::<T>::PageLimitExceeded);

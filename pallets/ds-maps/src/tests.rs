@@ -153,7 +153,7 @@ fn it_tries_to_add_root_by_registrar() {
 }
 
 #[test]
-fn it_tries_to_add_raw_root() {
+fn it_tries_to_add_raw_root_with_exceeded_page_limit() {
       new_test_ext().execute_with(|| {
           assert_ok!(
             DSAccountsModule::account_add(
@@ -163,23 +163,24 @@ fn it_tries_to_add_raw_root() {
           ));
           let raw_coords: [i32; 6] = [
               465587600,
-              312529919,
+              318558719,
               8388608,
               469815744,
-              318558719,
+              312529919,
               16777216
           ];
           let delta: i32 = 838860;
-          assert_ok!(
+          assert_noop!(
             DSMapsModule::raw_root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 raw_coords,
-                delta)
+                delta
+            ),
+            Error::PageLimitExceeded
           );
 
           let root = DSMapsModule::root_box_data(ROOT_ID);
-          assert!(root.is_active());
-          // assert!(DSMapsModule::total_roots() == 2);
+          assert!(!root.is_active());
       });
 }
 
