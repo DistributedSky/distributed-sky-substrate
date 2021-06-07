@@ -6,15 +6,20 @@ use frame_support::{
     codec::{Decode, Encode},
     storage::StorageDoubleMap,
     dispatch::fmt::Debug,
-    sp_runtime::sp_std::ops::{Sub, Div},
+    sp_runtime::sp_std::{ops::{Sub, Div}, vec::Vec},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,    
     weights::Weight,
     Parameter,
     traits::Get,
 };
-use sp_std::str::FromStr;
-use dsky_utils::{Signed, IntDiv, FromRaw};
 
+use sp_std::{
+    str::FromStr,
+    marker::PhantomData,
+};
+
+use sp_std::str::FromStr;
+use dsky_utils::{CastToType, FromRaw, IntDiv, Signed};
 use frame_system::ensure_signed;
 use pallet_ds_accounts as accounts;
 use accounts::REGISTRAR_ROLE;
@@ -26,6 +31,24 @@ mod mock;
 mod tests;
 
 pub const GREEN_AREA: u8 = 0b00000001;
+
+/// RootBox parameters
+pub const MAX_ROW_INDEX: u16 = 35_999;
+pub const MAX_COLUMN_INDEX: u16 = 18_000;
+
+/// Zero-degree indexes for latitude and longitude in bitmap
+pub const ZERO_DEGREE_ROW_INDEX: u16 = 18_000;
+pub const ZERO_DEGREE_COLUMN_INDEX: u16 = 9_000;
+
+/// Page parameters
+pub const MAX_PAGE_INDEX: u32 = 404_999;
+pub const MAX_PAGES_AMOUNT_TO_EXTRACT: u32 = 4;
+pub const PAGE_LENGTH: usize = 32;
+pub const PAGE_WIDTH: usize = 50;
+
+/// Bitmap cell parameters in degree e-2
+const BITMAP_CELL_LENGTH: u32 = 1;
+const BITMAP_CELL_WIDTH: u32 = 1;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -206,23 +229,46 @@ impl<
 pub struct RootBox<Coord> {
     pub id: RootId,
     pub bounding_box: Box3D<Coord>,
-    pub delta: Coord,
 }
 
 impl<
     Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv + Div<Output = Coord> + Copy 
     > RootBox<Coord> {
-    pub fn new(id: RootId, bounding_box: Box3D<Coord>, delta: Coord) -> Self {
-        RootBox{id, bounding_box, delta}
+    pub fn new(id: RootId, bounding_box: Box3D<Coord>) -> Self {
+        RootBox{id, bounding_box}
+    }
+
+    /// Gets page index from boundary cells indexes (southwest and northeast)
+    pub fn get_index(sw_cell_row_index: u32, sw_cell_column_index: u32,
+                     ne_cell_row_index: u32, ne_cell_column_index: u32) -> u64 {
+        (sw_cell_row_index as u64) << 48 | (sw_cell_column_index as u64) << 32 |
+            (ne_cell_row_index as u64) << 16 | ne_cell_column_index as u64
+    }
+
+    /// Gets boundary cells (southwest and northeast) indexes from RootBox index.
+    /// Returns the row and column of the southwest cell and the row and column of the northeast
+    /// cell, respectively.
+    pub fn get_boundary_cells_indexes(index: u64) -> [u32; 4] {
+        let mask = 0b1111_1111_1111_1111;
+
+        let sw_cell_row_index = index >> 48;
+        let sw_cell_column_index = (index >> 32) & mask;
+        let ne_cell_row_index = (index >> 16) & mask;
+        let ne_cell_column_index = index & mask;
+
+        let indexes: [u32; 4] = [sw_cell_row_index as u32, sw_cell_column_index as u32,
+                                 ne_cell_row_index as u32, ne_cell_column_index as u32];
+
+        indexes
     }
 
     /// Returns maximum area index of given root. Max is 65536.
     pub fn get_max_area(self) -> AreaId {
         let root_dimensions = self.bounding_box.projection_on_plane().get_dimensions();
-        let total_rows = root_dimensions.lat.integer_divide(self.delta);
-        let total_columns = root_dimensions.lon.integer_divide(self.delta);
-
-        total_rows * total_columns
+        // let total_rows = root_dimensions.lat.integer_division_u16(self.delta);
+        // let total_columns = root_dimensions.lon.integer_division_u16(self.delta);
+        0 * 1
+        // total_rows * total_columns
     }
 
     /// Returns id of an area in root, in which supplied point is located
@@ -234,11 +280,11 @@ impl<
         let root_dimensions = root_projection.get_dimensions();
         let touch_vector = root_projection.south_west.get_distance_vector(touch);
         
-        let row = touch_vector.lat.integer_divide(self.delta) + 1;
-        let column = touch_vector.lon.integer_divide(self.delta) + 1;
-        let total_rows = root_dimensions.lat.integer_divide(self.delta);
-
-        (total_rows * (column - 1)) + row
+        // let row = touch_vector.lat.integer_division_u16(self.delta) + 1;
+        // let column = touch_vector.lon.integer_division_u16(self.delta) + 1;
+        // let total_rows = root_dimensions.lat.integer_division_u16(self.delta);
+        1
+        // (total_rows * (column - 1)) + row
     }
 
     #[cfg(test)]
@@ -255,28 +301,28 @@ mod rootbox_tests {
     #[test]
     fn max_area_small_root() {
         let bbox = construct_custom_box("0", "0", "2", "3");
-        let root = RootBox::new(ROOT_ID, bbox, coord("1"));
+        let root = RootBox::new(ROOT_ID, bbox);
         assert_eq!(root.get_max_area(), 6); 
     }
     
     #[test]
     fn max_area_frac_delta() {
         let bbox = construct_custom_box("-0", "0", "2", "3");
-        let root = RootBox::new(ROOT_ID, bbox, coord("0.5"));
+        let root = RootBox::new(ROOT_ID, bbox);
         assert_eq!(root.get_max_area(), 24);
     } 
 
     #[test]
     fn max_area_big_root() {
         let bbox = construct_custom_box("-90", "-180", "0", "0");
-        let root = RootBox::new(ROOT_ID, bbox, coord("1"));
+        let root = RootBox::new(ROOT_ID, bbox);
         assert_eq!(root.get_max_area(), 16_200);
     } 
 
     #[test]
     fn area_detects_correct() {
         let bbox = construct_custom_box("0", "0", "2", "3");
-        let root = RootBox::new(100, bbox, coord("1"));
+        let root = RootBox::new(100, bbox);
 
         let point = Point2D::new(coord("0.5"),
                                  coord("0.5"));
@@ -308,8 +354,211 @@ impl Area {
     } 
 }
 
+const CELL_SIZE_DEGREE: u8 = 2;
+
+#[derive(Encode, Decode, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Page<Coord> {
+    pub bitmap: [[u64; PAGE_WIDTH]; PAGE_LENGTH],
+    _phantom: PhantomData<Coord>,
+}
+
+impl<
+    Coord: Default
+    + FromStr
+    + Copy
+    + CastToType
+    + core::ops::Div<Output = Coord>
+> Page<Coord> {
+    fn new() -> Self {
+        Page{
+            bitmap: [[0u64; PAGE_WIDTH]; PAGE_LENGTH],
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn get_amount_of_pages_to_extract(bounding_box: Box3D<Coord>) -> u32 {
+        let (sw_row_index, sw_column_index) = Self::get_cell_indexes(bounding_box.south_west);
+        let (ne_row_index, ne_column_index) = Self::get_cell_indexes(bounding_box.north_east);
+
+        let sw_cell_page_index = Self::get_index(sw_row_index, sw_column_index);
+        let ne_cell_page_index = Self::get_index(ne_row_index, ne_column_index);
+
+        if sw_cell_page_index == ne_cell_page_index {
+            let amount_of_pages: u32 = 1;
+            return amount_of_pages;
+        }
+
+        let (sw_page_row_index, sw_page_column_index) = Self::extract_values_from_page_index(sw_cell_page_index);
+        let (ne_page_row_index, ne_page_column_index) = Self::extract_values_from_page_index(ne_cell_page_index);
+
+        if ne_page_row_index < sw_page_row_index || ne_page_column_index > sw_page_column_index {
+            return 0;
+        }
+
+        if ne_page_row_index == sw_page_row_index || sw_page_column_index == ne_page_column_index {
+            return (ne_page_row_index - sw_page_row_index) / PAGE_LENGTH as u32 +
+                (sw_page_column_index - ne_page_column_index) / PAGE_WIDTH as u32 + 1;
+        }
+
+        return ((ne_page_row_index - sw_page_row_index) / PAGE_LENGTH as u32 + 1) +
+            ((sw_page_column_index - ne_page_column_index) / PAGE_WIDTH as u32 + 1);
+    }
+
+    /// Gets the indexes of the pages to be extracted
+    pub fn get_pages_indexes_to_be_extracted(
+        amount_of_pages_to_extract: u32,
+        sw_cell_row_index: u32, sw_cell_column_index: u32,
+        sw_page_index: u32, ne_page_index: u32,
+    ) -> Vec<u32> {
+        // Get the indexes of the pages to be extracted
+        let mut page_indexes: Vec<u32> = Vec::new();
+        page_indexes.push(sw_page_index);
+
+        // Pages's bypass direction
+        let right = 1;
+        let up = 2;
+        let left = 3;
+        let down = 4;
+        let mut direction = right;
+
+        let mut current_cell_row_index: u32 = sw_cell_row_index;
+        let mut current_cell_column_index: u32 = sw_cell_column_index;
+
+        let first_page_index: u32 = sw_page_index;
+        let (first_cell_row_index, first_cell_column_index) = Self::extract_values_from_page_index(first_page_index);
+        let last_page_index: u32 = ne_page_index;
+        let (last_cell_row_index, last_cell_column_index) = Self::extract_values_from_page_index(last_page_index);
+
+        let mut next_page_index: u32;
+
+        for _ in 1..amount_of_pages_to_extract {
+            next_page_index = Self::get_index(current_cell_row_index + PAGE_LENGTH as u32, current_cell_column_index);
+            let (next_cell_row_index, _) = Self::extract_values_from_page_index(next_page_index);
+
+            if direction == right {
+                if next_cell_row_index <= last_cell_row_index {
+                    current_cell_row_index += PAGE_LENGTH as u32;
+                    page_indexes.push(next_page_index);
+                    continue;
+                } else {
+                    direction = up;
+                }
+            }
+
+            next_page_index = Self::get_index(current_cell_row_index, current_cell_column_index - PAGE_WIDTH as u32);
+            let (_, next_cell_column_index) = Self::extract_values_from_page_index(next_page_index);
+
+            if direction == up {
+                if next_cell_column_index >= last_cell_column_index {
+                    current_cell_column_index -= PAGE_WIDTH as u32;
+                    page_indexes.push(next_page_index);
+                    continue;
+                } else {
+                    direction = left;
+                }
+            }
+
+            next_page_index = Self::get_index(current_cell_row_index - PAGE_LENGTH as u32, current_cell_column_index);
+            let (next_cell_row_index, _) = Self::extract_values_from_page_index(next_page_index);
+
+            if direction == left {
+                if next_cell_row_index >= first_cell_row_index {
+                    current_cell_row_index -= PAGE_LENGTH as u32;
+                    page_indexes.push(next_page_index);
+                    continue;
+                } else {
+                    direction = down;
+                }
+            }
+
+            next_page_index = Self::get_index(current_cell_row_index, current_cell_column_index + PAGE_WIDTH as u32);
+            let (_, next_cell_column_index) = Self::extract_values_from_page_index(next_page_index);
+            if direction == down {
+                if next_cell_column_index >= first_cell_column_index {
+                    current_cell_column_index += PAGE_WIDTH as u32;
+                    page_indexes.push(next_page_index);
+                    continue;
+                } else {
+                    direction = right;
+                }
+            }
+        }
+
+        page_indexes
+    }
+
+    pub fn get_cell_indexes(point: Point3D<Coord>) -> (u32, u32) {
+        let lat: u32 = point.lat.to_u32_with_frac_part(BITMAP_CELL_LENGTH, CELL_SIZE_DEGREE);
+        let lon: u32 = point.lon.to_u32_with_frac_part(BITMAP_CELL_WIDTH, CELL_SIZE_DEGREE);
+
+        let row_index: u32 = lat / BITMAP_CELL_LENGTH;
+        let column_index: u32 = lon / BITMAP_CELL_WIDTH;
+
+        (row_index, column_index)
+    }
+
+    pub fn get_index(cell_row_index: u32, cell_column_index: u32) -> u32 {
+        let row_index: u32;
+        let column_index: u32;
+
+        if cell_row_index > 0 && cell_row_index % PAGE_LENGTH as u32 != 0 {
+            row_index = PAGE_LENGTH as u32 + cell_row_index - cell_row_index % PAGE_LENGTH as u32;
+        } else if cell_row_index == 0 {
+            row_index = PAGE_LENGTH as u32;
+        } else {
+            row_index = cell_row_index;
+        }
+
+        if cell_column_index > 0 && cell_column_index % PAGE_WIDTH as u32 != 0 {
+            column_index = PAGE_WIDTH as u32 + cell_column_index - cell_column_index % PAGE_WIDTH as u32;
+        } else if cell_column_index == 0 {
+            column_index = PAGE_WIDTH as u32;
+        } else {
+            column_index = cell_column_index;
+        }
+
+        (row_index << 16) | column_index
+    }
+
+    /// Gets boundary cells (southwest and northeast) indexes from Page index.
+    /// Returns the row and column of the southwest cell and the row and column of the northeast
+    /// cell, respectively.
+    pub fn get_boundary_cells_indexes(
+        index: u32, sw_cell_row_index: u32, ne_cell_column_index: u32,
+    ) -> [u32; 4] {
+        let mask = 0b1111_1111_1111_1111;
+
+        let sw_cell_row_index = sw_cell_row_index - sw_cell_row_index % PAGE_LENGTH as u32;
+        let sw_cell_column_index = index & mask;
+        let ne_cell_column_index = ne_cell_column_index - ne_cell_column_index % PAGE_WIDTH as u32;
+        let ne_cell_row_index = index >> 16;
+
+        let indexes: [u32; 4] = [sw_cell_row_index as u32, sw_cell_column_index as u32,
+            ne_cell_row_index as u32, ne_cell_column_index as u32];
+
+        indexes
+    }
+
+    fn extract_values_from_page_index(page_index: u32) -> (u32, u32) {
+        let mask_u16: u32 = 0b1111_1111_1111_1111;
+        let row_index: u32 = page_index >> 16;
+        let column_index: u32 = page_index & mask_u16;
+        (row_index, column_index)
+    }
+}
+
+impl<Coord: Default + FromStr> Default for Page<Coord> {
+    fn default() -> Self {
+        Page{
+            bitmap: [[0u64; PAGE_WIDTH]; PAGE_LENGTH],
+            _phantom: PhantomData,
+        }
+    }
+}
+
 type AreaId = u16;
-type RootId = u32;
+type PageId = u32;
+type RootId = u64;
 type ZoneId = u64;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
@@ -327,10 +576,10 @@ pub trait Trait: accounts::Trait {
     + PartialOrd
     + PartialEq
     + FromStr
-    + Default
     + IntDiv
     + Signed
     + FromRaw
+    + CastToType
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>;
 
@@ -366,13 +615,13 @@ decl_storage! {
     // This name may be updated, but each pallet in the runtime must use a unique name.
     // ---------------------------------vvvvvvvvvvvv
     trait Store for Module<T: Trait> as DSMapsModule {
-        // MAX is 4_294_967_295. Change if required more.
-        TotalRoots get(fn total_roots): RootId = 1;    
-
-        RootBoxes get(fn root_box_data): 
+        RootBoxes get(fn root_box_data):
             map hasher(blake2_128_concat) RootId => RootBoxOf<T>;
 
-        AreaData get(fn area_info): 
+        EarthBitmap get(fn bitmap_cells):
+            map hasher(blake2_128_concat) PageId => PageOf<T>;
+
+        AreaData get(fn area_info):
             double_map hasher(blake2_128_concat) RootId, 
                        hasher(blake2_128_concat) AreaId => Area;    
 
@@ -381,6 +630,7 @@ decl_storage! {
     }
 }
 
+pub type PageOf<T> = Page<<T as Trait>::Coord>;
 pub type RootBoxOf<T> = RootBox<<T as Trait>::Coord>;
 pub type ZoneOf<T> = Zone<<T as Trait>::Coord, <T as Trait>::LightCoord>;
 
@@ -409,30 +659,36 @@ decl_event!(
 // learn more https://substrate.dev/docs/en/knowledgebase/runtime/errors
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// Error names should be descriptive.
-        NoneValue,
+        /// Area can't contain no more buildings
+        AreaFull,
+        /// Sizes are off bounds
+        BadDimesions,
+        /// Area is unavailable for operation
+        ForbiddenArea,
         /// Operation is not valid
         InvalidAction,
+        /// Incorrect coordinates were provided
+        InvalidCoords,
         /// Incorrect data provided
         InvalidData,
+        /// Error names should be descriptive
+        NoneValue,
         /// Origin do not have sufficient privileges to perform the operation
         NotAuthorized,
         /// Account doesn't exist
         NotExists,
-        /// Area is unavailable for operation
-        ForbiddenArea,
+        /// Added root overlaps with another in current area
+        OverlappingRoot,
+        /// Added zone overlaps with another in current area
+        OverlappingZone,
+        /// The number of pages to be extracted exceeds the maximum
+        PageLimitExceeded,
         /// Root you are trying to access is not in storage
         RootDoesNotExist,
-        /// Sizes are off bounds
-        BadDimesions,
-        /// Area can't contain no more buildings
-        AreaFull,
         /// Zone points lies in different areas
         ZoneDoesntFit,
         /// Zone you are trying to access is not in storage
         ZoneDoesntExist,
-        /// Added zone overlaps with another in current area
-        OverlappingZone,
         // Add additional errors below
     }
 }
@@ -447,24 +703,83 @@ decl_module! {
 
         // Events must be initialized if they are used by the pallet.
         fn deposit_event() = default;
-        /// Adds new root to storage
+
+        /// Adds new RootBox to storage
         #[weight = <T as Trait>::WeightInfo::root_add()]
-        pub fn root_add(origin, 
-                        bounding_box: Box3D<T::Coord>,
-                        delta: T::Coord) -> dispatch::DispatchResult {
+        pub fn root_add(origin, bounding_box: Box3D<T::Coord>) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
-            // TODO replace these ensures w inverted index (using global grid)
-            let root_size = bounding_box.projection_on_plane().get_dimensions();
-            ensure!(root_size.lat <= Self::coord_from_str("2"), Error::<T>::BadDimesions);
-            ensure!(root_size.lon <= Self::coord_from_str("2"), Error::<T>::BadDimesions);
-            ensure!(delta <= Self::coord_from_str("0.1") && 
-                    delta >= Self::coord_from_str("0.002"), Error::<T>::InvalidData);
 
-            let id = TotalRoots::get();
-            let root = RootBoxOf::<T>::new(id, bounding_box, delta);
+            let amount_of_pages_to_extract = Page::<T::Coord>::get_amount_of_pages_to_extract(bounding_box);
+            ensure!(amount_of_pages_to_extract <= MAX_PAGES_AMOUNT_TO_EXTRACT, Error::<T>::PageLimitExceeded);
+
+            let (sw_cell_row_index, sw_cell_column_index) = Page::<T::Coord>::get_cell_indexes(bounding_box.south_west);
+            let sw_page_index = Page::<T::Coord>::get_index(sw_cell_row_index, sw_cell_column_index);
+            let (ne_cell_row_index, ne_cell_column_index) = Page::<T::Coord>::get_cell_indexes(bounding_box.north_east);
+            let ne_page_index = Page::<T::Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
+            ensure!(ne_page_index == 0 || sw_page_index == 0, Error::<T>::InvalidCoords);
+            ensure!(sw_cell_column_index >= ne_cell_column_index, Error::<T>::InvalidCoords);
+            if ne_page_index == sw_page_index {
+                ensure!(sw_cell_row_index <= ne_cell_row_index, Error::<T>::InvalidCoords);
+            }
+
+            let page_indexes: Vec<u32> = Page::<T::Coord>::get_pages_indexes_to_be_extracted(
+                amount_of_pages_to_extract,
+                sw_cell_row_index, sw_cell_column_index,
+                sw_page_index, ne_page_index,
+            );
+
+            let id = RootBox::<T::Coord>::get_index(sw_cell_row_index, sw_cell_column_index,
+                                                    ne_cell_row_index, ne_cell_column_index);
+            let rootbox_boundary_cells_indexes = RootBox::<T::Coord>::get_boundary_cells_indexes(id);
+
+            let mut updated_pages: Vec<Page<<T as Trait>::Coord>> = Vec::new();
+            for page_index in page_indexes.clone() {
+                let mut current_bitmap = EarthBitmap::<T>::get(page_index).bitmap;
+                let page_boundary_cells_indexes = Page::<T::Coord>::get_boundary_cells_indexes(
+                    page_index, sw_cell_row_index, ne_cell_column_index
+                );
+
+                let mut row_start = 0;
+                if rootbox_boundary_cells_indexes[0] == page_boundary_cells_indexes[0] {
+                    row_start = sw_cell_row_index % PAGE_LENGTH as u32;
+                }
+
+                let mut row_end = PAGE_LENGTH as u32;
+                if rootbox_boundary_cells_indexes[2] == page_boundary_cells_indexes[2] {
+                    row_end = ne_cell_row_index % PAGE_LENGTH as u32;
+                }
+
+                for index_row in row_start as usize..row_end as usize {
+                    let mut column_start = 0;
+                    if rootbox_boundary_cells_indexes[1] == page_boundary_cells_indexes[1] {
+                        column_start = sw_cell_column_index % PAGE_WIDTH as u32;
+                    }
+
+                    let mut column_end = PAGE_WIDTH as u32;
+                    if rootbox_boundary_cells_indexes[3] == page_boundary_cells_indexes[3] {
+                        column_end = ne_cell_column_index % PAGE_WIDTH as u32;
+                    }
+
+                    for index_column in column_start as usize..column_end as usize {
+                        ensure!(current_bitmap[index_row][index_column] == 0, Error::<T>::OverlappingRoot);
+                        current_bitmap[index_row][index_column] = id;
+                    }
+                }
+                let mut page = Page::new();
+                page.bitmap = current_bitmap;
+                updated_pages.push(page);
+            }
+
+            let mut page_number = 0;
+            for page_index in page_indexes {
+                EarthBitmap::<T>::insert(page_index, updated_pages[page_number]);
+                page_number += 1;
+            }
+
+            let root = RootBoxOf::<T>::new(id, bounding_box);
             RootBoxes::<T>::insert(id, root);
-            TotalRoots::put(id + 1);
+
             Self::deposit_event(RawEvent::RootCreated(id, who));
             Ok(())
         }

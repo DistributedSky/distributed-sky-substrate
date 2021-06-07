@@ -10,7 +10,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
-use substrate_fixed::types::I9F23;
+use substrate_fixed::types::I10F22;
 use pallet_ds_accounts::ADMIN_ROLE;
 
 impl_outer_origin! {
@@ -117,8 +117,8 @@ parameter_types! {
 impl Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-    type Coord = I9F23;
     type RawCoord = i32;
+    type Coord = I10F22;
     type LightCoord = u16;
     type MaxBuildingsInArea = MaxBuildingsInArea;
     type MaxHeight = MaxHeight;
