@@ -11,6 +11,10 @@ pub trait Signed {
     fn abs(self) -> Self;
 }
 
+pub trait FromRaw {
+    fn from_raw(input: i32) -> Self;
+}
+
 pub trait CastToType {
     fn to_u32_with_frac_part(self, cell_size: u32, max_digits_in_frac_part: u8) -> u32;
 }
@@ -23,6 +27,12 @@ impl IntDiv for I10F22 {
 
     fn integer_division_u32(self, rhs: I10F22) -> u32 {
         (self / rhs).to_num::<u32>()
+    }
+}
+
+impl FromRaw for I10F22 {
+    fn from_raw(input: i32) -> Self {
+        I10F22::from_bits(input)
     }
 }
 

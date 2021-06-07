@@ -296,6 +296,7 @@ parameter_types! {
 impl pallet_ds_maps::Trait for Runtime {
     type Event = Event;
     type WeightInfo = ();
+    type RawCoord = i32;
     type Coord = I10F22;
     type LightCoord = u16;
     type MaxBuildingsInArea = MaxBuildingsInArea;
