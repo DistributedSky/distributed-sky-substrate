@@ -59,7 +59,7 @@ pub type Coord = I10F22;
 // Constants to make tests more readable
 const ADMIN_ACCOUNT_ID: u64 = 1;
 const REGISTRAR_1_ACCOUNT_ID: u64 = 2;
-pub const ROOT_ID: u64 = 1;
+pub const ROOT_ID: u64 = 0b0101_0000_0000_0000_0010_0000_0000_0000_1111_0000_0000_0000_0001;
 // this value, and values in construct_testing_..() was calculated
 const AREA_ID: u16 = 58;
 const DEFAULT_HEIGHT: u16 = 30;
@@ -72,11 +72,11 @@ pub fn coord<Coord>(s: &str) -> Coord
         <Coord as FromStr>::Err: std::fmt::Debug { Coord::from_str(s).unwrap() }
 
 fn construct_testing_box() -> Box3D<Coord> {
-    let south_west = Point3D::new(coord("55.37"),
-                                  coord("37.37"), 
+    let south_west = Point3D::new(coord("0.051"),
+                                  coord("0.021"),
                                   coord("1"));
-    let north_east = Point3D::new(coord("55.92"),
-                                  coord("37.90"),       
+    let north_east = Point3D::new(coord("0.151"),
+                                  coord("0.011"),
                                   coord("3"));      
     Box3D::new(south_west, north_east)
 }
@@ -184,8 +184,8 @@ fn it_tries_to_add_raw_root_with_exceeded_page_limit() {
       });
 }
 
+#[test]
 fn it_tries_to_add_too_big_root() {
-
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -981,4 +981,10 @@ fn it_gets_rootbox_index() {
                                                     cell_indexes[2], cell_indexes[3]
     );
     assert_eq!(rootbox_index, 0b0101_0000_0101_0011_1001_0000_0000_0000_1111_0111_1001_0001_1000);
+
+    let cell_indexes: [u32; 4] = [5, 2, 15, 1];
+    let rootbox_index = RootBox::<Coord>::get_index(cell_indexes[0], cell_indexes[1],
+                                                    cell_indexes[2], cell_indexes[3]
+    );
+    assert_eq!(rootbox_index, 0b0101_0000_0000_0000_0010_0000_0000_0000_1111_0000_0000_0000_0001);
 }
