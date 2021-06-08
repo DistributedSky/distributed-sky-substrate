@@ -308,7 +308,7 @@ mod rootbox_tests {
     #[test]
     fn max_area_frac_delta() {
         let bbox = construct_custom_box("-0", "0", "2", "3");
-        let root = RootBox::new(ROOT_ID, bbox, coord("1"));
+        let root = RootBox::new(ROOT_ID, bbox, coord("0.5"));
         assert_eq!(root.get_max_area(), 24);
     } 
 
