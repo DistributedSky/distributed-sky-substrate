@@ -59,8 +59,8 @@ pub type Coord = I10F22;
 // Constants to make tests more readable
 const ADMIN_ACCOUNT_ID: u64 = 1;
 const REGISTRAR_1_ACCOUNT_ID: u64 = 2;
-pub const ROOT_ID: u64 = 0b0101_0000_0000_0000_0010_0000_0000_0000_1111_0000_0000_0000_0001;
-// this value, and values in construct_testing_..() was calculated
+pub const ROOT_ID: u64 = 0b0001_0101_1010_0001_0000_1110_1001_1001_0001_0101_1101_1000_0000_1110_1100_1110;
+// this value, and values in construct_testing_..() were calculated
 const AREA_ID: u16 = 58;
 const DEFAULT_HEIGHT: u16 = 30;
 
@@ -72,21 +72,21 @@ pub fn coord<Coord>(s: &str) -> Coord
         <Coord as FromStr>::Err: std::fmt::Debug { Coord::from_str(s).unwrap() }
 
 fn construct_testing_box() -> Box3D<Coord> {
-    let south_west = Point3D::new(coord("0.051"),
-                                  coord("0.021"),
+    let south_west = Point3D::new(coord("55.371"),
+                                  coord("37.371"),
                                   coord("1"));
-    let north_east = Point3D::new(coord("0.151"),
-                                  coord("0.011"),
+    let north_east = Point3D::new(coord("55.921"),
+                                  coord("37.901"),
                                   coord("3"));      
     Box3D::new(south_west, north_east)
 }
 
-pub fn construct_custom_box(nw_lat: &str, nw_lon: &str, se_lat: &str, se_lon: &str) -> Box3D<Coord> {
-    let south_west = Point3D::new(coord(nw_lat),
-                                  coord(nw_lon), 
+pub fn construct_custom_box(sw_lat: &str, sw_lon: &str, ne_lat: &str, ne_lon: &str) -> Box3D<Coord> {
+    let south_west = Point3D::new(coord(sw_lat),
+                                  coord(sw_lon),
                                   coord("1"));
-    let north_east = Point3D::new(coord(se_lat),
-                                  coord(se_lon),       
+    let north_east = Point3D::new(coord(ne_lat),
+                                  coord(ne_lon),
                                   coord("3"));      
     Box3D::new(south_west, north_east)
 }
@@ -99,11 +99,11 @@ fn construct_testing_rect() -> Rect2D<Coord> {
     Rect2D::new(south_west, north_east)
 }
 
-pub fn construct_custom_rect(nw_lat: &str, nw_lon: &str, se_lat: &str, se_lon: &str) -> Rect2D<Coord> {
-    let south_west = Point2D::new(coord(nw_lat),
-                                  coord(nw_lon));
-    let north_east = Point2D::new(coord(se_lat),
-                                  coord(se_lon));
+pub fn construct_custom_rect(sw_lat: &str, sw_lon: &str, ne_lat: &str, ne_lon: &str) -> Rect2D<Coord> {
+    let south_west = Point2D::new(coord(sw_lat),
+                                  coord(sw_lon));
+    let north_east = Point2D::new(coord(ne_lat),
+                                  coord(ne_lon));
     Rect2D::new(south_west, north_east)
 }
 
@@ -137,7 +137,7 @@ fn it_tries_to_add_root_by_registrar() {
         assert_ok!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_custom_box("55.37", "37.90", "55.92", "37.37"),
+                construct_testing_box(),
                 coord(DELTA),
             )
         );
@@ -163,10 +163,10 @@ fn it_tries_to_add_raw_root_with_exceeded_page_limit() {
           ));
           let raw_coords: [i32; 6] = [
               465587600,
-              318558719,
+              312529919,
               8388608,
               469815744,
-              312529919,
+              318558719,
               16777216
           ];
           let delta: i32 = 838860;
@@ -196,7 +196,7 @@ fn it_tries_to_add_too_big_root() {
         assert_noop!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_custom_box("0.0", "250.0", "250.0", "0.0",),
+                construct_custom_box("0.0", "0.0", "250.0", "250.0",),
                 coord(DELTA),
             ),
             Error::PageLimitExceeded
@@ -204,7 +204,7 @@ fn it_tries_to_add_too_big_root() {
         assert_noop!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_custom_box("0.0", "50.9", "45.1", "0.0"),
+                construct_custom_box("0.0", "0.0", "45.1", "50.9"),
                 coord(DELTA),
             ),
             Error::PageLimitExceeded
@@ -258,13 +258,13 @@ fn it_tries_to_add_root_as_square_2x2() {
                 super::REGISTRAR_ROLE
         ));
 
-        let bounding_box = construct_custom_box("0.051", "0.75", "0.5", "0.0", );
+        let bounding_box = construct_custom_box("0.051", "0.0", "0.5", "0.75", );
         let (sw_cell_row_index, sw_cell_column_index) = Page::get_cell_indexes(bounding_box.south_west);
         assert_eq!(sw_cell_row_index, 5);
-        assert_eq!(sw_cell_column_index, 75);
+        assert_eq!(sw_cell_column_index, 0);
         let (ne_cell_row_index, ne_cell_column_index) = Page::get_cell_indexes(bounding_box.north_east);
         assert_eq!(ne_cell_row_index, 50);
-        assert_eq!(ne_cell_column_index, 0);
+        assert_eq!(ne_cell_column_index, 75);
 
         let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract(bounding_box);
         assert_eq!(amount_of_pages_to_extract, 4);
@@ -306,13 +306,13 @@ fn it_tries_to_add_root_as_rectangle_4x1() {
                 super::REGISTRAR_ROLE
         ));
 
-        let bounding_box = construct_custom_box("0.051", "0.011", "1.271", "0.0");
+        let bounding_box = construct_custom_box("0.051", "0.0", "1.271", "0.011");
         let (sw_cell_row_index, sw_cell_column_index) = Page::get_cell_indexes(bounding_box.south_west);
         assert_eq!(sw_cell_row_index, 5);
-        assert_eq!(sw_cell_column_index, 1);
+        assert_eq!(sw_cell_column_index, 0);
         let (ne_cell_row_index, ne_cell_column_index) = Page::get_cell_indexes(bounding_box.north_east);
         assert_eq!(ne_cell_row_index, 127);
-        assert_eq!(ne_cell_column_index, 0);
+        assert_eq!(ne_cell_column_index, 1);
 
         let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract(bounding_box);
         assert_eq!(amount_of_pages_to_extract, 4);
@@ -359,13 +359,13 @@ fn it_tries_to_add_root_as_rectangle_1x4() {
                 super::REGISTRAR_ROLE
         ));
 
-        let bounding_box = construct_custom_box("0.0", "1.751", "0.011", "0.0");
+        let bounding_box = construct_custom_box("0.0", "0.0", "0.011", "1.751");
         let (sw_cell_row_index, sw_cell_column_index) = Page::get_cell_indexes(bounding_box.south_west);
         assert_eq!(sw_cell_row_index, 0);
-        assert_eq!(sw_cell_column_index, 175);
+        assert_eq!(sw_cell_column_index, 0);
         let (ne_cell_row_index, ne_cell_column_index) = Page::get_cell_indexes(bounding_box.north_east);
         assert_eq!(ne_cell_row_index, 1);
-        assert_eq!(ne_cell_column_index, 0);
+        assert_eq!(ne_cell_column_index, 175);
 
         let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract(bounding_box);
         assert_eq!(amount_of_pages_to_extract, 4);
@@ -813,7 +813,7 @@ fn it_gets_amount_of_pages_to_extract() {
     assert_eq!(pages_to_extract, 1);
 
     // 1 x 2
-    let bounding_box = construct_custom_box("0.0", "1.0", "0.301", "0.0");
+    let bounding_box = construct_custom_box("0.0", "0.0", "0.301", "1.0");
     let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
     assert_eq!(pages_to_extract, 2);
 
@@ -823,42 +823,42 @@ fn it_gets_amount_of_pages_to_extract() {
     assert_eq!(pages_to_extract, 2);
 
     // 1 x 3
-    let bounding_box = construct_custom_box("0.0", "1.011", "0.301", "0.0");
+    let bounding_box = construct_custom_box("0.0", "0.0", "0.301", "1.011");
     let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
     assert_eq!(pages_to_extract, 3);
 
     // 3 x 1
-    let bounding_box = construct_custom_box("0.011", "0.011", "0.651", "0.0");
+    let bounding_box = construct_custom_box("0.011", "0.0", "0.651", "0.011");
     let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
     assert_eq!(pages_to_extract, 3);
 
     // 1 x 4
-    let bounding_box = construct_custom_box("0.0", "1.511", "0.301", "0.0");
+    let bounding_box = construct_custom_box("0.0", "0.0", "0.301", "1.511");
     let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
     assert_eq!(pages_to_extract, 4);
 
     // 4 x 1
-    let bounding_box = construct_custom_box( "0.011", "0.011", "0.981", "0.0");
+    let bounding_box = construct_custom_box( "0.011", "0.0", "0.981", "0.011");
     let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
     assert_eq!(pages_to_extract, 4);
 
     // 4 x 1
-    let bounding_box = construct_custom_box( "0.051", "0.011", "1.271", "0.0");
+    let bounding_box = construct_custom_box( "0.051", "0.0", "1.271", "0.011");
     let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
     assert_eq!(pages_to_extract, 4);
 
     // 2 x 2
-    let bounding_box = construct_custom_box("0.211", "0.991", "0.631", "0.011");
+    let bounding_box = construct_custom_box("0.211", "0.011", "0.631", "0.991");
     let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
     assert_eq!(pages_to_extract, 4);
 
     // 2 x 2
-    let bounding_box = construct_custom_box("0.05", "0.75", "0.5", "0.0");
+    let bounding_box = construct_custom_box("0.05", "0.0", "0.5", "0.75");
     let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
     assert_eq!(pages_to_extract, 4);
 
     // 2 x 2
-    let bounding_box = construct_custom_box( "55.37", "37.90", "55.92", "37.37");
+    let bounding_box = construct_custom_box( "55.37", "37.37", "55.92", "37.90");
     let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
     assert_eq!(pages_to_extract, 4);
 }
@@ -982,9 +982,9 @@ fn it_gets_rootbox_index() {
     );
     assert_eq!(rootbox_index, 0b0101_0000_0101_0011_1001_0000_0000_0000_1111_0111_1001_0001_1000);
 
-    let cell_indexes: [u32; 4] = [5, 2, 15, 1];
+    let cell_indexes: [u32; 4] = [5537, 3737, 5592, 3790];
     let rootbox_index = RootBox::<Coord>::get_index(cell_indexes[0], cell_indexes[1],
                                                     cell_indexes[2], cell_indexes[3]
     );
-    assert_eq!(rootbox_index, 0b0101_0000_0000_0000_0010_0000_0000_0000_1111_0000_0000_0000_0001);
+    assert_eq!(rootbox_index, 0b0001_0101_1010_0001_0000_1110_1001_1001_0001_0101_1101_1000_0000_1110_1100_1110);
 }
