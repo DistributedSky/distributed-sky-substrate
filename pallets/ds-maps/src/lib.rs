@@ -391,17 +391,17 @@ impl<
         let (sw_page_row_index, sw_page_column_index) = Self::extract_values_from_page_index(sw_cell_page_index);
         let (ne_page_row_index, ne_page_column_index) = Self::extract_values_from_page_index(ne_cell_page_index);
 
-        if ne_page_row_index < sw_page_row_index || ne_page_column_index > sw_page_column_index {
+        if ne_page_row_index < sw_page_row_index || ne_page_column_index < sw_page_column_index {
             return 0;
         }
 
         let mut offset: u32 = 1;
 
         if ne_page_row_index == sw_page_row_index {
-            if ne_column_index / PAGE_WIDTH as u32 == 0 {
-                return sw_page_column_index / PAGE_WIDTH as u32;
+            if sw_column_index / PAGE_WIDTH as u32 == 0 {
+                return ne_page_column_index / PAGE_WIDTH as u32;
             }
-            return sw_page_column_index / PAGE_WIDTH as u32 - ne_page_column_index / PAGE_WIDTH as u32 + offset;
+            return ne_page_column_index / PAGE_WIDTH as u32 - sw_page_column_index / PAGE_WIDTH as u32 + offset;
         }
 
         if sw_page_column_index == ne_page_column_index {
@@ -411,12 +411,12 @@ impl<
             return ne_page_row_index / PAGE_LENGTH as u32 - sw_page_row_index / PAGE_LENGTH as u32 + offset;
         }
 
-        if sw_row_index / PAGE_LENGTH as u32 == 0 && ne_column_index / PAGE_WIDTH as u32 == 0 {
+        if sw_row_index / PAGE_LENGTH as u32 == 0 && sw_column_index / PAGE_WIDTH as u32 == 0 {
             offset = 2;
         }
 
         return (ne_page_row_index / PAGE_LENGTH as u32 - sw_page_row_index / PAGE_LENGTH as u32) +
-            (sw_page_column_index / PAGE_WIDTH as u32 - ne_page_column_index / PAGE_WIDTH as u32) + offset;
+            (ne_page_column_index / PAGE_WIDTH as u32 - sw_page_column_index / PAGE_WIDTH as u32) + offset;
     }
 
     /// Gets the indexes of the pages to be extracted
@@ -464,7 +464,7 @@ impl<
             let (_, next_cell_column_index) = Self::extract_values_from_page_index(next_page_index);
 
             if direction == up {
-                if next_cell_column_index >= last_cell_column_index {
+                if next_cell_column_index <= last_cell_column_index {
                     current_cell_column_index += PAGE_WIDTH as u32;
                     page_indexes.push(next_page_index);
                     continue;
@@ -489,7 +489,7 @@ impl<
             next_page_index = Self::get_index(current_cell_row_index, current_cell_column_index - PAGE_WIDTH as u32);
             let (_, next_cell_column_index) = Self::extract_values_from_page_index(next_page_index);
             if direction == down {
-                if next_cell_column_index >= first_cell_column_index {
+                if next_cell_column_index <= first_cell_column_index {
                     current_cell_column_index -= PAGE_WIDTH as u32;
                     page_indexes.push(next_page_index);
                     continue;
@@ -574,7 +574,7 @@ impl<Coord: Default + FromStr> Default for Page<Coord> {
 type AreaId = u16;
 type PageId = u32;
 type RootId = u64;
-type ZoneId = u64;
+type ZoneId = u128;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: accounts::Trait {
@@ -733,7 +733,7 @@ decl_module! {
             let (ne_cell_row_index, ne_cell_column_index) = Page::<T::Coord>::get_cell_indexes(bounding_box.north_east);
             let ne_page_index = Page::<T::Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
             ensure!(ne_page_index != 0 && sw_page_index != 0, Error::<T>::InvalidCoords);
-            ensure!(sw_cell_column_index >= ne_cell_column_index, Error::<T>::InvalidCoords);
+            ensure!(sw_cell_column_index <= ne_cell_column_index, Error::<T>::InvalidCoords);
             ensure!(sw_cell_row_index <= ne_cell_row_index, Error::<T>::InvalidCoords);
             if ne_page_index == sw_page_index {
                 ensure!(sw_cell_row_index <= ne_cell_row_index, Error::<T>::InvalidCoords);
@@ -877,6 +877,7 @@ decl_module! {
             Ok(())
         }
 
+        // TODO redo by adding Pages
         /// Removes root by given id, and zones inside. This means, function might be heavy. 
         #[weight = <T as Trait>::WeightInfo::root_remove()]
         pub fn root_remove(origin, root_id: RootId) -> dispatch::DispatchResult {
@@ -954,7 +955,7 @@ impl<T: Trait> Module<T> {
     /// v.............root id here............v v.....area id.....v v..child objects..v
     /// 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
     fn pack_index(root: RootId, area: AreaId, children: u16) -> ZoneId {
-        (root as ZoneId) << 32 |
+        (root as ZoneId) << 64 |
         (area as ZoneId) << 16 | 
         children as ZoneId
     }
@@ -962,8 +963,8 @@ impl<T: Trait> Module<T> {
     /// Reverse function for pack_index()
     #[allow(dead_code)]
     fn unpack_index(index: ZoneId) -> (RootId, AreaId, u16) {
-        let mask_u16: u64 = 0x0000_0000_0000_0000_0000_0000_ffff_ffff;
-        let root: RootId = (index >> 32) as RootId;
+        let mask_u16: u128 = 0x0000_0000_0000_0000_0000_0000_ffff_ffff;
+        let root: RootId = (index >> 64) as RootId;
         let area: AreaId = ((index >> 16) & mask_u16) as AreaId;
         let children: u16 = (index & mask_u16) as u16;
         
