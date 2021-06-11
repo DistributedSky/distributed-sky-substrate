@@ -269,19 +269,6 @@ fn it_tries_to_add_root_as_square_2x2() {
         let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract(bounding_box);
         assert_eq!(amount_of_pages_to_extract, 4);
 
-        let sw_page_index = Page::<Coord>::get_index(sw_cell_row_index, sw_cell_column_index);
-        let ne_page_index = Page::<Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
-
-        let pages_indexes = Page::<Coord>::get_pages_indexes_to_be_extracted(
-            amount_of_pages_to_extract,
-            sw_cell_row_index, sw_cell_column_index,
-            sw_page_index, ne_page_index,
-        );
-
-        let root_id = RootBox::<Coord>::get_index(sw_cell_row_index, sw_cell_column_index,
-                                                     ne_cell_row_index, ne_cell_column_index);
-        let root = RootBox::<Coord>::new(root_id, bounding_box, coord(DELTA));
-
         assert_ok!(
             DSMapsModule::root_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
@@ -316,15 +303,6 @@ fn it_tries_to_add_root_as_rectangle_4x1() {
 
         let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract(bounding_box);
         assert_eq!(amount_of_pages_to_extract, 4);
-
-        let sw_page_index = Page::<Coord>::get_index(sw_cell_row_index, sw_cell_column_index);
-        let ne_page_index = Page::<Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
-
-        let pages_indexes = Page::<Coord>::get_pages_indexes_to_be_extracted(
-            amount_of_pages_to_extract,
-            sw_cell_row_index, sw_cell_column_index,
-            sw_page_index, ne_page_index,
-        );
 
         assert_ok!(
             DSMapsModule::root_add(
@@ -369,15 +347,6 @@ fn it_tries_to_add_root_as_rectangle_1x4() {
 
         let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract(bounding_box);
         assert_eq!(amount_of_pages_to_extract, 4);
-
-        let sw_page_index = Page::<Coord>::get_index(sw_cell_row_index, sw_cell_column_index);
-        let ne_page_index = Page::<Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
-
-        let pages_indexes = Page::<Coord>::get_pages_indexes_to_be_extracted(
-            amount_of_pages_to_extract,
-            sw_cell_row_index, sw_cell_column_index,
-            sw_page_index, ne_page_index,
-        );
 
         assert_ok!(
             DSMapsModule::root_add(

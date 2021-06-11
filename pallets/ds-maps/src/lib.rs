@@ -951,6 +951,7 @@ impl<T: Trait> Module<T> {
     // Implement module function.
     // Public functions can be called from other runtime modules.
     /// Creates type from str, no error handling
+    #[allow(dead_code)]
     fn coord_from_str<Coord> (s: &str) -> Coord
             where Coord: FromStr + Default {
         match Coord::from_str(s) {
