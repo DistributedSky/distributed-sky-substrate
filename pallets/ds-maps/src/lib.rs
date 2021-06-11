@@ -31,16 +31,7 @@ mod tests;
 
 pub const GREEN_AREA: u8 = 0b00000001;
 
-/// RootBox parameters
-pub const MAX_ROW_INDEX: u16 = 35_999;
-pub const MAX_COLUMN_INDEX: u16 = 18_000;
-
-/// Zero-degree indexes for latitude and longitude in bitmap
-pub const ZERO_DEGREE_ROW_INDEX: u16 = 18_000;
-pub const ZERO_DEGREE_COLUMN_INDEX: u16 = 9_000;
-
 /// Page parameters
-pub const MAX_PAGE_INDEX: u32 = 404_999;
 pub const MAX_PAGES_AMOUNT_TO_EXTRACT: u32 = 4;
 pub const PAGE_LENGTH: usize = 32;
 pub const PAGE_WIDTH: usize = 50;
@@ -48,6 +39,7 @@ pub const PAGE_WIDTH: usize = 50;
 /// Bitmap cell parameters in degree e-2
 const BITMAP_CELL_LENGTH: u32 = 1;
 const BITMAP_CELL_WIDTH: u32 = 1;
+const CELL_SIZE_DEGREE: u8 = 2;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -353,8 +345,6 @@ impl Area {
         Area{area_type}
     } 
 }
-
-const CELL_SIZE_DEGREE: u8 = 2;
 
 #[derive(Encode, Decode, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Page<Coord> {
