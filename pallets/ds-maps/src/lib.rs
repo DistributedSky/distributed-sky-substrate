@@ -376,6 +376,7 @@ impl<
         }
     }
 
+    /// Calculates the number of pages to extract from the storage using the coordinates
     pub fn get_amount_of_pages_to_extract(bounding_box: Box3D<Coord>) -> u32 {
         let (sw_row_index, sw_column_index) = Self::get_cell_indexes(bounding_box.south_west);
         let (ne_row_index, ne_column_index) = Self::get_cell_indexes(bounding_box.north_east);
@@ -425,7 +426,6 @@ impl<
         sw_cell_row_index: u32, sw_cell_column_index: u32,
         sw_page_index: u32, ne_page_index: u32,
     ) -> Vec<u32> {
-        // Get the indexes of the pages to be extracted
         let mut page_indexes: Vec<u32> = Vec::new();
         page_indexes.push(sw_page_index);
 
@@ -446,6 +446,7 @@ impl<
 
         let mut next_page_index: u32;
 
+        // Bypass algorithm - counterclockwise, starting from the southwest
         for _ in 1..amount_of_pages_to_extract {
             next_page_index = Self::get_index(current_cell_row_index + PAGE_LENGTH as u32, current_cell_column_index);
             let (next_cell_row_index, _) = Self::extract_values_from_page_index(next_page_index);
@@ -502,6 +503,7 @@ impl<
         page_indexes
     }
 
+    /// Gets the indexes of the cells where the point is located
     pub fn get_cell_indexes(point: Point3D<Coord>) -> (u32, u32) {
         let lat: u32 = point.lat.to_u32_with_frac_part(BITMAP_CELL_LENGTH, CELL_SIZE_DEGREE);
         let lon: u32 = point.lon.to_u32_with_frac_part(BITMAP_CELL_WIDTH, CELL_SIZE_DEGREE);
@@ -512,6 +514,7 @@ impl<
         (row_index, column_index)
     }
 
+    /// Gets Page's index
     pub fn get_index(cell_row_index: u32, cell_column_index: u32) -> u32 {
         let row_index: u32;
         let column_index: u32;
@@ -554,6 +557,9 @@ impl<
         indexes
     }
 
+    /// Gets cell indexes from Page index.
+    /// Returns the row and column of the southwest cell and the row and column of the northeast
+    /// cell, respectively.
     fn extract_values_from_page_index(page_index: u32) -> (u32, u32) {
         let mask_u16: u32 = 0b1111_1111_1111_1111;
         let row_index: u32 = page_index >> 16;
@@ -725,9 +731,11 @@ decl_module! {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
 
+            // Check amount of pages to be extracted
             let amount_of_pages_to_extract = Page::<T::Coord>::get_amount_of_pages_to_extract(bounding_box);
             ensure!(amount_of_pages_to_extract <= MAX_PAGES_AMOUNT_TO_EXTRACT, Error::<T>::PageLimitExceeded);
 
+            // Check given coordinates
             let (sw_cell_row_index, sw_cell_column_index) = Page::<T::Coord>::get_cell_indexes(bounding_box.south_west);
             let sw_page_index = Page::<T::Coord>::get_index(sw_cell_row_index, sw_cell_column_index);
             let (ne_cell_row_index, ne_cell_column_index) = Page::<T::Coord>::get_cell_indexes(bounding_box.north_east);
