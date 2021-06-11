@@ -266,7 +266,7 @@ fn it_tries_to_add_root_as_square_2x2() {
         assert_eq!(ne_cell_row_index, 50);
         assert_eq!(ne_cell_column_index, 75);
 
-        let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract(bounding_box);
+        let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract_using_box(bounding_box);
         assert_eq!(amount_of_pages_to_extract, 4);
 
         assert_ok!(
@@ -301,7 +301,7 @@ fn it_tries_to_add_root_as_rectangle_4x1() {
         assert_eq!(ne_cell_row_index, 127);
         assert_eq!(ne_cell_column_index, 1);
 
-        let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract(bounding_box);
+        let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract_using_box(bounding_box);
         assert_eq!(amount_of_pages_to_extract, 4);
 
         assert_ok!(
@@ -345,7 +345,7 @@ fn it_tries_to_add_root_as_rectangle_1x4() {
         assert_eq!(ne_cell_row_index, 1);
         assert_eq!(ne_cell_column_index, 175);
 
-        let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract(bounding_box);
+        let amount_of_pages_to_extract = Page::get_amount_of_pages_to_extract_using_box(bounding_box);
         assert_eq!(amount_of_pages_to_extract, 4);
 
         assert_ok!(
@@ -778,57 +778,57 @@ fn it_calculates_cell_indexes() {
 fn it_gets_amount_of_pages_to_extract() {
     // 1 x 1
     let bounding_box = construct_custom_box( "0.0", "0.491", "0.301", "0.0");
-    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract_using_box(bounding_box);
     assert_eq!(pages_to_extract, 1);
 
     // 1 x 2
     let bounding_box = construct_custom_box("0.0", "0.0", "0.301", "1.0");
-    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract_using_box(bounding_box);
     assert_eq!(pages_to_extract, 2);
 
     // 2 x 1
     let bounding_box = construct_custom_box( "0.0", "0.01", "0.331", "0.0");
-    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract_using_box(bounding_box);
     assert_eq!(pages_to_extract, 2);
 
     // 1 x 3
     let bounding_box = construct_custom_box("0.0", "0.0", "0.301", "1.011");
-    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract_using_box(bounding_box);
     assert_eq!(pages_to_extract, 3);
 
     // 3 x 1
     let bounding_box = construct_custom_box("0.011", "0.0", "0.651", "0.011");
-    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract_using_box(bounding_box);
     assert_eq!(pages_to_extract, 3);
 
     // 1 x 4
     let bounding_box = construct_custom_box("0.0", "0.0", "0.301", "1.511");
-    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract_using_box(bounding_box);
     assert_eq!(pages_to_extract, 4);
 
     // 4 x 1
     let bounding_box = construct_custom_box( "0.011", "0.0", "0.981", "0.011");
-    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract_using_box(bounding_box);
     assert_eq!(pages_to_extract, 4);
 
     // 4 x 1
     let bounding_box = construct_custom_box( "0.051", "0.0", "1.271", "0.011");
-    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract_using_box(bounding_box);
     assert_eq!(pages_to_extract, 4);
 
     // 2 x 2
     let bounding_box = construct_custom_box("0.211", "0.011", "0.631", "0.991");
-    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract_using_box(bounding_box);
     assert_eq!(pages_to_extract, 4);
 
     // 2 x 2
     let bounding_box = construct_custom_box("0.05", "0.0", "0.5", "0.75");
-    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract_using_box(bounding_box);
     assert_eq!(pages_to_extract, 4);
 
     // 2 x 2
     let bounding_box = construct_custom_box( "55.37", "37.37", "55.92", "37.90");
-    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract(bounding_box);
+    let pages_to_extract = Page::<Coord>::get_amount_of_pages_to_extract_using_box(bounding_box);
     assert_eq!(pages_to_extract, 4);
 }
 
@@ -923,14 +923,14 @@ fn it_gets_page_index() {
 #[test]
 fn it_extracts_values_from_rootbox_index() {
     let rootbox_index = 0b0101_0000_0000_0000_1010_0000_0000_0000_1111_0000_0000_0000_0010;
-    let indexes: [u32; 4] = RootBox::<Coord>::get_boundary_cells_indexes(rootbox_index);
+    let indexes: [u32; 4] = RootBox::<Coord>::get_boundary_cell_indexes(rootbox_index);
     assert_eq!(indexes[0], 5);
     assert_eq!(indexes[1], 10);
     assert_eq!(indexes[2], 15);
     assert_eq!(indexes[3], 2);
 
     let rootbox_index = 0b0101_0000_0101_0011_1001_0000_0000_0000_1111_0111_1001_0001_1000;
-    let indexes: [u32; 4] = RootBox::<Coord>::get_boundary_cells_indexes(rootbox_index);
+    let indexes: [u32; 4] = RootBox::<Coord>::get_boundary_cell_indexes(rootbox_index);
     assert_eq!(indexes[0], 5);
     assert_eq!(indexes[1], 1337);
     assert_eq!(indexes[2], 15);

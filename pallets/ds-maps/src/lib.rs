@@ -240,7 +240,7 @@ impl<
     /// Gets boundary cells (southwest and northeast) indexes from RootBox index.
     /// Returns the row and column of the southwest cell and the row and column of the northeast
     /// cell, respectively.
-    pub fn get_boundary_cells_indexes(index: u64) -> [u32; 4] {
+    pub fn get_boundary_cell_indexes(index: u64) -> [u32; 4] {
         let mask = 0b1111_1111_1111_1111;
 
         let sw_cell_row_index = index >> 48;
@@ -367,10 +367,18 @@ impl<
     }
 
     /// Calculates the number of pages to extract from the storage using the coordinates
-    pub fn get_amount_of_pages_to_extract(bounding_box: Box3D<Coord>) -> u32 {
+    pub fn get_amount_of_pages_to_extract_using_box(bounding_box: Box3D<Coord>) -> u32 {
         let (sw_row_index, sw_column_index) = Self::get_cell_indexes(bounding_box.south_west);
         let (ne_row_index, ne_column_index) = Self::get_cell_indexes(bounding_box.north_east);
 
+        Self::get_amount_of_pages_to_extract(sw_row_index, sw_column_index, ne_row_index, ne_column_index)
+    }
+
+    /// Calculates the number of pages to extract from the storage using the indexes
+    pub fn get_amount_of_pages_to_extract(
+        sw_row_index: u32, sw_column_index: u32,
+        ne_row_index: u32, ne_column_index: u32,
+    ) -> u32 {
         let sw_cell_page_index = Self::get_index(sw_row_index, sw_column_index);
         let ne_cell_page_index = Self::get_index(ne_row_index, ne_column_index);
 
@@ -531,7 +539,7 @@ impl<
     /// Gets boundary cells (southwest and northeast) indexes from Page index.
     /// Returns the row and column of the southwest cell and the row and column of the northeast
     /// cell, respectively.
-    pub fn get_boundary_cells_indexes(
+    pub fn get_boundary_cell_indexes(
         index: u32, sw_cell_row_index: u32, ne_cell_column_index: u32,
     ) -> [u32; 4] {
         let mask = 0b1111_1111_1111_1111;
@@ -722,7 +730,7 @@ decl_module! {
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
 
             // Check amount of pages to be extracted
-            let amount_of_pages_to_extract = Page::<T::Coord>::get_amount_of_pages_to_extract(bounding_box);
+            let amount_of_pages_to_extract = Page::<T::Coord>::get_amount_of_pages_to_extract_using_box(bounding_box);
             ensure!(amount_of_pages_to_extract <= MAX_PAGES_AMOUNT_TO_EXTRACT, Error::<T>::PageLimitExceeded);
 
             // Check given coordinates
@@ -745,33 +753,33 @@ decl_module! {
 
             let id = RootBox::<T::Coord>::get_index(sw_cell_row_index, sw_cell_column_index,
                                                     ne_cell_row_index, ne_cell_column_index);
-            let rootbox_boundary_cells_indexes = RootBox::<T::Coord>::get_boundary_cells_indexes(id);
+            let rootbox_boundary_cell_indexes = RootBox::<T::Coord>::get_boundary_cell_indexes(id);
 
             let mut updated_pages: Vec<Page<<T as Trait>::Coord>> = Vec::new();
             for page_index in page_indexes.clone() {
                 let mut current_bitmap = EarthBitmap::<T>::get(page_index).bitmap;
-                let page_boundary_cells_indexes = Page::<T::Coord>::get_boundary_cells_indexes(
+                let page_boundary_cell_indexes = Page::<T::Coord>::get_boundary_cell_indexes(
                     page_index, sw_cell_row_index, ne_cell_column_index
                 );
 
                 let mut row_start = 0;
-                if rootbox_boundary_cells_indexes[0] == page_boundary_cells_indexes[0] {
+                if rootbox_boundary_cell_indexes[0] == page_boundary_cell_indexes[0] {
                     row_start = sw_cell_row_index % PAGE_LENGTH as u32;
                 }
 
                 let mut row_end = PAGE_LENGTH as u32;
-                if rootbox_boundary_cells_indexes[2] == page_boundary_cells_indexes[2] {
+                if rootbox_boundary_cell_indexes[2] == page_boundary_cell_indexes[2] {
                     row_end = ne_cell_row_index % PAGE_LENGTH as u32;
                 }
 
                 for index_row in row_start as usize..row_end as usize {
                     let mut column_start = 0;
-                    if rootbox_boundary_cells_indexes[1] == page_boundary_cells_indexes[1] {
+                    if rootbox_boundary_cell_indexes[1] == page_boundary_cell_indexes[1] {
                         column_start = sw_cell_column_index % PAGE_WIDTH as u32;
                     }
 
                     let mut column_end = PAGE_WIDTH as u32;
-                    if rootbox_boundary_cells_indexes[3] == page_boundary_cells_indexes[3] {
+                    if rootbox_boundary_cell_indexes[3] == page_boundary_cell_indexes[3] {
                         column_end = ne_cell_column_index % PAGE_WIDTH as u32;
                     }
 
@@ -875,8 +883,7 @@ decl_module! {
             Ok(())
         }
 
-        // TODO redo by adding Pages
-        /// Removes root by given id, and zones inside. This means, function might be heavy. 
+        /// Removes root by given id, and zones inside. This means, function might be heavy.
         #[weight = <T as Trait>::WeightInfo::root_remove()]
         pub fn root_remove(origin, root_id: RootId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
@@ -898,6 +905,70 @@ decl_module! {
                 }
                 area_id += 1;
                 zone_id = Self::pack_index(root_id, area_id, 0);
+            }
+
+            // Recursively clear all cells in bitmap
+            let rootbox_boundary_cell_indexes = RootBox::<T::Coord>::get_boundary_cell_indexes(root_id);
+            let sw_cell_row_index = rootbox_boundary_cell_indexes[0];
+            let sw_cell_column_index = rootbox_boundary_cell_indexes[1];
+            let ne_cell_row_index = rootbox_boundary_cell_indexes[2];
+            let ne_cell_column_index = rootbox_boundary_cell_indexes[3];
+
+            let amount_of_pages_to_extract = Page::<T::Coord>::get_amount_of_pages_to_extract(
+                sw_cell_row_index, sw_cell_column_index,
+                ne_cell_row_index, ne_cell_column_index,
+            );
+            let sw_page_index = Page::<T::Coord>::get_index(sw_cell_row_index, sw_cell_column_index);
+            let ne_page_index = Page::<T::Coord>::get_index(ne_cell_row_index, ne_cell_column_index);
+
+            let page_indexes: Vec<u32> = Page::<T::Coord>::get_pages_indexes_to_be_extracted(
+                amount_of_pages_to_extract,
+                sw_cell_row_index, sw_cell_column_index,
+                sw_page_index, ne_page_index,
+            );
+
+            let mut updated_pages: Vec<Page<<T as Trait>::Coord>> = Vec::new();
+            for page_index in page_indexes.clone() {
+                let mut current_bitmap = EarthBitmap::<T>::get(page_index).bitmap;
+                let page_boundary_cell_indexes = Page::<T::Coord>::get_boundary_cell_indexes(
+                    page_index, sw_cell_row_index, ne_cell_column_index
+                );
+
+                let mut row_start = 0;
+                if rootbox_boundary_cell_indexes[0] == page_boundary_cell_indexes[0] {
+                    row_start = sw_cell_row_index % PAGE_LENGTH as u32;
+                }
+
+                let mut row_end = PAGE_LENGTH as u32;
+                if rootbox_boundary_cell_indexes[2] == page_boundary_cell_indexes[2] {
+                    row_end = ne_cell_row_index % PAGE_LENGTH as u32;
+                }
+
+                for index_row in row_start as usize..row_end as usize {
+                    let mut column_start = 0;
+                    if rootbox_boundary_cell_indexes[1] == page_boundary_cell_indexes[1] {
+                        column_start = sw_cell_column_index % PAGE_WIDTH as u32;
+                    }
+
+                    let mut column_end = PAGE_WIDTH as u32;
+                    if rootbox_boundary_cell_indexes[3] == page_boundary_cell_indexes[3] {
+                        column_end = ne_cell_column_index % PAGE_WIDTH as u32;
+                    }
+
+                    for index_column in column_start as usize..column_end as usize {
+                        ensure!(current_bitmap[index_row][index_column] != 0, Error::<T>::InvalidData);
+                        current_bitmap[index_row][index_column] = 0;
+                    }
+                }
+                let mut page = Page::new();
+                page.bitmap = current_bitmap;
+                updated_pages.push(page);
+            }
+
+            let mut page_number = 0;
+            for page_index in page_indexes {
+                EarthBitmap::<T>::insert(page_index, updated_pages[page_number]);
+                page_number += 1;
             }
 
             RootBoxes::<T>::remove(root_id);
