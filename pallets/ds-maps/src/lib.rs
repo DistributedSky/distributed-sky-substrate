@@ -414,8 +414,9 @@ impl<
             offset = 2;
         }
 
-        return (ne_page_row_index / PAGE_LENGTH as u32 - sw_page_row_index / PAGE_LENGTH as u32) +
-            (ne_page_column_index / PAGE_WIDTH as u32 - sw_page_column_index / PAGE_WIDTH as u32) + offset;
+        (ne_page_row_index / PAGE_LENGTH as u32 - sw_page_row_index / PAGE_LENGTH as u32) +
+            (ne_page_column_index / PAGE_WIDTH as u32 - sw_page_column_index / PAGE_WIDTH as u32)
+            + offset
     }
 
     /// Gets the indexes of the pages to be extracted
@@ -772,7 +773,7 @@ decl_module! {
                     row_end = ne_cell_row_index % PAGE_LENGTH as u32;
                 }
 
-                for index_row in row_start as usize..row_end as usize {
+                for page_row in current_bitmap.iter_mut().take(row_end as usize).skip(row_start as usize) {
                     let mut column_start = 0;
                     if rootbox_boundary_cell_indexes[1] == page_boundary_cell_indexes[1] {
                         column_start = sw_cell_column_index % PAGE_WIDTH as u32;
@@ -783,9 +784,9 @@ decl_module! {
                         column_end = ne_cell_column_index % PAGE_WIDTH as u32;
                     }
 
-                    for index_column in column_start as usize..column_end as usize {
-                        ensure!(current_bitmap[index_row][index_column] == 0, Error::<T>::OverlappingRoot);
-                        current_bitmap[index_row][index_column] = id;
+                    for cell in page_row.iter_mut().take(column_end as usize).skip(column_start as usize) {
+                        ensure!(*cell == 0 as u64, Error::<T>::OverlappingRoot);
+                        *cell = id;
                     }
                 }
                 let mut page = Page::new();
@@ -793,10 +794,8 @@ decl_module! {
                 updated_pages.push(page);
             }
 
-            let mut page_number = 0;
-            for page_index in page_indexes {
+            for (page_number, page_index) in page_indexes.into_iter().enumerate() {
                 EarthBitmap::<T>::insert(page_index, updated_pages[page_number]);
-                page_number += 1;
             }
 
             let root = RootBoxOf::<T>::new(id, bounding_box, delta);
@@ -944,7 +943,7 @@ decl_module! {
                     row_end = ne_cell_row_index % PAGE_LENGTH as u32;
                 }
 
-                for index_row in row_start as usize..row_end as usize {
+                for page_row in current_bitmap.iter_mut().take(row_end as usize).skip(row_start as usize) {
                     let mut column_start = 0;
                     if rootbox_boundary_cell_indexes[1] == page_boundary_cell_indexes[1] {
                         column_start = sw_cell_column_index % PAGE_WIDTH as u32;
@@ -955,9 +954,9 @@ decl_module! {
                         column_end = ne_cell_column_index % PAGE_WIDTH as u32;
                     }
 
-                    for index_column in column_start as usize..column_end as usize {
-                        ensure!(current_bitmap[index_row][index_column] != 0, Error::<T>::InvalidData);
-                        current_bitmap[index_row][index_column] = 0;
+                    for cell in page_row.iter_mut().take(column_end as usize).skip(column_start as usize) {
+                        ensure!(*cell != 0, Error::<T>::InvalidData);
+                        *cell = 0;
                     }
                 }
                 let mut page = Page::new();
@@ -965,10 +964,8 @@ decl_module! {
                 updated_pages.push(page);
             }
 
-            let mut page_number = 0;
-            for page_index in page_indexes {
+            for (page_number, page_index) in page_indexes.into_iter().enumerate() {
                 EarthBitmap::<T>::insert(page_index, updated_pages[page_number]);
-                page_number += 1;
             }
 
             RootBoxes::<T>::remove(root_id);
