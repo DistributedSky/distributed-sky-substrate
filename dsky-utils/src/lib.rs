@@ -43,8 +43,9 @@ impl Signed for I10F22 {
 }
 
 impl CastToType for I10F22 {
+    /// Converts a number of type I10F22 to u32 with a shift of n digits of the fractional part.
     /// It is required minimum 3 non-zero (simultaneous) digits after the point
-    /// due to the type features
+    /// due to the type features.
     fn to_u32_with_frac_part(self, coefficient: u32, max_digits_in_frac_part: u8) -> u32 {
         let mut integer_part: u32 = self.to_num::<u32>();
         let mut degree_counter: u8 = 0;
