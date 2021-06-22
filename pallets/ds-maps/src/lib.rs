@@ -232,15 +232,15 @@ impl<
 
     /// Gets page index from boundary cells indexes (southwest and northeast)
     pub fn get_index(sw_cell_row_index: u32, sw_cell_column_index: u32,
-                     ne_cell_row_index: u32, ne_cell_column_index: u32) -> u64 {
-        (sw_cell_row_index as u64) << 48 | (sw_cell_column_index as u64) << 32 |
-            (ne_cell_row_index as u64) << 16 | ne_cell_column_index as u64
+                     ne_cell_row_index: u32, ne_cell_column_index: u32) -> RootId {
+        (sw_cell_row_index as RootId) << 48 | (sw_cell_column_index as RootId) << 32 |
+            (ne_cell_row_index as RootId) << 16 | ne_cell_column_index as RootId
     }
 
     /// Gets boundary cells (southwest and northeast) indexes from RootBox index.
     /// Returns the row and column of the southwest cell and the row and column of the northeast
     /// cell, respectively.
-    pub fn get_boundary_cell_indexes(index: u64) -> [u32; 4] {
+    pub fn get_boundary_cell_indexes(index: RootId) -> [u32; 4] {
         let mask = 0b1111_1111_1111_1111;
 
         let sw_cell_row_index = index >> 48;
@@ -386,7 +386,7 @@ impl Area {
 
 #[derive(Encode, Decode, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Page<Coord> {
-    pub bitmap: [[u64; PAGE_WIDTH as usize]; PAGE_LENGTH as usize],
+    pub bitmap: [[RootId; PAGE_WIDTH as usize]; PAGE_LENGTH as usize],
     _phantom: PhantomData<Coord>,
 }
 
@@ -461,8 +461,8 @@ impl<
         amount_of_pages_to_extract: u32,
         sw_cell_row_index: u32, sw_cell_column_index: u32,
         sw_page_index: u32, ne_page_index: u32,
-    ) -> Vec<u32> {
-        let mut page_indexes: Vec<u32> = Vec::new();
+    ) -> Vec<PageId> {
+        let mut page_indexes: Vec<PageId> = Vec::new();
         page_indexes.push(sw_page_index);
 
         // Pages's bypass direction
@@ -475,12 +475,12 @@ impl<
         let mut current_cell_row_index: u32 = sw_cell_row_index;
         let mut current_cell_column_index: u32 = sw_cell_column_index;
 
-        let first_page_index: u32 = sw_page_index;
+        let first_page_index: PageId = sw_page_index;
         let (first_cell_row_index, first_cell_column_index) = Self::extract_values_from_page_index(first_page_index);
-        let last_page_index: u32 = ne_page_index;
+        let last_page_index: PageId = ne_page_index;
         let (last_cell_row_index, last_cell_column_index) = Self::extract_values_from_page_index(last_page_index);
 
-        let mut next_page_index: u32;
+        let mut next_page_index: PageId;
 
         // Bypass algorithm - counterclockwise, starting from the southwest
         for _ in 1..amount_of_pages_to_extract {
@@ -551,7 +551,7 @@ impl<
     }
 
     /// Gets Page's index
-    pub fn get_index(cell_row_index: u32, cell_column_index: u32) -> u32 {
+    pub fn get_index(cell_row_index: u32, cell_column_index: u32) -> PageId {
         let row_index: u32;
         let column_index: u32;
 
@@ -578,7 +578,7 @@ impl<
     /// Returns the row and column of the southwest cell and the row and column of the northeast
     /// cell, respectively.
     pub fn get_boundary_cell_indexes(
-        index: u32, sw_cell_row_index: u32, ne_cell_column_index: u32,
+        index: PageId, sw_cell_row_index: u32, ne_cell_column_index: u32,
     ) -> [u32; 4] {
         let mask = 0b1111_1111_1111_1111;
 
@@ -596,8 +596,8 @@ impl<
     /// Gets cell indexes from Page index.
     /// Returns the row and column of the southwest cell and the row and column of the northeast
     /// cell, respectively.
-    fn extract_values_from_page_index(page_index: u32) -> (u32, u32) {
-        let mask_u16: u32 = 0b1111_1111_1111_1111;
+    fn extract_values_from_page_index(page_index: PageId) -> (u32, u32) {
+        let mask_u16: PageId = 0b1111_1111_1111_1111;
         let row_index: u32 = page_index >> 16;
         let column_index: u32 = page_index & mask_u16;
         (row_index, column_index)
