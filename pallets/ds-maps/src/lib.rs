@@ -33,8 +33,8 @@ pub const GREEN_AREA: u8 = 0b00000001;
 
 /// Page parameters
 pub const MAX_PAGES_AMOUNT_TO_EXTRACT: u32 = 4;
-pub const PAGE_LENGTH: usize = 32;
-pub const PAGE_WIDTH: usize = 50;
+pub const PAGE_LENGTH: u32 = 32;
+pub const PAGE_WIDTH: u32 = 50;
 
 /// Bitmap cell parameters in degree e-2
 const BITMAP_CELL_LENGTH: u32 = 1;
@@ -386,7 +386,7 @@ impl Area {
 
 #[derive(Encode, Decode, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Page<Coord> {
-    pub bitmap: [[u64; PAGE_WIDTH]; PAGE_LENGTH],
+    pub bitmap: [[u64; PAGE_WIDTH as usize]; PAGE_LENGTH as usize],
     _phantom: PhantomData<Coord>,
 }
 
@@ -395,11 +395,10 @@ impl<
     + FromStr
     + Copy
     + CastToType
-    + core::ops::Div<Output = Coord>
 > Page<Coord> {
     fn new() -> Self {
         Page {
-            bitmap: [[0u64; PAGE_WIDTH]; PAGE_LENGTH],
+            bitmap: [[0u64; PAGE_WIDTH as usize]; PAGE_LENGTH as usize],
             _phantom: PhantomData,
         }
     }
@@ -435,25 +434,25 @@ impl<
         let mut offset: u32 = 1;
 
         if ne_page_row_index == sw_page_row_index {
-            if sw_column_index / PAGE_WIDTH as u32 == 0 {
-                return ne_page_column_index / PAGE_WIDTH as u32;
+            if sw_column_index / PAGE_WIDTH == 0 {
+                return ne_page_column_index / PAGE_WIDTH;
             }
-            return ne_page_column_index / PAGE_WIDTH as u32 - sw_page_column_index / PAGE_WIDTH as u32 + offset;
+            return ne_page_column_index / PAGE_WIDTH - sw_page_column_index / PAGE_WIDTH + offset;
         }
 
         if sw_page_column_index == ne_page_column_index {
-            if sw_row_index / PAGE_LENGTH as u32 == 0 {
-                return ne_page_row_index / PAGE_LENGTH as u32;
+            if sw_row_index / PAGE_LENGTH == 0 {
+                return ne_page_row_index / PAGE_LENGTH;
             }
-            return ne_page_row_index / PAGE_LENGTH as u32 - sw_page_row_index / PAGE_LENGTH as u32 + offset;
+            return ne_page_row_index / PAGE_LENGTH - sw_page_row_index / PAGE_LENGTH + offset;
         }
 
-        if sw_row_index / PAGE_LENGTH as u32 == 0 && sw_column_index / PAGE_WIDTH as u32 == 0 {
+        if sw_row_index / PAGE_LENGTH == 0 && sw_column_index / PAGE_WIDTH == 0 {
             offset = 2;
         }
 
-        (ne_page_row_index / PAGE_LENGTH as u32 - sw_page_row_index / PAGE_LENGTH as u32) +
-            (ne_page_column_index / PAGE_WIDTH as u32 - sw_page_column_index / PAGE_WIDTH as u32)
+        (ne_page_row_index / PAGE_LENGTH - sw_page_row_index / PAGE_LENGTH) +
+            (ne_page_column_index / PAGE_WIDTH - sw_page_column_index / PAGE_WIDTH)
             + offset
     }
 
@@ -485,12 +484,12 @@ impl<
 
         // Bypass algorithm - counterclockwise, starting from the southwest
         for _ in 1..amount_of_pages_to_extract {
-            next_page_index = Self::get_index(current_cell_row_index + PAGE_LENGTH as u32, current_cell_column_index);
+            next_page_index = Self::get_index(current_cell_row_index + PAGE_LENGTH, current_cell_column_index);
             let (next_cell_row_index, _) = Self::extract_values_from_page_index(next_page_index);
 
             if direction == right {
                 if next_cell_row_index <= last_cell_row_index {
-                    current_cell_row_index += PAGE_LENGTH as u32;
+                    current_cell_row_index += PAGE_LENGTH;
                     page_indexes.push(next_page_index);
                     continue;
                 } else {
@@ -498,12 +497,12 @@ impl<
                 }
             }
 
-            next_page_index = Self::get_index(current_cell_row_index, current_cell_column_index + PAGE_WIDTH as u32);
+            next_page_index = Self::get_index(current_cell_row_index, current_cell_column_index + PAGE_WIDTH);
             let (_, next_cell_column_index) = Self::extract_values_from_page_index(next_page_index);
 
             if direction == up {
                 if next_cell_column_index <= last_cell_column_index {
-                    current_cell_column_index += PAGE_WIDTH as u32;
+                    current_cell_column_index += PAGE_WIDTH;
                     page_indexes.push(next_page_index);
                     continue;
                 } else {
@@ -511,12 +510,12 @@ impl<
                 }
             }
 
-            next_page_index = Self::get_index(current_cell_row_index - PAGE_LENGTH as u32, current_cell_column_index);
+            next_page_index = Self::get_index(current_cell_row_index - PAGE_LENGTH, current_cell_column_index);
             let (next_cell_row_index, _) = Self::extract_values_from_page_index(next_page_index);
 
             if direction == left {
                 if next_cell_row_index >= first_cell_row_index {
-                    current_cell_row_index -= PAGE_LENGTH as u32;
+                    current_cell_row_index -= PAGE_LENGTH;
                     page_indexes.push(next_page_index);
                     continue;
                 } else {
@@ -524,11 +523,11 @@ impl<
                 }
             }
 
-            next_page_index = Self::get_index(current_cell_row_index, current_cell_column_index - PAGE_WIDTH as u32);
+            next_page_index = Self::get_index(current_cell_row_index, current_cell_column_index - PAGE_WIDTH);
             let (_, next_cell_column_index) = Self::extract_values_from_page_index(next_page_index);
             if direction == down {
                 if next_cell_column_index <= first_cell_column_index {
-                    current_cell_column_index -= PAGE_WIDTH as u32;
+                    current_cell_column_index -= PAGE_WIDTH;
                     page_indexes.push(next_page_index);
                     continue;
                 } else {
@@ -556,18 +555,18 @@ impl<
         let row_index: u32;
         let column_index: u32;
 
-        if cell_row_index > 0 && cell_row_index % PAGE_LENGTH as u32 != 0 {
-            row_index = PAGE_LENGTH as u32 + cell_row_index - cell_row_index % PAGE_LENGTH as u32;
+        if cell_row_index > 0 && cell_row_index % PAGE_LENGTH != 0 {
+            row_index = PAGE_LENGTH + cell_row_index - cell_row_index % PAGE_LENGTH;
         } else if cell_row_index == 0 {
-            row_index = PAGE_LENGTH as u32;
+            row_index = PAGE_LENGTH;
         } else {
             row_index = cell_row_index;
         }
 
-        if cell_column_index > 0 && cell_column_index % PAGE_WIDTH as u32 != 0 {
-            column_index = PAGE_WIDTH as u32 + cell_column_index - cell_column_index % PAGE_WIDTH as u32;
+        if cell_column_index > 0 && cell_column_index % PAGE_WIDTH != 0 {
+            column_index = PAGE_WIDTH + cell_column_index - cell_column_index % PAGE_WIDTH;
         } else if cell_column_index == 0 {
-            column_index = PAGE_WIDTH as u32;
+            column_index = PAGE_WIDTH;
         } else {
             column_index = cell_column_index;
         }
@@ -583,9 +582,9 @@ impl<
     ) -> [u32; 4] {
         let mask = 0b1111_1111_1111_1111;
 
-        let sw_cell_row_index = sw_cell_row_index - sw_cell_row_index % PAGE_LENGTH as u32;
+        let sw_cell_row_index = sw_cell_row_index - sw_cell_row_index % PAGE_LENGTH;
         let sw_cell_column_index = index & mask;
-        let ne_cell_column_index = ne_cell_column_index - ne_cell_column_index % PAGE_WIDTH as u32;
+        let ne_cell_column_index = ne_cell_column_index - ne_cell_column_index % PAGE_WIDTH;
         let ne_cell_row_index = index >> 16;
 
         let indexes: [u32; 4] = [sw_cell_row_index as u32, sw_cell_column_index as u32,
@@ -608,7 +607,7 @@ impl<
 impl<Coord> Default for Page<Coord> {
     fn default() -> Self {
         Page{
-            bitmap: [[0u64; PAGE_WIDTH]; PAGE_LENGTH],
+            bitmap: [[0u64; PAGE_WIDTH as usize]; PAGE_LENGTH as usize],
             _phantom: PhantomData,
         }
     }
@@ -687,8 +686,8 @@ mod page_tests {
         let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
         assert_eq!(page_index, 0b0010_0000_0000_0000_0011_0010);
         let (row_index, column_index) = Page::<Coord>::extract_values_from_page_index(page_index);
-        assert_eq!(row_index, PAGE_LENGTH as u32);
-        assert_eq!(column_index, PAGE_WIDTH as u32);
+        assert_eq!(row_index, PAGE_LENGTH);
+        assert_eq!(column_index, PAGE_WIDTH);
 
         let point: Point3D<Coord> = Point3D::new(coord("12.251"), coord("0.011"), coord("1"));
         let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
@@ -698,7 +697,7 @@ mod page_tests {
         assert_eq!(page_index, 0b0100_1110_0000_0000_0000_0011_0010);
         let (row_index, column_index) = Page::<Coord>::extract_values_from_page_index(page_index);
         assert_eq!(row_index, 1248);
-        assert_eq!(column_index, PAGE_WIDTH as u32);
+        assert_eq!(column_index, PAGE_WIDTH);
 
         let point: Point3D<Coord> = Point3D::new(coord("12.251"), coord("235.211"), coord("1"));
         let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
@@ -1005,23 +1004,23 @@ decl_module! {
 
                 let mut row_start = 0;
                 if rootbox_boundary_cell_indexes[0] == page_boundary_cell_indexes[0] {
-                    row_start = sw_cell_row_index % PAGE_LENGTH as u32;
+                    row_start = sw_cell_row_index % PAGE_LENGTH;
                 }
 
-                let mut row_end = PAGE_LENGTH as u32;
+                let mut row_end = PAGE_LENGTH;
                 if rootbox_boundary_cell_indexes[2] == page_boundary_cell_indexes[2] {
-                    row_end = ne_cell_row_index % PAGE_LENGTH as u32;
+                    row_end = ne_cell_row_index % PAGE_LENGTH;
                 }
 
                 for page_row in current_bitmap.iter_mut().take(row_end as usize).skip(row_start as usize) {
                     let mut column_start = 0;
                     if rootbox_boundary_cell_indexes[1] == page_boundary_cell_indexes[1] {
-                        column_start = sw_cell_column_index % PAGE_WIDTH as u32;
+                        column_start = sw_cell_column_index % PAGE_WIDTH;
                     }
 
-                    let mut column_end = PAGE_WIDTH as u32;
+                    let mut column_end = PAGE_WIDTH;
                     if rootbox_boundary_cell_indexes[3] == page_boundary_cell_indexes[3] {
-                        column_end = ne_cell_column_index % PAGE_WIDTH as u32;
+                        column_end = ne_cell_column_index % PAGE_WIDTH;
                     }
 
                     for cell in page_row.iter_mut().take(column_end as usize).skip(column_start as usize) {
@@ -1175,23 +1174,23 @@ decl_module! {
 
                 let mut row_start = 0;
                 if rootbox_boundary_cell_indexes[0] == page_boundary_cell_indexes[0] {
-                    row_start = sw_cell_row_index % PAGE_LENGTH as u32;
+                    row_start = sw_cell_row_index % PAGE_LENGTH;
                 }
 
-                let mut row_end = PAGE_LENGTH as u32;
+                let mut row_end = PAGE_LENGTH;
                 if rootbox_boundary_cell_indexes[2] == page_boundary_cell_indexes[2] {
-                    row_end = ne_cell_row_index % PAGE_LENGTH as u32;
+                    row_end = ne_cell_row_index % PAGE_LENGTH;
                 }
 
                 for page_row in current_bitmap.iter_mut().take(row_end as usize).skip(row_start as usize) {
                     let mut column_start = 0;
                     if rootbox_boundary_cell_indexes[1] == page_boundary_cell_indexes[1] {
-                        column_start = sw_cell_column_index % PAGE_WIDTH as u32;
+                        column_start = sw_cell_column_index % PAGE_WIDTH;
                     }
 
-                    let mut column_end = PAGE_WIDTH as u32;
+                    let mut column_end = PAGE_WIDTH;
                     if rootbox_boundary_cell_indexes[3] == page_boundary_cell_indexes[3] {
-                        column_end = ne_cell_column_index % PAGE_WIDTH as u32;
+                        column_end = ne_cell_column_index % PAGE_WIDTH;
                     }
 
                     for cell in page_row.iter_mut().take(column_end as usize).skip(column_start as usize) {
