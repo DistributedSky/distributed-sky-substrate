@@ -721,3 +721,22 @@ fn it_changes_existing_area_type() {
         );
     });
 }
+
+#[test]
+fn it_dispatchable_get_root_index() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
+        ));
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_box(),
+                coord(DELTA),
+        ));
+        assert_eq!(DSMapsModule::get_root_index([81264640, 71827456]), 1);
+    });
+}

@@ -234,7 +234,7 @@ impl<
     pub fn get_index(sw_cell_row_index: u32, sw_cell_column_index: u32,
                      ne_cell_row_index: u32, ne_cell_column_index: u32) -> RootId {
         (sw_cell_row_index as RootId) << 48 | (sw_cell_column_index as RootId) << 32 |
-            (ne_cell_row_index as RootId) << 16 | ne_cell_column_index as RootId
+        (ne_cell_row_index as RootId) << 16 | (ne_cell_column_index as RootId)
     }
 
     /// Gets boundary cells (southwest and northeast) indexes from RootBox index.
@@ -601,6 +601,11 @@ impl<
         let row_index: u32 = page_index >> 16;
         let column_index: u32 = page_index & mask_u16;
         (row_index, column_index)
+    }
+
+    #[cfg(test)]
+    pub fn is_active(&self) -> bool {
+        self.bitmap.is_empty()
     }
 }
 
@@ -1256,6 +1261,25 @@ impl<T: Trait> Module<T> {
             Err(_) => Default::default(),
         }
     } 
+    
+    fn get_root_index(raw_point: [i32; 2]) -> RootId {
+        let lat = T::Coord::from_raw(raw_point[0]);
+        let lon = T::Coord::from_raw(raw_point[1]);
+        let alt = T::Coord::from_raw(0);
+
+        let point = Point3D::<T::Coord>::new(lat, lon, alt);
+        let (row, column) = Page::<T::Coord>::get_cell_indexes(point);
+        let index = Page::<T::Coord>::get_index(row, column);
+        let bitmap = EarthBitmap::<T>::get(index).bitmap;
+
+        for item in bitmap.iter() {
+            for meme in item.iter() {
+                if (*meme == 0) {continue} else {return *meme}
+            }
+        }
+        123
+        // bitmap[(row % PAGE_LENGTH) as usize][(column % PAGE_WIDTH) as usize]
+    }
 
     /// Form index for storing zones, wrapped in u64............limited by const in runtime
     /// v.............root id here............v v.....area id.....v v..child objects..v
