@@ -737,6 +737,13 @@ fn it_dispatchable_get_root_index() {
                 construct_testing_box(),
                 coord(DELTA),
         ));
-        assert_eq!(DSMapsModule::get_root_index([81264640, 71827456]), 1);
+        // 55.395 - 232343470
+        // 37.385 - 156804055
+        // TODO add explanation, for why this is true
+        let root_id = DSMapsModule::get_root_index([232343470, 156804055]);
+        assert_eq!(root_id, 1558542996706168526);
+        // For now, this proof will do. We can see, that by this index we get valid, active root
+        let root = DSMapsModule::root_box_data(root_id);
+        assert!(root.is_active());
     });
 }

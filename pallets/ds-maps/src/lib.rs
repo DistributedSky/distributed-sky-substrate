@@ -1271,7 +1271,7 @@ impl<T: Trait> Module<T> {
         let (row, column) = Page::<T::Coord>::get_cell_indexes(point);
         let index = Page::<T::Coord>::get_index(row, column);
         let bitmap = EarthBitmap::<T>::get(index).bitmap;
-
+        // TODO fix this shit kurwa, uncomment line
         for item in bitmap.iter() {
             for meme in item.iter() {
                 if (*meme == 0) {continue} else {return *meme}
