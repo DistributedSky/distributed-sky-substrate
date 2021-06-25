@@ -1262,6 +1262,7 @@ impl<T: Trait> Module<T> {
         }
     } 
     
+    #[allow(dead_code)]
     fn get_root_index(raw_point: [i32; 2]) -> RootId {
         let lat = T::Coord::from_raw(raw_point[0]);
         let lon = T::Coord::from_raw(raw_point[1]);
