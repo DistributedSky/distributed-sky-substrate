@@ -1271,14 +1271,8 @@ impl<T: Trait> Module<T> {
         let (row, column) = Page::<T::Coord>::get_cell_indexes(point);
         let index = Page::<T::Coord>::get_index(row, column);
         let bitmap = EarthBitmap::<T>::get(index).bitmap;
-        // TODO fix this shit kurwa, uncomment line
-        for item in bitmap.iter() {
-            for meme in item.iter() {
-                if (*meme == 0) {continue} else {return *meme}
-            }
-        }
-        123
-        // bitmap[(row % PAGE_LENGTH) as usize][(column % PAGE_WIDTH) as usize]
+
+        bitmap[(row % PAGE_LENGTH) as usize][(column % PAGE_WIDTH) as usize]
     }
 
     /// Form index for storing zones, wrapped in u64............limited by const in runtime
