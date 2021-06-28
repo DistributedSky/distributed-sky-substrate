@@ -106,7 +106,7 @@ pub fn construct_custom_rect(sw_lat: &str, sw_lon: &str, ne_lat: &str, ne_lon: &
 }
 
 #[test]
-fn it_tries_to_add_root_unauthorized() {
+fn it_try_to_add_root_unauthorized() {
     new_test_ext().execute_with(|| {
         let account = DSAccountsModule::account_registry(2);
         assert!(!account.is_enabled());
@@ -123,7 +123,7 @@ fn it_tries_to_add_root_unauthorized() {
 }
 
 #[test]
-fn it_tries_to_add_root_by_registrar() {
+fn it_try_to_add_root_by_registrar() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -151,7 +151,7 @@ fn it_tries_to_add_root_by_registrar() {
 }
 
 #[test]
-fn it_tries_to_add_raw_root_with_exceeded_page_limit() {
+fn it_try_to_add_raw_root_with_exceeded_page_limit() {
       new_test_ext().execute_with(|| {
           assert_ok!(
             DSAccountsModule::account_add(
@@ -183,7 +183,7 @@ fn it_tries_to_add_raw_root_with_exceeded_page_limit() {
 }
 
 #[test]
-fn it_tries_to_add_too_big_root() {
+fn it_try_to_add_too_big_root() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -211,7 +211,7 @@ fn it_tries_to_add_too_big_root() {
 }
 
 #[test]
-fn it_tries_to_add_root_with_incorrect_coordinates() {
+fn it_try_to_add_root_with_incorrect_coordinates() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -247,7 +247,7 @@ fn it_tries_to_add_root_with_incorrect_coordinates() {
 // |___+___|
 // +++++++++
 #[test]
-fn it_tries_to_add_root_as_square_2x2() {
+fn it_try_to_add_root_as_square_2x2() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -282,7 +282,7 @@ fn it_tries_to_add_root_as_square_2x2() {
 // |___+___+___+___|
 // +++++++++++++++++
 #[test]
-fn it_tries_to_add_root_as_rectangle_4x1() {
+fn it_try_to_add_root_as_rectangle_4x1() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -326,7 +326,7 @@ fn it_tries_to_add_root_as_rectangle_4x1() {
 // |___|
 // +++++
 #[test]
-fn it_tries_to_add_root_as_rectangle_1x4() {
+fn it_try_to_add_root_as_rectangle_1x4() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -356,7 +356,7 @@ fn it_tries_to_add_root_as_rectangle_1x4() {
 }
 
 #[test]
-fn it_tries_to_remove_root() {
+fn it_try_to_remove_root() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -383,7 +383,7 @@ fn it_tries_to_remove_root() {
 }
 
 #[test]
-fn it_tries_to_add_zone_unauthorized() {
+fn it_try_to_add_zone_unauthorized() {
     new_test_ext().execute_with(|| {
         let account = DSAccountsModule::account_registry(2);
         assert!(!account.is_enabled());
@@ -401,7 +401,7 @@ fn it_tries_to_add_zone_unauthorized() {
 }
 
 #[test]
-fn it_tries_to_add_zone_to_not_existing_root() {
+fn it_try_to_add_zone_to_not_existing_root() {
     new_test_ext().execute_with(|| {
         let account = DSAccountsModule::account_registry(2);
         assert!(!account.is_enabled());
@@ -424,7 +424,7 @@ fn it_tries_to_add_zone_to_not_existing_root() {
 }
 
 #[test]
-fn it_tries_to_add_zone_by_registrar() {
+fn it_try_to_add_zone_by_registrar() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -458,7 +458,7 @@ fn it_tries_to_add_zone_by_registrar() {
 }
 
 #[test]
-fn it_tries_to_get_zone() {
+fn it_try_to_get_zone() {
     new_test_ext().execute_with(|| {
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
@@ -484,7 +484,7 @@ fn it_tries_to_get_zone() {
 }
 
 #[test]
-fn it_tries_to_remove_zone() {
+fn it_try_to_remove_zone() {
     new_test_ext().execute_with(|| {
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
@@ -519,7 +519,7 @@ fn it_tries_to_remove_zone() {
 }
 
 #[test]
-fn it_tries_to_add_zone_which_lies_in_different_areas() {
+fn it_try_to_add_zone_which_lies_in_different_areas() {
     new_test_ext().execute_with(|| {
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
@@ -546,7 +546,7 @@ fn it_tries_to_add_zone_which_lies_in_different_areas() {
 }
 
 #[test]
-fn it_tries_to_add_overlapping_zones() {
+fn it_try_to_add_overlapping_zones() {
     new_test_ext().execute_with(|| {
         assert_ok!(DSAccountsModule::account_add(
             Origin::signed(ADMIN_ACCOUNT_ID),
@@ -579,7 +579,7 @@ fn it_tries_to_add_overlapping_zones() {
 }
 
 #[test]
-fn it_tries_to_add_not_overlapping_zones() {
+fn it_try_to_add_not_overlapping_zones() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -612,7 +612,7 @@ fn it_tries_to_add_not_overlapping_zones() {
 }
 
 #[test]
-fn it_tries_to_add_more_than_max_zones() {
+fn it_try_to_add_more_than_max_zones() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -655,7 +655,7 @@ fn it_tries_to_add_more_than_max_zones() {
 }
 
 #[test]
-fn it_changes_not_existing_area_type() {
+fn it_change_not_existing_area_type() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -682,7 +682,7 @@ fn it_changes_not_existing_area_type() {
 }
 
 #[test]
-fn it_changes_existing_area_type() {    
+fn it_change_existing_area_type() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(

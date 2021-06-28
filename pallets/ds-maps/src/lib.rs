@@ -294,22 +294,22 @@ mod rootbox_tests {
     fn max_area_small_root() {
         let bbox = construct_custom_box("0", "0", "2", "3");
         let root = RootBox::new(ROOT_ID, bbox, coord("1"));
-        assert_eq!(root.get_max_area(), 6); 
+        assert_eq!(root.get_max_area(), 6);
     }
-    
+
     #[test]
     fn max_area_frac_delta() {
         let bbox = construct_custom_box("-0", "0", "2", "3");
         let root = RootBox::new(ROOT_ID, bbox, coord("0.5"));
         assert_eq!(root.get_max_area(), 24);
-    } 
+    }
 
     #[test]
     fn max_area_big_root() {
         let bbox = construct_custom_box("-90", "-180", "0", "0");
         let root = RootBox::new(ROOT_ID, bbox, coord("1"));
         assert_eq!(root.get_max_area(), 16_200);
-    } 
+    }
 
     #[test]
     fn area_detects_correct() {
@@ -323,18 +323,18 @@ mod rootbox_tests {
         let point = Point2D::new(coord("1.5"),
                                  coord("1.5"));
         assert_eq!(root.detect_intersected_area(point), 4);
-        
+
         let edge_point = Point2D::new(coord("2"),
                                       coord("3"));
-        assert_eq!(root.detect_intersected_area(edge_point), 0); 
-        
+        assert_eq!(root.detect_intersected_area(edge_point), 0);
+
         let out_point = Point2D::new(coord("50"),
                                      coord("50"));
-        assert_eq!(root.detect_intersected_area(out_point), 0); 
+        assert_eq!(root.detect_intersected_area(out_point), 0);
     }
 
     #[test]
-    fn it_extracts_values_from_rootbox_index() {
+    fn extract_values_from_rootbox_index() {
         let rootbox_index = 0b0101_0000_0000_0000_1010_0000_0000_0000_1111_0000_0000_0000_0010;
         let indexes: [u32; 4] = RootBox::<Coord>::get_boundary_cell_indexes(rootbox_index);
         assert_eq!(indexes[0], 5);
@@ -351,7 +351,7 @@ mod rootbox_tests {
     }
 
     #[test]
-    fn it_gets_rootbox_index() {
+    fn get_rootbox_index() {
         let cell_indexes: [u32; 4] = [5, 10, 15, 2];
         let rootbox_index = RootBox::<Coord>::get_index(cell_indexes[0], cell_indexes[1],
                                                         cell_indexes[2], cell_indexes[3]
@@ -620,7 +620,7 @@ mod page_tests {
 
     // These tests are built taking into account all possible rectangles from 4 Pages
     #[test]
-    fn it_gets_amount_of_pages_to_extract() {
+    fn get_amount_of_pages_to_extract() {
         // 1 x 1
         let bounding_box = construct_custom_box( "0.0", "0.491", "0.301", "0.0");
         let pages_to_extract = Page::get_amount_of_pages_to_extract_using_box(bounding_box);
@@ -678,7 +678,7 @@ mod page_tests {
     }
 
     #[test]
-    fn it_extracts_values_from_page_index() {
+    fn extract_values_from_page_index() {
         let point: Point3D<Coord> = Point3D::new(coord("0.011"), coord("0.011"), coord("1"));
         let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
         assert_eq!(cell_row_index, 1);
@@ -711,7 +711,7 @@ mod page_tests {
     }
 
     #[test]
-    fn it_gets_page_index() {
+    fn get_page_index() {
         // The formula for getting page index from rows and columns is the same,
         // except for the shift, so only several cases are considered.
         // The entry 1-1 means 1 digit in the row index and 1 digit in the column index, and so on.
@@ -766,7 +766,7 @@ mod page_tests {
     }
 
     #[test]
-    fn it_calculates_cell_indexes() {
+    fn calculate_cell_indexes() {
         let point: Point3D<Coord> = Point3D::new(coord("1.0"), coord("2.0"), coord("1"));
         let (cell_row_index, cell_column_index) = Page::<Coord>::get_cell_indexes(point);
         assert_eq!(cell_row_index, 100);
