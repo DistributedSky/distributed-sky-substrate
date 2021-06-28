@@ -1332,9 +1332,9 @@ impl<T: Trait> Module<T> {
         }
     } 
 
-    /// Form index for storing zones, wrapped in u64............limited by const in runtime
-    /// v.............root id here............v v.....area id.....v v..child objects..v
-    /// 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+    /// Form index for storing zones, wrapped in u128............limited by const in runtime
+    /// v................root id here..............v v.....area id.....v v..child objects..v
+    /// 0000 0000 0000 0000 .... 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
     fn pack_index(root: RootId, area: AreaId, children: u16) -> ZoneId {
         (root as ZoneId) << 64 |
         (area as ZoneId) << 16 | 
