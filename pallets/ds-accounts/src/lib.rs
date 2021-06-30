@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use frame_support::{
-    codec::{Decode, Encode},
+    codec::{Decode, Encode, FullCodec},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
     sp_runtime::{
         sp_std::ops::{BitAnd, BitOr},
@@ -99,13 +99,13 @@ impl<
     }
 
 
-pub type AccountOf<T> = Account<<T as pallet_timestamp::Trait>::Moment, <T as Trait>::AccountRole, <T as frame_system::Trait>::AccountId>;
-pub type UAVOf<T> = UAVStruct<<T as Trait>::SerialNumber, <T as Trait>::MetaIPFS, <T as frame_system::Trait>::AccountId>;
+pub type AccountOf<T> = Account<<T as pallet_timestamp::Config>::Moment, <T as Trait>::AccountRole, <T as frame_system::Config>::AccountId>;
+pub type UAVOf<T> = UAVStruct<<T as Trait>::SerialNumber, <T as Trait>::MetaIPFS, <T as frame_system::Config>::AccountId>;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
-pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
+pub trait Trait: frame_system::Config + pallet_timestamp::Config {
     /// Because this pallet emits events, it depends on the runtime's definition of an event.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     // Describe pallet constants.
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type AdminRole: Get<Self::AccountRole>;
@@ -131,8 +131,7 @@ pub trait WeightInfo {
     fn register_uav() -> Weight;
 }
 
-type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// Account roles. Add additional values if required.
 /// Note that role value must be a power of two
@@ -170,7 +169,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         Balance = BalanceOf<T>,
         AccountRole = <T as Trait>::AccountRole,
     {
