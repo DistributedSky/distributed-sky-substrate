@@ -898,7 +898,7 @@ type ZoneId = u128;
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: accounts::Trait {
     /// Because this pallet emits events, it depends on the runtime's definition of an event.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     // Describe pallet constants.
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type WeightInfo: WeightInfo;
@@ -973,7 +973,7 @@ pub type ZoneOf<T> = Zone<<T as Trait>::Coord, <T as Trait>::LightCoord>;
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
     {
         // Event documentation should end with an array that provides descriptive names for event parameters.
         /// New root box has been created [box number, who]

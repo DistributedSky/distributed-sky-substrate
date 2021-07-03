@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use frame_support::{
-    codec::{Decode, Encode, FullCodec},
+    codec::{Decode, Encode},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
     sp_runtime::{
         sp_std::ops::{BitAnd, BitOr},
