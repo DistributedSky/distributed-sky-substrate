@@ -8,7 +8,6 @@ use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    Perbill,
 };
 use substrate_fixed::types::I10F22;
 use pallet_ds_accounts::ADMIN_ROLE;
@@ -44,13 +43,13 @@ pub type System = system::Module<Test>;
 pub struct Test;
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = 1024;
-    pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    pub const SS58Prefix: u8 = 42;
 }
 
-impl system::Trait for Test {
+impl system::Config for Test {
     type BaseCallFilter = ();
+    type BlockWeights = ();
+    type BlockLength = ();
     type Origin = Origin;
     type Call = ();
     type Index = u64;
@@ -62,26 +61,21 @@ impl system::Trait for Test {
     type Header = Header;
     type Event = TestEvent;
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
     type DbWeight = RocksDbWeight;
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
     type PalletInfo = ();
     type AccountData = pallet_balances::AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
+    type SS58Prefix = SS58Prefix;
 }
 
 parameter_types! {
     pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 }
 
-impl pallet_timestamp::Trait for Test {
+impl pallet_timestamp::Config for Test {
     /// A timestamp: milliseconds since the unix epoch.
     type Moment = u64;
     type OnTimestampSet = ();
@@ -129,10 +123,10 @@ parameter_types! {
     pub const ExistentialDeposit: u64 = 100;
 }
 
-impl pallet_balances::Trait for Test {
+impl pallet_balances::Config for Test {
     type Balance = Balance;
-    type Event = TestEvent;
     type DustRemoval = ();
+    type Event = TestEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
@@ -149,8 +143,8 @@ impl pallet_ds_accounts::Trait for Test {
     type AccountRole = u8;
     type Currency = pallet_balances::Module<Self>;
     type WeightInfo = ();
-    type MetaIPFS = Vec<u8>;        
     type SerialNumber = Vec<u8>;
+    type MetaIPFS = Vec<u8>;
 }
 
 pub type DSMapsModule = Module<Test>;
@@ -158,7 +152,7 @@ pub type DSMapsModule = Module<Test>;
 pub type DSAccountsModule = pallet_ds_accounts::Module<Test>;
 
 static INITIAL: [(
-    <Test as system::Trait>::AccountId,
+    <Test as system::Config>::AccountId,
     <Test as pallet_ds_accounts::Trait>::AccountRole,
 ); 1] = [(1, ADMIN_ROLE)];
 
