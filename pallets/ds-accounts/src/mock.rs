@@ -1,9 +1,13 @@
 use crate::{Module, Trait};
 use frame_support::{
     impl_outer_event, impl_outer_origin, parameter_types,
-    weights::{constants::RocksDbWeight, Weight},
+    weights::{
+        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
+        DispatchClass, Weight
+    },
 };
 use frame_system as system;
+use system::limits::{BlockLength, BlockWeights};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -35,17 +39,41 @@ pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 pub type Balance = u128;
 pub type System = system::Module<Test>;
 
+const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
+const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
+const MAXIMUM_BLOCK_WEIGHT: Weight = 2 * WEIGHT_PER_SECOND;
+
 #[derive(Clone, Eq, PartialEq)]
 pub struct Test;
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = 1024;
-    pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    pub MockBlockLength: BlockLength =
+		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+    pub MockBlockWeights: BlockWeights = BlockWeights::builder()
+		.base_block(BlockExecutionWeight::get())
+		.for_class(DispatchClass::all(), |weights| {
+			weights.base_extrinsic = ExtrinsicBaseWeight::get();
+		})
+		.for_class(DispatchClass::Normal, |weights| {
+			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+		})
+		.for_class(DispatchClass::Operational, |weights| {
+			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
+			// Operational transactions have some extra reserved space, so that they
+			// are included even if block reached `MAXIMUM_BLOCK_WEIGHT`.
+			weights.reserved = Some(
+				MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT
+			);
+		})
+		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
+		.build_or_panic();
+    pub const SS58Prefix: u8 = 42;
 }
 
-impl system::Trait for Test {
+impl system::Config for Test {
     type BaseCallFilter = ();
+    type BlockLength = MockBlockLength;
+    type BlockWeights = MockBlockWeights;
     type Origin = Origin;
     type Call = ();
     type Index = u64;
@@ -57,26 +85,21 @@ impl system::Trait for Test {
     type Header = Header;
     type Event = TestEvent;
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
     type DbWeight = RocksDbWeight;
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
     type PalletInfo = ();
     type AccountData = pallet_balances::AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = DSAccountsModule;
     type SystemWeightInfo = ();
+    type SS58Prefix = SS58Prefix;
 }
 
 parameter_types! {
     pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 }
 
-impl pallet_timestamp::Trait for Test {
+impl pallet_timestamp::Config for Test {
     /// A timestamp: milliseconds since the unix epoch.
     type Moment = u64;
     type OnTimestampSet = ();
@@ -121,7 +144,7 @@ parameter_types! {
     pub const ExistentialDeposit: u64 = 100;
 }
 
-impl pallet_balances::Trait for Test {
+impl pallet_balances::Config for Test {
     type Balance = Balance;
     type Event = TestEvent;
     type DustRemoval = ();
@@ -136,7 +159,7 @@ impl pallet_balances::Trait for Test {
 //     pub const TransactionByteFee: Balance = 1;
 // }
 //
-// impl pallet_transaction_payment::Trait for Test {
+// impl pallet_transaction_payment::Config for Test {
 //     type Currency = Balances;
 //     type OnTransactionPayment = ();
 //     type TransactionByteFee = TransactionByteFee;
@@ -148,7 +171,7 @@ pub type DSAccountsModule = Module<Test>;
 pub type Account = super::AccountOf<Test>;
 
 static INITIAL: [(
-    <Test as system::Trait>::AccountId,
+    <Test as system::Config>::AccountId,
     <Test as super::Trait>::AccountRole,
 ); 1] = [(1, super::ADMIN_ROLE)];
 
