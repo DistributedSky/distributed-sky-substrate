@@ -2,12 +2,11 @@ use crate::{Module, Trait};
 use frame_support::{
     impl_outer_event, impl_outer_origin, parameter_types,
     weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
-        DispatchClass, Weight
+        constants::{RocksDbWeight, WEIGHT_PER_SECOND},
+        Weight
     },
 };
 use frame_system as system;
-use system::limits::{BlockLength, BlockWeights};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -47,33 +46,13 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = 2 * WEIGHT_PER_SECOND;
 pub struct Test;
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub MockBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
-    pub MockBlockWeights: BlockWeights = BlockWeights::builder()
-		.base_block(BlockExecutionWeight::get())
-		.for_class(DispatchClass::all(), |weights| {
-			weights.base_extrinsic = ExtrinsicBaseWeight::get();
-		})
-		.for_class(DispatchClass::Normal, |weights| {
-			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		})
-		.for_class(DispatchClass::Operational, |weights| {
-			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
-			// Operational transactions have some extra reserved space, so that they
-			// are included even if block reached `MAXIMUM_BLOCK_WEIGHT`.
-			weights.reserved = Some(
-				MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT
-			);
-		})
-		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
-		.build_or_panic();
     pub const SS58Prefix: u8 = 42;
 }
 
 impl system::Config for Test {
     type BaseCallFilter = ();
-    type BlockLength = MockBlockLength;
-    type BlockWeights = MockBlockWeights;
+    type BlockWeights = ();
+    type BlockLength = ();
     type Origin = Origin;
     type Call = ();
     type Index = u64;
@@ -135,8 +114,8 @@ impl Trait for Test {
     type AccountRole = u8;
     type Currency = pallet_balances::Module<Self>;
     type WeightInfo = ();
-    type MetaIPFS = Vec<u8>;        
-    type SerialNumber = Vec<u8>;    //not sure which type use here, for simplicity will be string
+    type SerialNumber = Vec<u8>;
+    type MetaIPFS = Vec<u8>;    //not sure which type use here, for simplicity will be string
 }
 
 parameter_types! {
@@ -146,8 +125,8 @@ parameter_types! {
 
 impl pallet_balances::Config for Test {
     type Balance = Balance;
-    type Event = TestEvent;
     type DustRemoval = ();
+    type Event = TestEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
