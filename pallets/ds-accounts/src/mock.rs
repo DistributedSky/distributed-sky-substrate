@@ -1,6 +1,7 @@
-use crate::{Module, Trait};
+use crate as pallet_ds_accounts;
+use crate::Trait;
 use frame_support::{
-    impl_outer_event, impl_outer_origin, parameter_types,
+    construct_runtime, parameter_types,
     weights::{
         constants::{RocksDbWeight, WEIGHT_PER_SECOND},
         Weight
@@ -14,36 +15,31 @@ use sp_runtime::{
     Perbill,
 };
 
-impl_outer_origin! {
-    pub enum Origin for Test {}
-}
-mod template {
-    pub use crate::Event;
-}
-mod balance {
-    pub use pallet_balances::Event;
-}
-
-impl_outer_event! {
-    pub enum TestEvent for Test {
-        system<T>,
-        template<T>,
-        balance<T>,
-    }
-}
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
+construct_runtime!(
+	pub enum Test where
+		Block = Block,
+		NodeBlock = Block,
+		UncheckedExtrinsic = UncheckedExtrinsic,
+	{
+		System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Module, Call, Storage},
+        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+		DSAccountsModule: pallet_ds_accounts::{Module, Call, Storage, Event<T>},
+	}
+);
+
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 pub type Balance = u128;
-pub type System = system::Module<Test>;
 
 const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 const MAXIMUM_BLOCK_WEIGHT: Weight = 2 * WEIGHT_PER_SECOND;
 
-#[derive(Clone, Eq, PartialEq)]
-pub struct Test;
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 42;
@@ -62,11 +58,11 @@ impl system::Config for Test {
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type Event = Event;
     type BlockHashCount = BlockHashCount;
     type DbWeight = RocksDbWeight;
     type Version = ();
-    type PalletInfo = ();
+    type PalletInfo = PalletInfo;
     type AccountData = pallet_balances::AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = DSAccountsModule;
@@ -109,7 +105,7 @@ impl crate::WeightInfo for WeightInfo {
 }
 
 impl Trait for Test {
-    type Event = TestEvent;
+    type Event = Event;
     type AdminRole = AdminRole;
     type AccountRole = u8;
     type Currency = pallet_balances::Module<Self>;
@@ -126,27 +122,13 @@ parameter_types! {
 impl pallet_balances::Config for Test {
     type Balance = Balance;
     type DustRemoval = ();
-    type Event = TestEvent;
+    type Event = Event;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
     type MaxLocks = MaxLocks;
 }
 
-// pub type Balances = pallet_balances::Module<Test>;
-// parameter_types! {
-//     pub const TransactionByteFee: Balance = 1;
-// }
-//
-// impl pallet_transaction_payment::Config for Test {
-//     type Currency = Balances;
-//     type OnTransactionPayment = ();
-//     type TransactionByteFee = TransactionByteFee;
-//     type WeightToFee = IdentityFee<Balance>;
-//     type FeeMultiplierUpdate = ();
-// }
-
-pub type DSAccountsModule = Module<Test>;
 pub type Account = super::AccountOf<Test>;
 
 static INITIAL: [(
