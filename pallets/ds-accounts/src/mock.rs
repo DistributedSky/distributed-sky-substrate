@@ -25,10 +25,10 @@ construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Module, Call, Storage},
         Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-		DSAccountsModule: pallet_ds_accounts::{Module, Call, Storage, Event<T>},
+        DSAccountsModule: pallet_ds_accounts::{Module, Call, Storage, Event<T>},
 	}
 );
 
