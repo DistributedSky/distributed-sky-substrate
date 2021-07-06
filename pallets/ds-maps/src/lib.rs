@@ -1099,7 +1099,7 @@ decl_module! {
                     }
 
                     for cell in page_row.iter_mut().take(column_end as usize).skip(column_start as usize) {
-                        ensure!(*cell == 0 as u64, Error::<T>::OverlappingRoot);
+                        ensure!(*cell == 0_u64, Error::<T>::OverlappingRoot);
                         *cell = id;
                     }
                 }

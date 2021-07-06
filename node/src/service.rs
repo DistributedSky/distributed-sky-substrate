@@ -55,7 +55,7 @@ pub fn new_partial(
     let inherent_data_providers = sp_inherents::InherentDataProviders::new();
 
     let (client, backend, keystore_container, task_manager) =
-        sc_service::new_full_parts::<Block, RuntimeApi, Executor>(&config)?;
+        sc_service::new_full_parts::<Block, RuntimeApi, Executor>(config)?;
     let client = Arc::new(client);
 
     let select_chain = sc_consensus::LongestChain::new(backend.clone());
@@ -199,7 +199,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
             block_import,
             proposer,
             network.clone(),
-            inherent_data_providers.clone(),
+            inherent_data_providers,
             force_authoring,
             backoff_authoring_blocks,
             keystore_container.sync_keystore(),
@@ -280,7 +280,7 @@ pub fn new_light(mut config: Configuration) -> Result<TaskManager, ServiceError>
     let (grandpa_block_import, _) = sc_finality_grandpa::block_import(
         client.clone(),
         &(client.clone() as Arc<_>),
-        select_chain.clone(),
+        select_chain,
     )?;
 
     let finality_proof_import = grandpa_block_import.clone();
