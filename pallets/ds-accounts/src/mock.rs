@@ -3,7 +3,7 @@ use crate::Trait;
 use frame_support::{
     construct_runtime, parameter_types,
     weights::{
-        constants::{RocksDbWeight, WEIGHT_PER_SECOND},
+        constants::{RocksDbWeight},
         Weight
     },
 };
@@ -12,7 +12,6 @@ use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    Perbill,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -24,21 +23,17 @@ construct_runtime!(
 		Block = Block,
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
-	{
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        Timestamp: pallet_timestamp::{Module, Call, Storage},
-        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-        DSAccountsModule: pallet_ds_accounts::{Module, Call, Storage, Event<T>},
-	}
+    {
+            System: frame_system::{Module, Call, Config, Storage, Event<T>},
+            Timestamp: pallet_timestamp::{Module, Call, Storage},
+            Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+            DSAccountsModule: pallet_ds_accounts::{Module, Call, Storage, Event<T>},
+    }
 );
 
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 pub type Balance = u128;
-
-const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
-const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-const MAXIMUM_BLOCK_WEIGHT: Weight = 2 * WEIGHT_PER_SECOND;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -50,7 +45,7 @@ impl system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type Origin = Origin;
-    type Call = ();
+    type Call = Call;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;

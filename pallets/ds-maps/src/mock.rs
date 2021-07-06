@@ -1,6 +1,7 @@
-use crate::{Module, Trait};
+use crate as pallet_ds_maps;
+use crate::Trait;
 use frame_support::{
-    impl_outer_event, impl_outer_origin, parameter_types,
+    construct_runtime, parameter_types,
     weights::{constants::RocksDbWeight, Weight},
 };
 use frame_system as system;
@@ -12,35 +13,28 @@ use sp_runtime::{
 use substrate_fixed::types::I10F22;
 use pallet_ds_accounts::ADMIN_ROLE;
 
-impl_outer_origin! {
-    pub enum Origin for Test {}
-}
-mod template {
-    pub use crate::Event;
-}
-mod ds_accounts_template {
-    pub use pallet_ds_accounts::Event;
-}
-mod balance {
-    pub use pallet_balances::Event;
-}
-impl_outer_event! {
-    pub enum TestEvent for Test {
-        system<T>,
-        template<T>,
-        ds_accounts_template<T>,
-        balance<T>,
-    }
-}
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
+construct_runtime!(
+	pub enum Test where
+		Block = Block,
+		NodeBlock = Block,
+		UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+            System: frame_system::{Module, Call, Config, Storage, Event<T>},
+            Timestamp: pallet_timestamp::{Module, Call, Storage},
+            Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+            DSAccountsModule: pallet_ds_accounts::{Module, Call, Storage, Event<T>},
+            DSMapsModule: pallet_ds_maps::{Module, Call, Storage, Event<T>},
+    }
+);
+
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 pub type Balance = u128;
-pub type System = system::Module<Test>;
 
-#[derive(Clone, Eq, PartialEq)]
-pub struct Test;
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 42;
@@ -51,7 +45,7 @@ impl system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type Origin = Origin;
-    type Call = ();
+    type Call = Call;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -59,11 +53,11 @@ impl system::Config for Test {
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type Event = Event;
     type BlockHashCount = BlockHashCount;
     type DbWeight = RocksDbWeight;
     type Version = ();
-    type PalletInfo = ();
+    type PalletInfo = PalletInfo;
     type AccountData = pallet_balances::AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
@@ -109,10 +103,10 @@ parameter_types! {
 }
 
 impl Trait for Test {
-    type Event = TestEvent;
+    type Event = Event;
     type WeightInfo = ();
-    type RawCoord = i32;
     type Coord = I10F22;
+    type RawCoord = i32;
     type LightCoord = u16;
     type MaxBuildingsInArea = MaxBuildingsInArea;
     type MaxHeight = MaxHeight;
@@ -126,7 +120,7 @@ parameter_types! {
 impl pallet_balances::Config for Test {
     type Balance = Balance;
     type DustRemoval = ();
-    type Event = TestEvent;
+    type Event = Event;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
@@ -138,7 +132,7 @@ parameter_types! {
 }
 
 impl pallet_ds_accounts::Trait for Test {
-    type Event = TestEvent;
+    type Event = Event;
     type AdminRole = AdminRole;
     type AccountRole = u8;
     type Currency = pallet_balances::Module<Self>;
@@ -146,10 +140,6 @@ impl pallet_ds_accounts::Trait for Test {
     type SerialNumber = Vec<u8>;
     type MetaIPFS = Vec<u8>;
 }
-
-pub type DSMapsModule = Module<Test>;
-
-pub type DSAccountsModule = pallet_ds_accounts::Module<Test>;
 
 static INITIAL: [(
     <Test as system::Config>::AccountId,
