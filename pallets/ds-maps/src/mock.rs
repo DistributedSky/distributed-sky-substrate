@@ -1,8 +1,10 @@
+#![allow(clippy::from_over_into)]
+
 use crate as pallet_ds_maps;
 use crate::Trait;
 use frame_support::{
     construct_runtime, parameter_types,
-    weights::{constants::RocksDbWeight, Weight},
+    weights::Weight,
 };
 use frame_system as system;
 use sp_core::H256;
@@ -23,11 +25,11 @@ construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
     {
-            System: frame_system::{Module, Call, Config, Storage, Event<T>},
-            Timestamp: pallet_timestamp::{Module, Call, Storage},
-            Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-            DSAccountsModule: pallet_ds_accounts::{Module, Call, Storage, Event<T>},
-            DSMapsModule: pallet_ds_maps::{Module, Call, Storage, Event<T>},
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Module, Call, Storage},
+        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+        DSAccountsModule: pallet_ds_accounts::{Module, Call, Storage, Event<T>},
+        DSMapsModule: pallet_ds_maps::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -37,7 +39,6 @@ pub type Balance = u128;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const SS58Prefix: u8 = 42;
 }
 
 impl system::Config for Test {
@@ -55,14 +56,14 @@ impl system::Config for Test {
     type Header = Header;
     type Event = Event;
     type BlockHashCount = BlockHashCount;
-    type DbWeight = RocksDbWeight;
+    type DbWeight = ();
     type Version = ();
     type PalletInfo = PalletInfo;
     type AccountData = pallet_balances::AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
-    type SS58Prefix = SS58Prefix;
+    type SS58Prefix = ();
 }
 
 parameter_types! {

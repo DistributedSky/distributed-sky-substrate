@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::unused_unit)]
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +17,7 @@ use frame_support::{
 use sp_std::{
     str::FromStr,
     marker::PhantomData,
+    vec,
 };
 
 use dsky_utils::{CastToType, FromRaw, IntDiv, Signed};
@@ -501,8 +503,7 @@ impl<
         sw_cell_row_index: u32, sw_cell_column_index: u32,
         sw_page_index: u32, ne_page_index: u32,
     ) -> Vec<PageId> {
-        let mut page_indexes: Vec<PageId> = Vec::new();
-        page_indexes.push(sw_page_index);
+        let mut page_indexes: Vec<PageId> = vec![sw_page_index];
 
         // Pages's bypass direction
         let right = 1;
