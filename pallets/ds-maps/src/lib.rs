@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::unused_unit)]
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +17,7 @@ use frame_support::{
 use sp_std::{
     str::FromStr,
     marker::PhantomData,
+    vec,
 };
 
 use dsky_utils::{CastToType, FromRaw, IntDiv, Signed};
@@ -501,8 +503,7 @@ impl<
         sw_cell_row_index: u32, sw_cell_column_index: u32,
         sw_page_index: u32, ne_page_index: u32,
     ) -> Vec<PageId> {
-        let mut page_indexes: Vec<PageId> = Vec::new();
-        page_indexes.push(sw_page_index);
+        let mut page_indexes: Vec<PageId> = vec![sw_page_index];
 
         // Pages's bypass direction
         let right = 1;
@@ -898,7 +899,7 @@ type ZoneId = u128;
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: accounts::Trait {
     /// Because this pallet emits events, it depends on the runtime's definition of an event.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     // Describe pallet constants.
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type WeightInfo: WeightInfo;
@@ -973,7 +974,7 @@ pub type ZoneOf<T> = Zone<<T as Trait>::Coord, <T as Trait>::LightCoord>;
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
     {
         // Event documentation should end with an array that provides descriptive names for event parameters.
         /// New root box has been created [box number, who]
@@ -1099,7 +1100,7 @@ decl_module! {
                     }
 
                     for cell in page_row.iter_mut().take(column_end as usize).skip(column_start as usize) {
-                        ensure!(*cell == 0 as u64, Error::<T>::OverlappingRoot);
+                        ensure!(*cell == 0_u64, Error::<T>::OverlappingRoot);
                         *cell = id;
                     }
                 }
