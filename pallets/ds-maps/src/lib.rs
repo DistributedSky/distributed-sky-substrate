@@ -163,13 +163,13 @@ mod rect_tests {
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default)]
-pub struct Zone<Coord, LightCoord> {
+pub struct Zone<Coord> {
     pub zone_id: ZoneId,
     pub rect: Rect2D<Coord>,
     pub height: LightCoord,
 }
 
-impl<Coord, LightCoord> Zone<Coord, LightCoord> {
+impl<Coord> Zone<Coord> {
     pub fn new(zone_id: ZoneId, rect: Rect2D<Coord>, height: LightCoord) -> Self {
         Zone {zone_id, rect, height}
     }
@@ -830,6 +830,7 @@ mod page_tests {
 
 type AreaId = u16;
 type PageId = u32;
+type LightCoord = u32;
 type RootId = u64;
 type ZoneId = u128;
 
@@ -860,18 +861,11 @@ pub trait Trait: accounts::Trait {
     + Into<i32>
     + Copy;
 
-    /// Used in places where u32 is too much (as altitude)
-    type LightCoord: Default 
-    + Parameter
-    + Copy
-    + PartialOrd
-    + FromStr;
-
     /// This allows us to have a top border for zones
     type MaxBuildingsInArea: Get<u16>;
     
     /// Max available height of any building
-    type MaxHeight: Get<Self::LightCoord>;
+    type MaxHeight: Get<LightCoord>;
 }    
 
 pub trait WeightInfo {
@@ -904,7 +898,7 @@ decl_storage! {
 
 pub type PageOf<T> = Page<<T as Trait>::Coord>;
 pub type RootBoxOf<T> = RootBox<<T as Trait>::Coord>;
-pub type ZoneOf<T> = Zone<<T as Trait>::Coord, <T as Trait>::LightCoord>;
+pub type ZoneOf<T> = Zone<<T as Trait>::Coord>;
 
 // Pallets use events to inform users when important changes are made.
 // https://substrate.dev/docs/en/knowledgebase/runtime/events
@@ -1082,7 +1076,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::zone_add()]
         pub fn zone_add(origin, 
                         rect: Rect2D<T::Coord>,
-                        height: T::LightCoord,
+                        height: LightCoord,
                         root_id: RootId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
@@ -1139,15 +1133,15 @@ decl_module! {
         pub fn raw_zone_add(origin, 
                             // Coords is SW {lat, lon, alt} NE {lat, lon, alt} 
                             raw_rect: [T::RawCoord; 4],
-                            height: T::LightCoord,
+                            height: LightCoord,
                             root_id: RootId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin.clone())?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
 
-            let south_west = Point3D::new(T::Coord::from_raw(raw_box[0].into()), 
-                                          T::Coord::from_raw(raw_box[1].into()));
-            let north_east = Point3D::new(T::Coord::from_raw(raw_box[3].into()), 
-                                          T::Coord::from_raw(raw_box[4].into()));
+            let south_west = Point2D::new(T::Coord::from_raw(raw_rect[0].into()), 
+                                          T::Coord::from_raw(raw_rect[1].into()));
+            let north_east = Point2D::new(T::Coord::from_raw(raw_rect[2].into()), 
+                                          T::Coord::from_raw(raw_rect[3].into()));
             let rect = Rect2D::new(south_west, north_east);
 
             Module::<T>::zone_add(origin, rect, height, root_id)
