@@ -151,38 +151,6 @@ fn it_tries_to_add_root_by_registrar() {
 }
 
 #[test]
-fn it_tries_to_add_raw_root_with_exceeded_page_limit() {
-      new_test_ext().execute_with(|| {
-          assert_ok!(
-            DSAccountsModule::account_add(
-                Origin::signed(ADMIN_ACCOUNT_ID),
-                REGISTRAR_1_ACCOUNT_ID,
-                super::REGISTRAR_ROLE
-          ));
-          let raw_coords: [i32; 6] = [
-              465587600,
-              312529919,
-              8388608,
-              469815744,
-              318558719,
-              16777216
-          ];
-          let delta: i32 = 838860;
-          assert_noop!(
-            DSMapsModule::raw_root_add(
-                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                raw_coords,
-                delta
-            ),
-            Error::PageLimitExceeded
-          );
-
-          let root = DSMapsModule::root_box_data(ROOT_ID);
-          assert!(!root.is_active());
-      });
-}
-
-#[test]
 fn it_tries_to_add_too_big_root() {
     new_test_ext().execute_with(|| {
         assert_ok!(
@@ -747,3 +715,69 @@ fn it_dispatchable_get_root_index() {
         assert!(root.is_active());
     });
 }
+
+// #[test]
+// fn it_dispatchable_get_root_index() {
+//     new_test_ext().execute_with(|| {
+//         assert_ok!(
+//             DSAccountsModule::account_add(
+//                 Origin::signed(ADMIN_ACCOUNT_ID),
+//                 REGISTRAR_1_ACCOUNT_ID,
+//                 super::REGISTRAR_ROLE
+//         ));
+//         assert_ok!(
+//             DSMapsModule::root_add(
+//                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+//                 construct_testing_box(),
+//                 coord(DELTA),
+//         ));
+//         // 55.395 - 232343470
+//         // 37.385 - 156804055
+//         // TODO add explanation, for why this is true
+//         let root_id = DSMapsModule::get_root_index([232343470, 156804055]);
+//         assert_eq!(root_id, 1558542996706168526);
+//         // For now, this proof will do. We can see, that by this index we get valid, active root
+//         let root = DSMapsModule::root_box_data(root_id);
+//         assert!(root.is_active());
+//     });
+// }
+
+// #[test]
+// fn it_tries_to_add_raw_root() {
+//       new_test_ext().execute_with(|| {
+//           assert_ok!(
+//             DSAccountsModule::account_add(
+//                 Origin::signed(ADMIN_ACCOUNT_ID),
+//                 REGISTRAR_1_ACCOUNT_ID,
+//                 super::REGISTRAR_ROLE
+//           ));
+//           let raw_coords: [i32; 6] = [
+//             // 55.5115266
+//             232832218,
+//             // 37.3013306
+//             156453120,
+//             4194304,
+//             // 55.9999168
+//             234880675,
+//             // 38.0072021
+//             159413760,
+//             8388608
+//           ];
+//           let delta: i32 = 419430;
+//           assert_ok!(
+//             DSMapsModule::raw_root_add(
+//                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+//                 raw_coords,
+//                 delta
+//             ));
+
+//           let root = DSMapsModule::root_box_data(1562483616315805400);
+//           assert_eq!(root.bounding_box.north_east.lon, 12);
+//           //                                          55.7572598, 37.62199
+//           let page_id: u32 = DSMapsModule::get_root_index([233862898, 157798063]);
+//           let page = DSMapsModule::bitmap_cells(page_id);
+//           assert_eq!(page.bitmap[13][12], 10);
+//         //   assert_eq!(root_id, 1562483616315805400);
+
+//       });
+// }

@@ -327,7 +327,15 @@ mod rootbox_tests {
         let edge_point = Point2D::new(coord("2"),
                                       coord("3"));
         assert_eq!(root.detect_intersected_area(edge_point), 0); 
-        
+
+        let inner_mid_point = Point2D::new(coord("1"),
+                                            coord("1"));
+        assert_eq!(root.detect_intersected_area(inner_mid_point), 4); 
+
+        let inner_edge_point = Point2D::new(coord("1"),
+                                            coord("0.5"));
+        assert_eq!(root.detect_intersected_area(inner_edge_point), 2); 
+
         let out_point = Point2D::new(coord("50"),
                                      coord("50"));
         assert_eq!(root.detect_intersected_area(out_point), 0); 
@@ -1049,7 +1057,7 @@ decl_module! {
             Ok(())
         }
         
-        /// Adds new root to storage
+        /// TODO fix this trouble with types, RawCoord is a one big error
         #[weight = <T as Trait>::WeightInfo::root_add()]
         pub fn raw_root_add(origin, 
                             // Coords is SW {lat, lon, alt} NE {lat, lon, alt} 
@@ -1124,6 +1132,25 @@ decl_module! {
             RedZones::<T>::insert(zone_id, zone);
             Self::deposit_event(RawEvent::ZoneCreated(root_id, area_id, zone_id, who));
             Ok(())
+        }
+
+        /// TODO fix this trouble with types, RawCoord is a one big error
+        #[weight = <T as Trait>::WeightInfo::zone_add()]
+        pub fn raw_zone_add(origin, 
+                            // Coords is SW {lat, lon, alt} NE {lat, lon, alt} 
+                            raw_rect: [T::RawCoord; 4],
+                            height: T::LightCoord,
+                            root_id: RootId) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin.clone())?;
+            ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
+
+            let south_west = Point3D::new(T::Coord::from_raw(raw_box[0].into()), 
+                                          T::Coord::from_raw(raw_box[1].into()));
+            let north_east = Point3D::new(T::Coord::from_raw(raw_box[3].into()), 
+                                          T::Coord::from_raw(raw_box[4].into()));
+            let rect = Rect2D::new(south_west, north_east);
+
+            Module::<T>::zone_add(origin, rect, height, root_id)
         }
 
         /// Removes root by given id, and zones inside. This means, function might be heavy.
