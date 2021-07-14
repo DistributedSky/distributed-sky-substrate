@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::unused_unit)]
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +17,7 @@ use frame_support::{
 use sp_std::{
     str::FromStr,
     marker::PhantomData,
+    vec,
 };
 
 use dsky_utils::{CastToType, FromRaw, IntDiv, Signed};
@@ -294,22 +296,22 @@ mod rootbox_tests {
     fn max_area_small_root() {
         let bbox = construct_custom_box("0", "0", "2", "3");
         let root = RootBox::new(ROOT_ID, bbox, coord("1"));
-        assert_eq!(root.get_max_area(), 6); 
+        assert_eq!(root.get_max_area(), 6);
     }
-    
+
     #[test]
     fn max_area_frac_delta() {
         let bbox = construct_custom_box("-0", "0", "2", "3");
         let root = RootBox::new(ROOT_ID, bbox, coord("0.5"));
         assert_eq!(root.get_max_area(), 24);
-    } 
+    }
 
     #[test]
     fn max_area_big_root() {
         let bbox = construct_custom_box("-90", "-180", "0", "0");
         let root = RootBox::new(ROOT_ID, bbox, coord("1"));
         assert_eq!(root.get_max_area(), 16_200);
-    } 
+    }
 
     #[test]
     fn area_detects_correct() {
@@ -323,7 +325,7 @@ mod rootbox_tests {
         let point = Point2D::new(coord("1.5"),
                                  coord("1.5"));
         assert_eq!(root.detect_intersected_area(point), 4);
-        
+
         let edge_point = Point2D::new(coord("2"),
                                       coord("3"));
         assert_eq!(root.detect_intersected_area(edge_point), 0); 
@@ -338,7 +340,84 @@ mod rootbox_tests {
 
         let out_point = Point2D::new(coord("50"),
                                      coord("50"));
-        assert_eq!(root.detect_intersected_area(out_point), 0); 
+        assert_eq!(root.detect_intersected_area(out_point), 0);
+    }
+
+    #[test]
+    fn extract_values_from_rootbox_index() {
+        let rootbox_sw_cell_row: u64 = 0b0000_0000_0000_0101;
+        let rootbox_sw_cell_column: u64 = 0b0000_0000_0000_1010;
+        let rootbox_ne_cell_row: u64 = 0b0000_0000_0000_1111;
+        let rootbox_ne_cell_column: u64 = 0b0000_0000_0000_0010;
+
+        let rootbox_index = rootbox_sw_cell_row << 48 | rootbox_sw_cell_column << 32 |
+            rootbox_ne_cell_row << 16 | rootbox_ne_cell_column;
+
+        let indexes: [u32; 4] = RootBox::<Coord>::get_boundary_cell_indexes(rootbox_index);
+        assert_eq!(indexes[0], 5);
+        assert_eq!(indexes[1], 10);
+        assert_eq!(indexes[2], 15);
+        assert_eq!(indexes[3], 2);
+
+        let rootbox_sw_cell_row: u64 = 0b0000_0000_0000_0101;
+        let rootbox_sw_cell_column: u64 = 0b0000_0101_0011_1001;
+        let rootbox_ne_cell_row: u64 = 0b0000_0000_0000_1111;
+        let rootbox_ne_cell_column: u64 = 0b0111_1001_0001_1000;
+
+        let rootbox_index = rootbox_sw_cell_row << 48 | rootbox_sw_cell_column << 32 |
+            rootbox_ne_cell_row << 16 | rootbox_ne_cell_column;
+
+        let indexes: [u32; 4] = RootBox::<Coord>::get_boundary_cell_indexes(rootbox_index);
+        assert_eq!(indexes[0], 5);
+        assert_eq!(indexes[1], 1337);
+        assert_eq!(indexes[2], 15);
+        assert_eq!(indexes[3], 31000);
+    }
+
+    #[test]
+    fn get_rootbox_index() {
+        let rootbox_sw_cell_row: u64 = 0b0000_0000_0000_0101;
+        let rootbox_sw_cell_column: u64 = 0b0000_0000_0000_1010;
+        let rootbox_ne_cell_row: u64 = 0b0000_0000_0000_1111;
+        let rootbox_ne_cell_column: u64 = 0b0000_0000_0000_0010;
+
+        let rootbox_index_expected = rootbox_sw_cell_row << 48 | rootbox_sw_cell_column << 32 |
+            rootbox_ne_cell_row << 16 | rootbox_ne_cell_column;
+
+        let cell_indexes: [u32; 4] = [5, 10, 15, 2];
+        let rootbox_index = RootBox::<Coord>::get_index(cell_indexes[0], cell_indexes[1],
+                                                        cell_indexes[2], cell_indexes[3]
+        );
+        assert_eq!(rootbox_index, rootbox_index_expected);
+
+        let rootbox_sw_cell_row: u64 = 0b0000_0000_0000_0101;
+        let rootbox_sw_cell_column: u64 = 0b0000_0101_0011_1001;
+        let rootbox_ne_cell_row: u64 = 0b0000_0000_0000_1111;
+        let rootbox_ne_cell_column: u64 = 0b0111_1001_0001_1000;
+
+        let rootbox_index_expected = rootbox_sw_cell_row << 48 | rootbox_sw_cell_column << 32 |
+            rootbox_ne_cell_row << 16 | rootbox_ne_cell_column;
+
+        let cell_indexes: [u32; 4] = [5, 1337, 15, 31000];
+        let rootbox_index = RootBox::<Coord>::get_index(cell_indexes[0], cell_indexes[1],
+                                                        cell_indexes[2], cell_indexes[3]
+        );
+        assert_eq!(rootbox_index, rootbox_index_expected);
+
+        let rootbox_sw_cell_row: u64 = 0b0001_0101_1010_0001;
+        let rootbox_sw_cell_column: u64 = 0b0000_1110_1001_1001;
+        let rootbox_ne_cell_row: u64 = 0b0001_0101_1101_1000;
+        let rootbox_ne_cell_column: u64 = 0b0000_1110_1100_1110;
+
+        let rootbox_index_expected = rootbox_sw_cell_row << 48 | rootbox_sw_cell_column << 32 |
+            rootbox_ne_cell_row << 16 | rootbox_ne_cell_column;
+
+
+        let cell_indexes: [u32; 4] = [5537, 3737, 5592, 3790];
+        let rootbox_index = RootBox::<Coord>::get_index(cell_indexes[0], cell_indexes[1],
+                                                        cell_indexes[2], cell_indexes[3]
+        );
+        assert_eq!(rootbox_index, rootbox_index_expected);
     }
 
     #[test]
@@ -470,8 +549,7 @@ impl<
         sw_cell_row_index: u32, sw_cell_column_index: u32,
         sw_page_index: u32, ne_page_index: u32,
     ) -> Vec<PageId> {
-        let mut page_indexes: Vec<PageId> = Vec::new();
-        page_indexes.push(sw_page_index);
+        let mut page_indexes: Vec<PageId> = vec![sw_page_index];
 
         // Pages's bypass direction
         let right = 1;
@@ -633,7 +711,8 @@ mod page_tests {
 
     // These tests are built taking into account all possible rectangles from 4 Pages
     #[test]
-    fn it_gets_amount_of_pages_to_extract() {
+
+    fn get_amount_of_pages_to_extract() {
         // 1 x 1
         let bounding_box = construct_custom_box( "0.0", "0.491", "0.301", "0.0");
         let pages_to_extract = Page::get_amount_of_pages_to_extract_using_box(bounding_box);
@@ -691,95 +770,136 @@ mod page_tests {
     }
 
     #[test]
-    fn it_extracts_values_from_page_index() {
+
+    fn extract_values_from_page_index() {
+        let page_sw_column_index: u32 = 0b0000_0000_0010_0000;
+        let page_ne_row_index: u32 = 0b0000_0000_0011_0010;
+        let page_index_expected: u32 = page_sw_column_index << 16 | page_ne_row_index;
+
         let point: Point3D<Coord> = Point3D::new(coord("0.011"), coord("0.011"), coord("1"));
         let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
         assert_eq!(cell_row_index, 1);
         assert_eq!(cell_column_index, 1);
         let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
-        assert_eq!(page_index, 0b0010_0000_0000_0000_0011_0010);
+        assert_eq!(page_index, page_index_expected);
         let (row_index, column_index) = Page::<Coord>::extract_values_from_page_index(page_index);
         assert_eq!(row_index, PAGE_LENGTH);
         assert_eq!(column_index, PAGE_WIDTH);
+
+        let page_sw_column_index: u32 = 0b0000_0100_1110_0000;
+        let page_ne_row_index: u32 = 0b0000_0000_0011_0010;
+        let page_index_expected: u32 = page_sw_column_index << 16 | page_ne_row_index;
 
         let point: Point3D<Coord> = Point3D::new(coord("12.251"), coord("0.011"), coord("1"));
         let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
         assert_eq!(cell_row_index, 1225);
         assert_eq!(cell_column_index, 1);
         let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
-        assert_eq!(page_index, 0b0100_1110_0000_0000_0000_0011_0010);
+
+        assert_eq!(page_index, page_index_expected);
         let (row_index, column_index) = Page::<Coord>::extract_values_from_page_index(page_index);
         assert_eq!(row_index, 1248);
         assert_eq!(column_index, PAGE_WIDTH);
+
+        let page_sw_column_index: u32 = 0b0000_0100_1110_0000;
+        let page_ne_row_index: u32 = 0b0101_1011_1111_1110;
+        let page_index_expected: u32 = page_sw_column_index << 16 | page_ne_row_index;
 
         let point: Point3D<Coord> = Point3D::new(coord("12.251"), coord("235.211"), coord("1"));
         let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
         assert_eq!(cell_row_index, 1225);
         assert_eq!(cell_column_index, 23521);
         let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
-        assert_eq!(page_index, 0b0100_1110_0000_0101_1011_1111_1110);
+        assert_eq!(page_index, page_index_expected);
         let (row_index, column_index) = Page::<Coord>::extract_values_from_page_index(page_index);
         assert_eq!(row_index, 1248);
         assert_eq!(column_index, 23550);
     }
 
     #[test]
-    fn it_gets_page_index() {
+    fn get_page_index() {
         // The formula for getting page index from rows and columns is the same,
         // except for the shift, so only several cases are considered.
         // The entry 1-1 means 1 digit in the row index and 1 digit in the column index, and so on.
 
         // case 1-1
+        let page_sw_column_index: u32 = 0b0000_0000_0010_0000;
+        let page_ne_row_index: u32 = 0b0000_0000_0011_0010;
+        let page_index_expected: u32 = page_sw_column_index << 16 | page_ne_row_index;
+
         let point: Point3D<Coord> = Point3D::new(coord("0.011"), coord("0.011"), coord("1"));
         let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
         assert_eq!(cell_row_index, 1);
         assert_eq!(cell_column_index, 1);
         let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
-        assert_eq!(page_index, 0b0010_0000_0000_0000_0011_0010);
+
+        assert_eq!(page_index, page_index_expected);
 
         // case 2-1
+        let page_sw_column_index: u32 = 0b0000_0000_0010_0000;
+        let page_ne_row_index: u32 = 0b0000_0000_0011_0010;
+        let page_index_expected: u32 = page_sw_column_index << 16 | page_ne_row_index;
+
         let point: Point3D<Coord> = Point3D::new(coord("0.251"), coord("0.011"), coord("1"));
         let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
         assert_eq!(cell_row_index, 25);
         assert_eq!(cell_column_index, 1);
         let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
-        assert_eq!(page_index, 0b0010_0000_0000_0000_0011_0010);
+        assert_eq!(page_index, page_index_expected);
 
         // case 3-1
+        let page_sw_column_index: u32 = 0b0000_0001_0000_0000;
+        let page_ne_row_index: u32 = 0b0000_0000_0011_0010;
+        let page_index_expected: u32 = page_sw_column_index << 16 | page_ne_row_index;
+
         let point: Point3D<Coord> = Point3D::new(coord("2.251"), coord("0.011"), coord("1"));
         let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
         assert_eq!(cell_row_index, 225);
         assert_eq!(cell_column_index, 1);
         let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
-        assert_eq!(page_index, 0b0001_0000_0000_0000_0000_0011_0010);
+
+        assert_eq!(page_index, page_index_expected);
 
         // case 4-1
+        let page_sw_column_index: u32 = 0b0000_0100_1110_0000;
+        let page_ne_row_index: u32 = 0b0000_0000_0011_0010;
+        let page_index_expected: u32 = page_sw_column_index << 16 | page_ne_row_index;
+
         let point: Point3D<Coord> = Point3D::new(coord("12.251"), coord("0.011"), coord("1"));
         let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
         assert_eq!(cell_row_index, 1225);
         assert_eq!(cell_column_index, 1);
         let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
-        assert_eq!(page_index, 0b0100_1110_0000_0000_0000_0011_0010);
+        assert_eq!(page_index, page_index_expected);
 
         // case 5-1
+        let page_sw_column_index: u32 = 0b0011_0100_0010_0000;
+        let page_ne_row_index: u32 = 0b0000_0000_0011_0010;
+        let page_index_expected: u32 = page_sw_column_index << 16 | page_ne_row_index;
+
         let point: Point3D<Coord> = Point3D::new(coord("133.251"), coord("0.011"), coord("1"));
         let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
         assert_eq!(cell_row_index, 13325);
         assert_eq!(cell_column_index, 1);
         let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
-        assert_eq!(page_index, 0b0011_0100_0010_0000_0000_0000_0011_0010);
+
+        assert_eq!(page_index, page_index_expected);
 
         // case 4-5
+        let page_sw_column_index: u32 = 0b0000_0100_1110_0000;
+        let page_ne_row_index: u32 = 0b0101_1011_1111_1110;
+        let page_index_expected: u32 = page_sw_column_index << 16 | page_ne_row_index;
+
         let point: Point3D<Coord> = Point3D::new(coord("12.251"), coord("235.211"), coord("1"));
         let (cell_row_index, cell_column_index) = Page::get_cell_indexes(point);
         assert_eq!(cell_row_index, 1225);
         assert_eq!(cell_column_index, 23521);
         let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
-        assert_eq!(page_index, 0b0100_1110_0000_0101_1011_1111_1110);
+        assert_eq!(page_index, page_index_expected);
     }
 
     #[test]
-    fn it_calculates_cell_indexes() {
+    fn calculate_cell_indexes() {
         let point: Point3D<Coord> = Point3D::new(coord("1.0"), coord("2.0"), coord("1"));
         let (cell_row_index, cell_column_index) = Page::<Coord>::get_cell_indexes(point);
         assert_eq!(cell_row_index, 100);
@@ -837,7 +957,7 @@ type ZoneId = u128;
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: accounts::Trait {
     /// Because this pallet emits events, it depends on the runtime's definition of an event.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     // Describe pallet constants.
     // Lean more https://substrate.dev/docs/en/knowledgebase/runtime/metadata
     type WeightInfo: WeightInfo;
@@ -905,7 +1025,7 @@ pub type ZoneOf<T> = Zone<<T as Trait>::Coord>;
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
     {
         // Event documentation should end with an array that provides descriptive names for event parameters.
         /// New root box has been created [box number, who]
@@ -1031,7 +1151,7 @@ decl_module! {
                     }
 
                     for cell in page_row.iter_mut().take(column_end as usize).skip(column_start as usize) {
-                        ensure!(*cell == 0 as u64, Error::<T>::OverlappingRoot);
+                        ensure!(*cell == 0_u64, Error::<T>::OverlappingRoot);
                         *cell = id;
                     }
                 }
@@ -1297,9 +1417,9 @@ impl<T: Trait> Module<T> {
         bitmap[(row % PAGE_LENGTH) as usize][(column % PAGE_WIDTH) as usize]
     }
 
-    /// Form index for storing zones, wrapped in u64............limited by const in runtime
-    /// v.............root id here............v v.....area id.....v v..child objects..v
-    /// 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+    /// Form index for storing zones, wrapped in u128............limited by const in runtime
+    /// v................root id here..............v v.....area id.....v v..child objects..v
+    /// 0000 0000 0000 0000 .... 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
     fn pack_index(root: RootId, area: AreaId, children: u16) -> ZoneId {
         (root as ZoneId) << 64 |
         (area as ZoneId) << 16 | 
