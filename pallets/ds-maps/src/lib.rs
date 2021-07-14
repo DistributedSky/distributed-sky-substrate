@@ -218,6 +218,22 @@ impl<
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Default)]
+pub struct Waypoint<Coord, Moment> { 
+    pub location: Point3D<Coord>,
+    pub arrival: Moment,
+}
+
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Default)]
+pub struct Route<Coord, RouteId, OwnerId, Moment> { 
+    pub id: RouteId,
+    pub route: Vec<Waypoint<Coord, Moment>>,
+    pub owner: OwnerId,
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Clone, Copy, Debug)]
 pub struct RootBox<Coord> {
     pub id: RootId,
