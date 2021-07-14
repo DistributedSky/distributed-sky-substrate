@@ -1171,7 +1171,7 @@ decl_module! {
             Ok(())
         }
         
-        /// TODO fix this trouble with types, RawCoord is a one big error
+        /// TODO fix this trouble with types, RawCoord is a one big crutch
         #[weight = <T as Trait>::WeightInfo::root_add()]
         pub fn raw_root_add(origin, 
                             // Coords is SW {lat, lon, alt} NE {lat, lon, alt} 
@@ -1248,10 +1248,9 @@ decl_module! {
             Ok(())
         }
 
-        /// TODO fix this trouble with types, RawCoord is a one big error
+        /// TODO fix this trouble with types, RawCoord is a one big crutch
         #[weight = <T as Trait>::WeightInfo::zone_add()]
         pub fn raw_zone_add(origin, 
-                            // Coords is SW {lat, lon, alt} NE {lat, lon, alt} 
                             raw_rect: [T::RawCoord; 4],
                             height: LightCoord,
                             root_id: RootId) -> dispatch::DispatchResult {
