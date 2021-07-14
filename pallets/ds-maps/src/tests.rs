@@ -60,7 +60,7 @@ const REGISTRAR_1_ACCOUNT_ID: u64 = 2;
 pub const ROOT_ID: u64 = 0b0001_0101_1010_0001_0000_1110_1001_1001_0001_0101_1101_1000_0000_1110_1100_1110;
 // this value, and values in construct_testing_..() were calculated
 const AREA_ID: u16 = 58;
-const DEFAULT_HEIGHT: u16 = 30;
+const DEFAULT_HEIGHT: u32 = 30;
 
 const DELTA: &str = "0.01";
 
@@ -721,3 +721,30 @@ fn it_change_existing_area_type() {
         );
     });
 }
+
+#[test]
+fn it_dispatchable_get_root_index() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
+        ));
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_box(),
+                coord(DELTA),
+        ));
+        // 55.395 - 232343470
+        // 37.385 - 156804055
+        // TODO add explanation, for why this is true
+        let root_id = DSMapsModule::get_root_index([232343470, 156804055]);
+        assert_eq!(root_id, 1558542996706168526);
+        // For now, this proof will do. We can see, that by this index we get valid, active root
+        let root = DSMapsModule::root_box_data(root_id);
+        assert!(root.is_active());
+    });
+}
+

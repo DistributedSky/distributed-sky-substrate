@@ -165,13 +165,13 @@ mod rect_tests {
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default)]
-pub struct Zone<Coord, LightCoord> {
+pub struct Zone<Coord> {
     pub zone_id: ZoneId,
     pub rect: Rect2D<Coord>,
     pub height: LightCoord,
 }
 
-impl<Coord, LightCoord> Zone<Coord, LightCoord> {
+impl<Coord> Zone<Coord> {
     pub fn new(zone_id: ZoneId, rect: Rect2D<Coord>, height: LightCoord) -> Self {
         Zone {zone_id, rect, height}
     }
@@ -236,7 +236,7 @@ impl<
     pub fn get_index(sw_cell_row_index: u32, sw_cell_column_index: u32,
                      ne_cell_row_index: u32, ne_cell_column_index: u32) -> RootId {
         (sw_cell_row_index as RootId) << 48 | (sw_cell_column_index as RootId) << 32 |
-            (ne_cell_row_index as RootId) << 16 | ne_cell_column_index as RootId
+        (ne_cell_row_index as RootId) << 16 | (ne_cell_column_index as RootId)
     }
 
     /// Gets boundary cells (southwest and northeast) indexes from RootBox index.
@@ -328,7 +328,15 @@ mod rootbox_tests {
 
         let edge_point = Point2D::new(coord("2"),
                                       coord("3"));
-        assert_eq!(root.detect_intersected_area(edge_point), 0);
+        assert_eq!(root.detect_intersected_area(edge_point), 0); 
+
+        let inner_mid_point = Point2D::new(coord("1"),
+                                            coord("1"));
+        assert_eq!(root.detect_intersected_area(inner_mid_point), 4); 
+
+        let inner_edge_point = Point2D::new(coord("1"),
+                                            coord("0.5"));
+        assert_eq!(root.detect_intersected_area(inner_edge_point), 2); 
 
         let out_point = Point2D::new(coord("50"),
                                      coord("50"));
@@ -410,6 +418,44 @@ mod rootbox_tests {
                                                         cell_indexes[2], cell_indexes[3]
         );
         assert_eq!(rootbox_index, rootbox_index_expected);
+    }
+
+    #[test]
+    fn it_extracts_values_from_rootbox_index() {
+        let rootbox_index = 0b0101_0000_0000_0000_1010_0000_0000_0000_1111_0000_0000_0000_0010;
+        let indexes: [u32; 4] = RootBox::<Coord>::get_boundary_cell_indexes(rootbox_index);
+        assert_eq!(indexes[0], 5);
+        assert_eq!(indexes[1], 10);
+        assert_eq!(indexes[2], 15);
+        assert_eq!(indexes[3], 2);
+
+        let rootbox_index = 0b0101_0000_0101_0011_1001_0000_0000_0000_1111_0111_1001_0001_1000;
+        let indexes: [u32; 4] = RootBox::<Coord>::get_boundary_cell_indexes(rootbox_index);
+        assert_eq!(indexes[0], 5);
+        assert_eq!(indexes[1], 1337);
+        assert_eq!(indexes[2], 15);
+        assert_eq!(indexes[3], 31000);
+    }
+
+    #[test]
+    fn it_gets_rootbox_index() {
+        let cell_indexes: [u32; 4] = [5, 10, 15, 2];
+        let rootbox_index = RootBox::<Coord>::get_index(cell_indexes[0], cell_indexes[1],
+                                                        cell_indexes[2], cell_indexes[3]
+        );
+        assert_eq!(rootbox_index, 0b0101_0000_0000_0000_1010_0000_0000_0000_1111_0000_0000_0000_0010);
+
+        let cell_indexes: [u32; 4] = [5, 1337, 15, 31000];
+        let rootbox_index = RootBox::<Coord>::get_index(cell_indexes[0], cell_indexes[1],
+                                                        cell_indexes[2], cell_indexes[3]
+        );
+        assert_eq!(rootbox_index, 0b0101_0000_0101_0011_1001_0000_0000_0000_1111_0111_1001_0001_1000);
+
+        let cell_indexes: [u32; 4] = [5537, 3737, 5592, 3790];
+        let rootbox_index = RootBox::<Coord>::get_index(cell_indexes[0], cell_indexes[1],
+                                                        cell_indexes[2], cell_indexes[3]
+        );
+        assert_eq!(rootbox_index, 0b0001_0101_1010_0001_0000_1110_1001_1001_0001_0101_1101_1000_0000_1110_1100_1110);
     }
 }
 
@@ -642,6 +688,11 @@ impl<
         let column_index: u32 = page_index & mask_u16;
         (row_index, column_index)
     }
+
+    #[cfg(test)]
+    pub fn is_active(&self) -> bool {
+        self.bitmap.is_empty()
+    }
 }
 
 impl<Coord> Default for Page<Coord> {
@@ -660,6 +711,7 @@ mod page_tests {
 
     // These tests are built taking into account all possible rectangles from 4 Pages
     #[test]
+
     fn get_amount_of_pages_to_extract() {
         // 1 x 1
         let bounding_box = construct_custom_box( "0.0", "0.491", "0.301", "0.0");
@@ -718,6 +770,7 @@ mod page_tests {
     }
 
     #[test]
+
     fn extract_values_from_page_index() {
         let page_sw_column_index: u32 = 0b0000_0000_0010_0000;
         let page_ne_row_index: u32 = 0b0000_0000_0011_0010;
@@ -742,6 +795,7 @@ mod page_tests {
         assert_eq!(cell_row_index, 1225);
         assert_eq!(cell_column_index, 1);
         let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
+
         assert_eq!(page_index, page_index_expected);
         let (row_index, column_index) = Page::<Coord>::extract_values_from_page_index(page_index);
         assert_eq!(row_index, 1248);
@@ -778,6 +832,7 @@ mod page_tests {
         assert_eq!(cell_row_index, 1);
         assert_eq!(cell_column_index, 1);
         let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
+
         assert_eq!(page_index, page_index_expected);
 
         // case 2-1
@@ -802,6 +857,7 @@ mod page_tests {
         assert_eq!(cell_row_index, 225);
         assert_eq!(cell_column_index, 1);
         let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
+
         assert_eq!(page_index, page_index_expected);
 
         // case 4-1
@@ -826,6 +882,7 @@ mod page_tests {
         assert_eq!(cell_row_index, 13325);
         assert_eq!(cell_column_index, 1);
         let page_index = Page::<Coord>::get_index(cell_row_index, cell_column_index);
+
         assert_eq!(page_index, page_index_expected);
 
         // case 4-5
@@ -893,6 +950,7 @@ mod page_tests {
 
 type AreaId = u16;
 type PageId = u32;
+type LightCoord = u32;
 type RootId = u64;
 type ZoneId = u128;
 
@@ -923,18 +981,11 @@ pub trait Trait: accounts::Trait {
     + Into<i32>
     + Copy;
 
-    /// Used in places where u32 is too much (as altitude)
-    type LightCoord: Default 
-    + Parameter
-    + Copy
-    + PartialOrd
-    + FromStr;
-
     /// This allows us to have a top border for zones
     type MaxBuildingsInArea: Get<u16>;
     
     /// Max available height of any building
-    type MaxHeight: Get<Self::LightCoord>;
+    type MaxHeight: Get<LightCoord>;
 }    
 
 pub trait WeightInfo {
@@ -967,7 +1018,7 @@ decl_storage! {
 
 pub type PageOf<T> = Page<<T as Trait>::Coord>;
 pub type RootBoxOf<T> = RootBox<<T as Trait>::Coord>;
-pub type ZoneOf<T> = Zone<<T as Trait>::Coord, <T as Trait>::LightCoord>;
+pub type ZoneOf<T> = Zone<<T as Trait>::Coord>;
 
 // Pallets use events to inform users when important changes are made.
 // https://substrate.dev/docs/en/knowledgebase/runtime/events
@@ -1120,7 +1171,7 @@ decl_module! {
             Ok(())
         }
         
-        /// Adds new root to storage
+        /// TODO fix this trouble with types, RawCoord is a one big crutch
         #[weight = <T as Trait>::WeightInfo::root_add()]
         pub fn raw_root_add(origin, 
                             // Coords is SW {lat, lon, alt} NE {lat, lon, alt} 
@@ -1145,7 +1196,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::zone_add()]
         pub fn zone_add(origin, 
                         rect: Rect2D<T::Coord>,
-                        height: T::LightCoord,
+                        height: LightCoord,
                         root_id: RootId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
@@ -1195,6 +1246,24 @@ decl_module! {
             RedZones::<T>::insert(zone_id, zone);
             Self::deposit_event(RawEvent::ZoneCreated(root_id, area_id, zone_id, who));
             Ok(())
+        }
+
+        /// TODO fix this trouble with types, RawCoord is a one big crutch
+        #[weight = <T as Trait>::WeightInfo::zone_add()]
+        pub fn raw_zone_add(origin, 
+                            raw_rect: [T::RawCoord; 4],
+                            height: LightCoord,
+                            root_id: RootId) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin.clone())?;
+            ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
+
+            let south_west = Point2D::new(T::Coord::from_raw(raw_rect[0].into()), 
+                                          T::Coord::from_raw(raw_rect[1].into()));
+            let north_east = Point2D::new(T::Coord::from_raw(raw_rect[2].into()), 
+                                          T::Coord::from_raw(raw_rect[3].into()));
+            let rect = Rect2D::new(south_west, north_east);
+
+            Module::<T>::zone_add(origin, rect, height, root_id)
         }
 
         /// Removes root by given id, and zones inside. This means, function might be heavy.
@@ -1332,6 +1401,20 @@ impl<T: Trait> Module<T> {
             Err(_) => Default::default(),
         }
     } 
+    
+    #[allow(dead_code)]
+    fn get_root_index(raw_point: [i32; 2]) -> RootId {
+        let lat = T::Coord::from_raw(raw_point[0]);
+        let lon = T::Coord::from_raw(raw_point[1]);
+        let alt = T::Coord::from_raw(0);
+
+        let point = Point3D::<T::Coord>::new(lat, lon, alt);
+        let (row, column) = Page::<T::Coord>::get_cell_indexes(point);
+        let index = Page::<T::Coord>::get_index(row, column);
+        let bitmap = EarthBitmap::<T>::get(index).bitmap;
+
+        bitmap[(row % PAGE_LENGTH) as usize][(column % PAGE_WIDTH) as usize]
+    }
 
     /// Form index for storing zones, wrapped in u128............limited by const in runtime
     /// v................root id here..............v v.....area id.....v v..child objects..v

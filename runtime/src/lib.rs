@@ -304,7 +304,7 @@ impl pallet_ds_accounts::Trait for Runtime {
 
 // After researches, consider placing here max grid sizes
 parameter_types! {
-    pub const MaxHeight: u16 = 400;
+    pub const MaxHeight: u32 = 400;
     pub const MaxBuildingsInArea: u16 = 100;
 }
 
@@ -314,7 +314,6 @@ impl pallet_ds_maps::Trait for Runtime {
     type WeightInfo = ();
     type RawCoord = i32;
     type Coord = I10F22;
-    type LightCoord = u16;
     type MaxBuildingsInArea = MaxBuildingsInArea;
     type MaxHeight = MaxHeight;
 }
