@@ -60,7 +60,7 @@ const REGISTRAR_1_ACCOUNT_ID: u64 = 2;
 pub const ROOT_ID: u64 = 0b0001_0101_1010_0001_0000_1110_1001_1001_0001_0101_1101_1000_0000_1110_1100_1110;
 // this value, and values in construct_testing_..() were calculated
 const AREA_ID: u16 = 58;
-const DEFAULT_HEIGHT: u16 = 30;
+const DEFAULT_HEIGHT: u32 = 30;
 
 const DELTA: &str = "0.01";
 
