@@ -226,6 +226,11 @@ pub struct Waypoint<Coord, Moment> {
     pub arrival: Moment,
 }
 
+impl<Coord, Moment> Waypoint<Coord, Moment> {
+    pub fn new(location: Point3D<Coord>, arrival: Moment) -> Self {
+        Waypoint{location, arrival}
+    }
+}
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
