@@ -218,7 +218,7 @@ impl<
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default)]
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Waypoint<Coord, Moment> { 
     pub location: Point3D<Coord>,
     pub arrival: Moment,
@@ -226,9 +226,8 @@ pub struct Waypoint<Coord, Moment> {
 
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default)]
-pub struct Route<Coord, RouteId, OwnerId, Moment> { 
-    pub id: RouteId,
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
+pub struct Route<Coord, OwnerId, Moment> { 
     pub route: Vec<Waypoint<Coord, Moment>>,
     pub owner: OwnerId,
 }
@@ -992,11 +991,13 @@ pub trait Trait: accounts::Trait {
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>;
 
+    type RouteId: Default + Parameter + Copy;
+    
     type RawCoord: Default 
     + Parameter 
     + Into<i32>
     + Copy;
-
+    
     /// This allows us to have a top border for zones
     type MaxBuildingsInArea: Get<u16>;
     
@@ -1035,6 +1036,7 @@ decl_storage! {
 pub type PageOf<T> = Page<<T as Trait>::Coord>;
 pub type RootBoxOf<T> = RootBox<<T as Trait>::Coord>;
 pub type ZoneOf<T> = Zone<<T as Trait>::Coord>;
+pub type RouteOf<T> = Route<<T as Trait>::Coord, <T as frame_system::Config>::AccountId, <T as pallet_timestamp::Config>::Moment>;
 
 // Pallets use events to inform users when important changes are made.
 // https://substrate.dev/docs/en/knowledgebase/runtime/events
@@ -1042,6 +1044,8 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Config>::AccountId,
+        Moment = <T as pallet_timestamp::Config>::Moment,
+        Coord = <T as Trait>::Coord,
     {
         // Event documentation should end with an array that provides descriptive names for event parameters.
         /// New root box has been created [box number, who]
@@ -1054,6 +1058,8 @@ decl_event!(
         RootRemoved(RootId, AccountId),
         /// Zone was removed from storage
         ZoneRemoved(ZoneId, AccountId),
+        /// New route was submitted [start, destination, start, arrival, rootId, who]
+        RouteAdded(Point3D<Coord>, Point3D<Coord>, Moment, Moment, RootId, AccountId),
     }
 );
 
@@ -1399,6 +1405,23 @@ decl_module! {
                 ar.area_type = area_type;
             });
             Self::deposit_event(RawEvent::AreaTypeChanged(area_type, area_id, root_id, who));
+            Ok(())
+        }
+
+        /// Adds new route for UAV
+        #[weight = <T as Trait>::WeightInfo::change_area_type()]
+        pub fn route_add(origin, 
+                        waypoints: Vec<Waypoint<T::Coord, <T as pallet_timestamp::Config>::Moment>>, 
+                        estimate_time: <T as pallet_timestamp::Config>::Moment,
+                        root_id: RootId) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin)?;
+            ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
+            ensure!(RootBoxes::contains_key(root_id), Error::<T>::RootDoesNotExist);
+            
+            // AreaData::mutate(root_id, area_id, |ar| {
+            //     ar.area_type = area_type;
+            // });
+            Self::deposit_event(RawEvent::RouteAdded(start_point, end_point, start_time, estimate_time, root_id, who));
             Ok(())
         }
     }
