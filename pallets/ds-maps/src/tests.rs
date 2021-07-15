@@ -3,6 +3,7 @@ use crate::{
             Page,
             Point3D, Box3D,
             Point2D, Rect2D,
+            Waypoint,
 };
 use frame_support::{
     assert_noop, assert_ok,
@@ -52,13 +53,18 @@ use sp_std::str::FromStr;
 // (55.390, 37,380)
 
 type Error = super::Error<Test>;
+// TODO find out how to connect this types w mock
 pub type Coord = I10F22;
+type Moment = u64;
 
 // Constants to make tests more readable
 const ADMIN_ACCOUNT_ID: u64 = 1;
 const REGISTRAR_1_ACCOUNT_ID: u64 = 2;
 pub const ROOT_ID: u64 = 0b0001_0101_1010_0001_0000_1110_1001_1001_0001_0101_1101_1000_0000_1110_1100_1110;
-// this value, and values in construct_testing_..() were calculated
+// Values in construct_testing_..() pre-calculated
+// construct_custom_..() same functionality, but custom numbers
+// These consts also pre-calculated
+
 const AREA_ID: u16 = 58;
 const DEFAULT_HEIGHT: u32 = 30;
 
@@ -103,6 +109,21 @@ pub fn construct_custom_rect(sw_lat: &str, sw_lon: &str, ne_lat: &str, ne_lon: &
     let north_east = Point2D::new(coord(ne_lat),
                                   coord(ne_lon));
     Rect2D::new(south_west, north_east)
+}
+
+pub fn construct_testing_waypoints() -> Vec<Waypoint<Coord, Moment>> {
+    let start_location = Point3D::new(coord("55.395"),
+                                    coord("37.385"),
+                                    coord("1"));
+    let end_location = Point3D::new(coord("55.397"),
+                                    coord("37.387"),
+                                    coord("1"));
+    let start_time = 100_u64; 
+    let end_time = 110_u64; 
+    let start_wp = Waypoint::new(start_location, start_time);
+    let end_wp = Waypoint::new(end_location, end_time);
+    vec![start_wp, end_wp]
+
 }
 
 #[test]
@@ -763,6 +784,13 @@ fn it_add_route_wrong_timelines() {
                 construct_testing_box(),
                 coord(DELTA),
         ));
-        
+        let waypoints = construct_testing_waypoints();
+
+        assert_ok!(
+            DSMapsModule::route_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                waypoints,
+                ROOT_ID,
+        ));
     });
 }
