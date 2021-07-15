@@ -123,7 +123,21 @@ pub fn construct_testing_waypoints() -> Vec<Waypoint<Coord, Moment>> {
     let start_wp = Waypoint::new(start_location, start_time);
     let end_wp = Waypoint::new(end_location, end_time);
     vec![start_wp, end_wp]
+}
 
+// Assume that alt is const for now
+pub fn construct_custom_waypoints(sw_lat: &str, sw_lon: &str,
+                                  ne_lat: &str, ne_lon: &str, 
+                                  start_time: u64, end_time: u64) -> Vec<Waypoint<Coord, Moment>> {
+    let start_location = Point3D::new(coord(sw_lat),
+                                    coord(sw_lon),
+                                    coord("1"));
+    let end_location = Point3D::new(coord(ne_lat),
+                                    coord(ne_lon),
+                                    coord("1"));
+    let start_wp = Waypoint::new(start_location, start_time);
+    let end_wp = Waypoint::new(end_location, end_time);
+    vec![start_wp, end_wp]
 }
 
 #[test]
