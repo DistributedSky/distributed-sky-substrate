@@ -1430,19 +1430,17 @@ decl_module! {
             let start_time = start_waypoint.arrival;
             let arrival_time = end_waypoint.arrival;
             let current_timestamp = <pallet_timestamp::Module<T>>::get();
-            // TODO wp[n].arrival < wp[n + 1].arrival
+            // TODO (n>2) wp[n].arrival < wp[n + 1].arrival
             ensure!((arrival_time > current_timestamp) && (arrival_time > start_time), Error::<T>::WrongTimeSupplied);
             
             let root = RootBoxes::<T>::get(root_id);
             let start_area = root.detect_intersected_area(start_waypoint.location.project());
             let end_area = root.detect_intersected_area(end_waypoint.location.project());
-            // TODO each wp[n].location shall be inside one Root
+            // TODO (n>2) each wp[n].location shall be inside one Root
             ensure!((start_area != 0) && (end_area != 0), Error::<T>::RouteDoesNotFitToRoot);
-            // for now we assume that there is only two waypoints
-            // AreaData::mutate(root_id, area_id, |ar| {
-            //     ar.area_type = area_type;
-            // });
-            // Self::deposit_event(RawEvent::RouteAdded(start_point, end_point, start_time, arrival_time, root_id, who));
+
+            Self::deposit_event(RawEvent::RouteAdded(start_waypoint.location,
+                                                     end_waypoint.location, start_time, arrival_time, root_id, who));
             Ok(())
         }
     }
