@@ -185,9 +185,15 @@ pub struct Point3D<Coord> {
     alt: Coord,
 }
 
-impl<Coord> Point3D<Coord> {
+impl<
+    Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv
+    > Point3D<Coord> {
     pub fn new(lat: Coord, lon: Coord, alt: Coord) -> Self {
         Point3D{lat, lon, alt}
+    }
+
+    pub fn project(self) -> Point2D<Coord> {
+        Point2D::new(self.lat, self.lon)
     }
 }
 
@@ -207,12 +213,8 @@ impl<
 
     /// Gets rect 2D projection from a box
     pub fn projection_on_plane(self) -> Rect2D<Coord> {
-        let south_west = 
-        Point2D::new(self.south_west.lat,
-                     self.south_west.lon); 
-        let north_east = 
-        Point2D::new(self.north_east.lat,
-                    self.north_east.lon); 
+        let south_west = self.south_west.project();
+        let north_east = self.north_east.project();
         Rect2D::new(south_west, north_east)
     }
 }
@@ -1097,6 +1099,10 @@ decl_error! {
         ZoneDoesntFit,
         /// Zone you are trying to access is not in storage
         ZoneDoesntExist,
+        /// Wrong time bounds are supplied 
+        WrongTimeSupplied,
+        /// Route contain 1 or more wpoints, which lie outside of root
+        RouteDoesNotFitToRoot,
         // Add additional errors below
     }
 }
@@ -1412,16 +1418,31 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::change_area_type()]
         pub fn route_add(origin, 
                         waypoints: Vec<Waypoint<T::Coord, <T as pallet_timestamp::Config>::Moment>>, 
-                        estimate_time: <T as pallet_timestamp::Config>::Moment,
                         root_id: RootId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
+            // TODO consider role for route addition
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
-            ensure!(RootBoxes::contains_key(root_id), Error::<T>::RootDoesNotExist);
+            ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
+            ensure!(waypoints.len() <= 2, Error::<T>::InvalidData);
+            let start_waypoint = &waypoints[0]; 
+            let end_waypoint = &waypoints[waypoints.len() - 1]; 
+            // Getting all time bounds
+            let start_time = start_waypoint.arrival;
+            let arrival_time = end_waypoint.arrival;
+            let current_timestamp = <pallet_timestamp::Module<T>>::get();
+            // TODO wp[n].arrival < wp[n + 1].arrival
+            ensure!((arrival_time > current_timestamp) && (arrival_time > start_time), Error::<T>::WrongTimeSupplied);
             
+            let root = RootBoxes::<T>::get(root_id);
+            let start_area = root.detect_intersected_area(start_waypoint.location.project());
+            let end_area = root.detect_intersected_area(end_waypoint.location.project());
+            // TODO each wp[n].location shall be inside one Root
+            ensure!((start_area != 0) && (end_area != 0), Error::<T>::RouteDoesNotFitToRoot);
+            // for now we assume that there is only two waypoints
             // AreaData::mutate(root_id, area_id, |ar| {
             //     ar.area_type = area_type;
             // });
-            Self::deposit_event(RawEvent::RouteAdded(start_point, end_point, start_time, estimate_time, root_id, who));
+            // Self::deposit_event(RawEvent::RouteAdded(start_point, end_point, start_time, arrival_time, root_id, who));
             Ok(())
         }
     }
