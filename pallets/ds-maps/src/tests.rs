@@ -125,15 +125,16 @@ pub fn construct_testing_waypoints() -> Vec<Waypoint<Coord, Moment>> {
     vec![start_wp, end_wp]
 }
 
-// Assume that alt is const for now
-pub fn construct_custom_waypoints(sw_lat: &str, sw_lon: &str,
-                                  ne_lat: &str, ne_lon: &str, 
+// Assume that alt is const for now.
+// TODO (n>2) replace &str in signature to an array [[&str; 4]; n]
+pub fn construct_custom_waypoints(start_lat: &str, start_lon: &str,
+                                  end_lat: &str, end_lon: &str, 
                                   start_time: u64, end_time: u64) -> Vec<Waypoint<Coord, Moment>> {
-    let start_location = Point3D::new(coord(sw_lat),
-                                    coord(sw_lon),
+    let start_location = Point3D::new(coord(start_lat),
+                                    coord(start_lon),
                                     coord("1"));
-    let end_location = Point3D::new(coord(ne_lat),
-                                    coord(ne_lon),
+    let end_location = Point3D::new(coord(end_lat),
+                                    coord(end_lon),
                                     coord("1"));
     let start_wp = Waypoint::new(start_location, start_time);
     let end_wp = Waypoint::new(end_location, end_time);
@@ -783,8 +784,9 @@ fn it_dispatchable_get_root_index() {
     });
 }
 
+// Not sure if there's need to try this unauthorized 
 #[test]
-fn it_add_route_wrong_timelines() {
+fn it_add_route_by_registrar() {
     new_test_ext().execute_with(|| {
         assert_ok!(
             DSAccountsModule::account_add(
@@ -799,12 +801,111 @@ fn it_add_route_wrong_timelines() {
                 coord(DELTA),
         ));
         let waypoints = construct_testing_waypoints();
-
         assert_ok!(
             DSMapsModule::route_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 waypoints,
                 ROOT_ID,
         ));
+    });
+}
+
+#[test]
+fn it_add_route_wrong_root() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
+        ));
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_box(),
+                coord(DELTA),
+        ));
+        let waypoints = construct_testing_waypoints();
+        assert_noop!(
+            DSMapsModule::route_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                waypoints,
+                ROOT_ID + 1,
+            ),
+            Error::RootDoesNotExist
+        );
+    });
+}
+
+#[test]
+fn it_add_route_wrong_timestamps() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
+        ));
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_box(),
+                coord(DELTA),
+        ));
+        // coords are same as in testing wp
+        let waypoints = construct_custom_waypoints(
+            "55.395", "37.385",
+            "55.397", "37.387",
+            120, 100);
+        assert_noop!(
+            DSMapsModule::route_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                waypoints,
+                ROOT_ID,
+            ), 
+            Error::WrongTimeSupplied
+        );
+    });
+}
+
+#[test]
+fn it_add_route_wrong_waypoints() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
+        ));
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_box(),
+                coord(DELTA),
+        ));
+        let location = Point3D::new(coord("55.395"),
+                                coord("37.385"),
+                                coord("1"));
+        let single_waypoint = vec![Waypoint::new(location, 10)];
+        assert_noop!(
+            DSMapsModule::route_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                single_waypoint,
+                ROOT_ID,
+            ), 
+            Error::InvalidData);
+            
+        let waypoints = construct_custom_waypoints(
+            "55.395", "37.385",
+            "10", "37",
+            100, 120);
+        assert_noop!(
+            DSMapsModule::route_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                waypoints,
+                ROOT_ID,
+            ), 
+            Error::RouteDoesNotFitToRoot
+        );
     });
 }
