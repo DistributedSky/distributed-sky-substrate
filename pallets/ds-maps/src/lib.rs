@@ -1428,7 +1428,7 @@ decl_module! {
             // TODO consider role for route addition
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
-            ensure!(waypoints.len() <= 2, Error::<T>::InvalidData);
+            ensure!(waypoints.len() >= 2, Error::<T>::InvalidData);
             let start_waypoint = &waypoints[0]; 
             let end_waypoint = &waypoints[waypoints.len() - 1]; 
             // Getting all time bounds
