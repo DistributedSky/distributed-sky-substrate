@@ -7,7 +7,7 @@ use frame_support::{
     codec::{Decode, Encode},
     storage::StorageDoubleMap,
     dispatch::fmt::Debug,
-    sp_runtime::sp_std::{ops::{Sub, Div}, vec::Vec},
+    sp_runtime::sp_std::{ops::{Sub, Div, Mul}, vec::Vec},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,    
     weights::Weight,
     Parameter,
@@ -240,6 +240,18 @@ pub struct Route<Coord, OwnerId, Moment> {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
+pub struct Line<Coord> { 
+    pub a: Coord,
+    pub b: Coord,
+    pub c: Coord,
+}
+
+impl<Coord> Line<Coord> {
+
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Clone, Copy, Debug)]
 pub struct RootBox<Coord> {
     pub id: RootId,
@@ -248,7 +260,7 @@ pub struct RootBox<Coord> {
 }
 
 impl<
-    Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv + Div<Output = Coord> + Copy 
+    Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv + Mul<Output = Coord> + Div<Output = Coord> + Copy,
     > RootBox<Coord> {
     pub fn new(id: RootId, bounding_box: Box3D<Coord>, delta: Coord) -> Self {
         RootBox{id, bounding_box, delta}
@@ -301,6 +313,16 @@ impl<
         let total_rows = root_dimensions.lat.integer_division_u16(self.delta);
 
         (total_rows * (column - 1)) + row
+    }
+    
+    pub fn get_route_areas(self, waypoint_locations: Vec<Point3D<Coord>>) -> Vec<AreaId>{
+        // Form coefficients (y1 - y2)x + (x2 - x1)y + (x1y2 - x2y1) = 0
+        // TODO (n>2) in a cycle
+        let a = waypoint_locations[0].lat - waypoint_locations[1].lat; 
+        let b = waypoint_locations[1].lon - waypoint_locations[0].lon; 
+        let c = (waypoint_locations[0].lon * waypoint_locations[1].lat) - (waypoint_locations[1].lon * waypoint_locations[0].lat); 
+        
+        Vec::new()
     }
 
     #[cfg(test)]
@@ -996,7 +1018,8 @@ pub trait Trait: accounts::Trait {
     + FromRaw
     + CastToType
     + Sub<Output = Self::Coord>
-    + Div<Output = Self::Coord>;
+    + Div<Output = Self::Coord>
+    + Mul<Output = Self::Coord>;
 
     type RouteId: Default + Parameter + Copy;
     
@@ -1419,7 +1442,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Adds new route for UAV
+        /// creates new route for UAV
         #[weight = <T as Trait>::WeightInfo::change_area_type()]
         pub fn route_add(origin, 
                         waypoints: Vec<Waypoint<T::Coord, <T as pallet_timestamp::Config>::Moment>>, 
@@ -1444,8 +1467,12 @@ decl_module! {
             // TODO (n>2) each wp[n].location shall be inside one Root
             ensure!((start_area != 0) && (end_area != 0), Error::<T>::RouteDoesNotFitToRoot);
 
-            Self::deposit_event(RawEvent::RouteAdded(start_waypoint.location,
-                                                     end_waypoint.location, start_time, arrival_time, root_id, who));
+            let route_areas: Vec<AreaId> = root.get_route_areas(vec![start_waypoint.location, end_waypoint.location]);
+
+            Self::deposit_event(RawEvent::RouteAdded(
+                start_waypoint.location, end_waypoint.location, 
+                start_time, arrival_time, root_id, who
+            ));
             Ok(())
         }
     }
