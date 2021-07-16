@@ -7,7 +7,7 @@ use frame_support::{
     codec::{Decode, Encode},
     storage::StorageDoubleMap,
     dispatch::fmt::Debug,
-    sp_runtime::sp_std::{ops::{Sub, Div, Mul}, vec::Vec},
+    sp_runtime::sp_std::{ops::{Sub, Div, Mul, Add}, vec::Vec},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,    
     weights::Weight,
     Parameter,
@@ -20,7 +20,7 @@ use sp_std::{
     vec,
 };
 
-use dsky_utils::{CastToType, FromRaw, IntDiv, Signed};
+use dsky_utils::{CastToType, FromRaw, IntDiv, Signed, ToBigCoord, FromBigCoord};
 use frame_system::ensure_signed;
 use pallet_ds_accounts as accounts;
 use accounts::REGISTRAR_ROLE;
@@ -1013,13 +1013,22 @@ pub trait Trait: accounts::Trait {
     + PartialOrd
     + PartialEq
     + FromStr
-    + IntDiv
     + Signed
-    + FromRaw
-    + CastToType
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>
-    + Mul<Output = Self::Coord>;
+    + Mul<Output = Self::Coord>
+    // Traits from dsky-utils
+    + IntDiv
+    + FromRaw
+    + CastToType
+    + ToBigCoord<Output = Self::BigCoord>;
+
+    // Required for global calculations, where Coord is not enough. Not for common usage.
+    type BigCoord: Sub<Output = Self::BigCoord>
+    + Div<Output = Self::BigCoord>
+    + Mul<Output = Self::BigCoord>
+    + Add<Output = Self::BigCoord>
+    + FromBigCoord<Output = Self::Coord>;
 
     type RouteId: Default + Parameter + Copy;
     

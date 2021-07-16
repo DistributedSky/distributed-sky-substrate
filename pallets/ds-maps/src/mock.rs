@@ -12,7 +12,7 @@ use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use substrate_fixed::types::I10F22;
+use substrate_fixed::types::{I10F22, I42F22};
 use pallet_ds_accounts::ADMIN_ROLE;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -107,6 +107,7 @@ impl Trait for Test {
     type Event = Event;
     type WeightInfo = ();
     type Coord = I10F22;
+    type BigCoord = I42F22;
     type RouteId = u32;
     type RawCoord = i32;
     type MaxBuildingsInArea = MaxBuildingsInArea;

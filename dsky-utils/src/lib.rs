@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use substrate_fixed::types::I10F22;
+use substrate_fixed::{types::{I10F22, I42F22}, traits::FromFixed};
+// Set of traits, required for Coord struct, used in maps pallet
 
 pub trait IntDiv<RHS = Self> {
     fn integer_division_u16(self, rhs: RHS) -> u16;
@@ -19,6 +20,18 @@ pub trait CastToType {
     fn to_u32_with_frac_part(self, cell_size: u32, max_digits_in_frac_part: u8) -> u32;
 }
 
+// TODO consider naming of two traits, as they are used in pair
+pub trait ToBigCoord {
+    type Output;
+    fn ToBigCoord(self) -> Self::Output;
+}
+
+pub trait FromBigCoord {
+    type Output;
+    fn try_into(self) -> Self::Output;
+}
+
+// Here comes the implementations 
 // Want to change Coord type => impl trait for it here
 impl IntDiv for I10F22 {
     fn integer_division_u16(self, rhs: I10F22) -> u16 {
@@ -61,5 +74,19 @@ impl CastToType for I10F22 {
                                 * base.pow(max_digits_in_frac_part as u32) as i32).to_num::<u32>();
 
         integer_part + frac_part
+    }
+}
+
+impl ToBigCoord for I10F22 {
+    type Output = I42F22;
+    fn ToBigCoord(self) -> Self::Output {
+        self.into()
+    }
+}
+// TODO handle possible errors through checked_from_fixed()
+impl FromBigCoord for I42F22 {
+    type Output = I10F22;
+    fn try_into(self) -> Self::Output {
+        I10F22::from_fixed(self)
     }
 }
