@@ -241,14 +241,27 @@ pub struct Route<Coord, OwnerId, Moment> {
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
-pub struct Line<Coord> { 
+pub struct Line<Coord, BigCoord> { 
     pub a: Coord,
     pub b: Coord,
     pub c: Coord,
+    _phantom: PhantomData<BigCoord>
 }
 
-impl<Coord> Line<Coord> {
-
+impl<Coord: ToBigCoord<Output = BigCoord> + Copy,
+    BigCoord: Mul<Output = BigCoord> + Sub<Output = BigCoord> + FromBigCoord<Output = Coord>
+    > Line<Coord, BigCoord> {
+    pub fn new(point_0: Point3D<Coord>, point_1: Point3D<Coord>) -> Self {
+        // Form coefficients (y1 - y2)x + (x2 - x1)y + (x1y2 - x2y1) = 0
+        // TODO (n>2) in a cycle
+        let a = (point_0.lat.to_big_coord() - point_1.lat.to_big_coord()).try_into(); 
+        let b = (point_1.lon.to_big_coord() - point_0.lon.to_big_coord()).try_into(); 
+        let c = 
+        ((point_0.lon.to_big_coord() * point_1.lat.to_big_coord()) - 
+        (point_1.lon.to_big_coord() * point_0.lat.to_big_coord())).try_into(); 
+        
+        Line {a: a, b: b, c: c, _phantom: PhantomData}
+    }
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -316,11 +329,6 @@ impl<
     }
     
     pub fn get_route_areas(self, waypoint_locations: Vec<Point3D<Coord>>) -> Vec<AreaId>{
-        // Form coefficients (y1 - y2)x + (x2 - x1)y + (x1y2 - x2y1) = 0
-        // TODO (n>2) in a cycle
-        let a = waypoint_locations[0].lat - waypoint_locations[1].lat; 
-        let b = waypoint_locations[1].lon - waypoint_locations[0].lon; 
-        let c = (waypoint_locations[0].lon * waypoint_locations[1].lat) - (waypoint_locations[1].lon * waypoint_locations[0].lat); 
         
         Vec::new()
     }

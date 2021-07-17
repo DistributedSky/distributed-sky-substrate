@@ -23,7 +23,7 @@ pub trait CastToType {
 // TODO consider naming of two traits, as they are used in pair
 pub trait ToBigCoord {
     type Output;
-    fn ToBigCoord(self) -> Self::Output;
+    fn to_big_coord(self) -> Self::Output;
 }
 
 pub trait FromBigCoord {
@@ -79,7 +79,7 @@ impl CastToType for I10F22 {
 
 impl ToBigCoord for I10F22 {
     type Output = I42F22;
-    fn ToBigCoord(self) -> Self::Output {
+    fn to_big_coord(self) -> Self::Output {
         self.into()
     }
 }
