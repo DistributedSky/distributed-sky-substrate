@@ -68,7 +68,7 @@ pub const ROOT_ID: u64 = 0b0001_0101_1010_0001_0000_1110_1001_1001_0001_0101_110
 const AREA_ID: u16 = 58;
 const DEFAULT_HEIGHT: u32 = 30;
 
-const DELTA: &str = "0.01";
+pub const DELTA: &str = "0.01";
 
 // shortcut for &str -> Coord
 pub fn coord<Coord>(s: &str) -> Coord

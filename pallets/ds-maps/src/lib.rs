@@ -239,16 +239,20 @@ pub struct Route<Coord, OwnerId, Moment> {
     pub owner: OwnerId,
 }
 
+// Actually, this is line section, so we need limits
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
 pub struct Line<Coord, BigCoord> { 
     pub a: Coord,
     pub b: Coord,
     pub c: Coord,
+    pub start_point: Point2D<Coord>,
+    pub end_point: Point2D<Coord>,
     _phantom: PhantomData<BigCoord>
 }
 
-impl<Coord: ToBigCoord<Output = BigCoord> + Copy,
+impl<
+    Coord: ToBigCoord<Output = BigCoord> + PartialOrd + Signed + IntDiv + Mul<Output = Coord> + Sub<Output = Coord> + Add<Output = Coord> + Div<Output = Coord> + Copy,
     BigCoord: Mul<Output = BigCoord> + Sub<Output = BigCoord> + FromBigCoord<Output = Coord>
     > Line<Coord, BigCoord> {
     pub fn new(point_0: Point3D<Coord>, point_1: Point3D<Coord>) -> Self {
@@ -256,11 +260,110 @@ impl<Coord: ToBigCoord<Output = BigCoord> + Copy,
         // TODO (n>2) in a cycle
         let a = (point_0.lat.to_big_coord() - point_1.lat.to_big_coord()).try_into(); 
         let b = (point_1.lon.to_big_coord() - point_0.lon.to_big_coord()).try_into(); 
-        let c = 
-        ((point_0.lon.to_big_coord() * point_1.lat.to_big_coord()) - 
-        (point_1.lon.to_big_coord() * point_0.lat.to_big_coord())).try_into(); 
-        
-        Line {a: a, b: b, c: c, _phantom: PhantomData}
+        let c = (
+        (point_0.lon.to_big_coord() * point_1.lat.to_big_coord()) - 
+        (point_1.lon.to_big_coord() * point_0.lat.to_big_coord())
+        ).try_into(); 
+        // TODO if point_0.lat > point_1.lat, swap points
+        Line {
+            a: a,
+            b: b,
+            c: c,
+            start_point: point_0.project(),
+            end_point: point_1.project(),
+            _phantom: PhantomData
+        }
+    }
+
+    //TODO optimize fn to get ONLY intersected areas, for now it gets everythig from the rect
+    pub fn get_route_areas(self, root: RootBox<Coord>) -> Vec<AreaId> {
+        let start_area = root.detect_intersected_area(self.start_point);
+        let end_area = root.detect_intersected_area(self.end_point);
+        // In case everything is in one area 
+        if start_area == end_area {return vec![start_area]}
+        let mut output = Vec::new();
+        let delta = root.delta;
+        // let lat_area = (self.end_point.lat - self.start_point.lat) / root.delta;
+        // // TODO handle negative substraction
+        // let lon_area = (self.end_point.lon - self.start_point.lon) / root.delta;
+
+        let start_vector = root.bounding_box.south_west.project().get_distance_vector(self.start_point);
+        let start_row = start_vector.lat.integer_division_u16(root.delta) + 1;
+        let start_column = start_vector.lon.integer_division_u16(root.delta) + 1;
+
+        let end_vector = root.bounding_box.south_west.project().get_distance_vector(self.end_point);
+        let end_row = end_vector.lat.integer_division_u16(root.delta) + 1;
+        let end_column = end_vector.lon.integer_division_u16(root.delta) + 1;
+
+        let mut current_point = self.start_point;
+        let mut row_counter = start_row;
+
+        while row_counter <= end_row {
+            let mut column_counter = start_column;
+            while column_counter <= end_column {
+                output.push(root.detect_intersected_area(current_point));
+                current_point.lon = current_point.lon + delta;
+                column_counter += 1;
+            }
+            current_point.lon = self.start_point.lon;
+            current_point.lat = current_point.lat + delta;
+            row_counter += 1;
+        }
+        output
+    }
+}
+
+#[cfg(test)]
+mod line_tests {
+    use super::*;
+    use crate::tests::{construct_custom_box, coord};
+    // TODO draw rect in ascii as an illustration
+
+    #[test]
+    fn get_route_areas_in_square() {
+        let rect = construct_custom_box("0", "0", "4", "4");
+        let root = RootBox::new(1, rect, coord("1"));
+        let first_point = Point3D::new(coord("0.5"),
+                                       coord("0.5"), 
+                                       coord("1"));
+        let second_point = Point3D::new(coord("2.5"),
+                                        coord("2.5"), 
+                                        coord("1"));
+        let line = Line::new(first_point, second_point);
+        let areas = line.get_route_areas(root);
+        assert_eq!(areas, vec![1, 5, 9, 2, 6, 10, 3, 7, 11]);
+
+
+    }
+
+    #[test]
+    fn get_route_areas_in_line() {
+        let rect = construct_custom_box("0", "0", "4", "4");
+        let root = RootBox::new(1, rect, coord("1"));
+        let first_point = Point3D::new(coord("0.1"),
+            coord("0.1"), 
+            coord("1"));
+        let second_point = Point3D::new(coord("3.1"),
+            coord("0.2"), 
+            coord("1"));
+        let line = Line::new(first_point, second_point);
+        let areas = line.get_route_areas(root);
+        assert_eq!(areas, vec![1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn get_route_single_area() {
+        let rect = construct_custom_box("0", "0", "4", "4");
+        let root = RootBox::new(1, rect, coord("1"));
+        let first_point = Point3D::new(coord("0.1"),
+            coord("0.1"), 
+            coord("1"));
+        let second_point = Point3D::new(coord("0.3"),
+            coord("0.2"), 
+            coord("1"));
+        let line = Line::new(first_point, second_point);
+        let areas = line.get_route_areas(root);
+        assert_eq!(areas, vec![1]);
     }
 }
 
@@ -326,11 +429,6 @@ impl<
         let total_rows = root_dimensions.lat.integer_division_u16(self.delta);
 
         (total_rows * (column - 1)) + row
-    }
-    
-    pub fn get_route_areas(self, waypoint_locations: Vec<Point3D<Coord>>) -> Vec<AreaId>{
-        
-        Vec::new()
     }
 
     #[cfg(test)]
@@ -1025,6 +1123,7 @@ pub trait Trait: accounts::Trait {
     + Sub<Output = Self::Coord>
     + Div<Output = Self::Coord>
     + Mul<Output = Self::Coord>
+    + Add<Output = Self::Coord>
     // Traits from dsky-utils
     + IntDiv
     + FromRaw
@@ -1483,9 +1582,16 @@ decl_module! {
             let end_area = root.detect_intersected_area(end_waypoint.location.project());
             // TODO (n>2) each wp[n].location shall be inside one Root
             ensure!((start_area != 0) && (end_area != 0), Error::<T>::RouteDoesNotFitToRoot);
-
-            let route_areas: Vec<AreaId> = root.get_route_areas(vec![start_waypoint.location, end_waypoint.location]);
-
+            // TODO (n>2) vec! in here
+            let route_line = Line::new(start_waypoint.location, end_waypoint.location);
+            // We receive all areas, containing list of zones which could be intersected
+            let route_areas: Vec<AreaId> = route_line.get_route_areas(root);
+            // Loop through areas, check each existing zone
+            for area_id in route_areas.iter() {
+                if AreaData::contains_key(root_id, area_id) {
+                    
+                }
+            }
             Self::deposit_event(RawEvent::RouteAdded(
                 start_waypoint.location, end_waypoint.location, 
                 start_time, arrival_time, root_id, who
