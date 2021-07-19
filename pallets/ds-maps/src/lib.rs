@@ -241,7 +241,7 @@ pub struct Route<Coord, OwnerId, Moment> {
 
 // Actually, this is line section, so we need limits
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub struct Line<Coord, BigCoord> { 
     pub a: Coord,
     pub b: Coord,
@@ -253,9 +253,9 @@ pub struct Line<Coord, BigCoord> {
 
 impl<
     Coord: ToBigCoord<Output = BigCoord> + PartialOrd + Signed + IntDiv + Mul<Output = Coord> + Sub<Output = Coord> + Add<Output = Coord> + Div<Output = Coord> + Copy,
-    BigCoord: Mul<Output = BigCoord> + Sub<Output = BigCoord> + FromBigCoord<Output = Coord>
+    BigCoord: Mul<Output = BigCoord> + Sub<Output = BigCoord> + FromBigCoord<Output = Coord> + Copy
     > Line<Coord, BigCoord> {
-    pub fn new(point_0: Point3D<Coord>, point_1: Point3D<Coord>) -> Self {
+    pub fn new(point_0: Point2D<Coord>, point_1: Point2D<Coord>) -> Self {
         // Form coefficients (y1 - y2)x + (x2 - x1)y + (x1y2 - x2y1) = 0
         // TODO (n>2) in a cycle
         let a = (point_0.lat.to_big_coord() - point_1.lat.to_big_coord()).try_into(); 
@@ -269,8 +269,8 @@ impl<
             a: a,
             b: b,
             c: c,
-            start_point: point_0.project(),
-            end_point: point_1.project(),
+            start_point: point_0,
+            end_point: point_1,
             _phantom: PhantomData
         }
     }
@@ -310,6 +310,10 @@ impl<
             row_counter += 1;
         }
         output
+    }
+
+    pub fn intersect_zone(&self, zone: Rect2D<Coord>) -> bool {
+        true
     }
 }
 
@@ -1135,7 +1139,8 @@ pub trait Trait: accounts::Trait {
     + Div<Output = Self::BigCoord>
     + Mul<Output = Self::BigCoord>
     + Add<Output = Self::BigCoord>
-    + FromBigCoord<Output = Self::Coord>;
+    + FromBigCoord<Output = Self::Coord>
+    + Copy;
 
     type RouteId: Default + Parameter + Copy;
     
@@ -1247,6 +1252,8 @@ decl_error! {
         WrongTimeSupplied,
         /// Route contain 1 or more wpoints, which lie outside of root
         RouteDoesNotFitToRoot,
+        /// Route intersect 1 or more zones
+        RouteIntersectRedZone, 
         // Add additional errors below
     }
 }
@@ -1583,15 +1590,22 @@ decl_module! {
             // TODO (n>2) each wp[n].location shall be inside one Root
             ensure!((start_area != 0) && (end_area != 0), Error::<T>::RouteDoesNotFitToRoot);
             // TODO (n>2) vec! in here
-            let route_line = Line::new(start_waypoint.location, end_waypoint.location);
+            let route_line = Line::new(start_waypoint.location.project(), end_waypoint.location.project());
             // We receive all areas, containing list of zones which could be intersected
             let route_areas: Vec<AreaId> = route_line.get_route_areas(root);
             // Loop through areas, check each existing zone
+            let mut clear_path = true;
             for area_id in route_areas.iter() {
                 if AreaData::contains_key(root_id, area_id) {
-                    
+                    let mut zone_id = Self::pack_index(root_id, *area_id, 0);
+                    while RedZones::<T>::contains_key(zone_id) {
+                        // TODO
+                        clear_path = route_line.intersect_zone(RedZones::<T>::get(zone_id).rect);
+                        zone_id += 1;
+                    }
                 }
             }
+            ensure!(clear_path, Error::<T>::RouteIntersectRedZone);
             Self::deposit_event(RawEvent::RouteAdded(
                 start_waypoint.location, end_waypoint.location, 
                 start_time, arrival_time, root_id, who
