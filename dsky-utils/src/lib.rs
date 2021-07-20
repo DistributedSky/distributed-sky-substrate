@@ -23,12 +23,12 @@ pub trait CastToType {
 // TODO consider naming of two traits, as they are used in pair
 pub trait ToBigCoord {
     type Output;
-    fn to_big_coord(self) -> Self::Output;
+    fn try_into(self) -> Self::Output;
 }
 
 pub trait FromBigCoord {
     type Output;
-    fn try_into(self) -> Self::Output;
+    fn try_from(self) -> Self::Output;
 }
 
 // Here comes the implementations 
@@ -79,14 +79,14 @@ impl CastToType for I10F22 {
 
 impl ToBigCoord for I10F22 {
     type Output = I42F22;
-    fn to_big_coord(self) -> Self::Output {
+    fn try_into(self) -> Self::Output {
         self.into()
     }
 }
 // TODO handle possible errors through checked_from_fixed()
 impl FromBigCoord for I42F22 {
     type Output = I10F22;
-    fn try_into(self) -> Self::Output {
+    fn try_from(self) -> Self::Output {
         I10F22::from_fixed(self)
     }
 }
