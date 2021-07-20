@@ -14,18 +14,22 @@
 		"metadata_ipfs_hash": "MetaIPFS",
 		"managed_by": "AccountId"
 	},
-	"Coord": "I9F23",
+	"Coord":   "u32",
 	"LightCoord": "u32",
+	"RawCoord": "i32",
 	"AreaId": "u16",
-	"RootId": "u32",
+	"PageId": "u32",
+	"PageLine": "[RootId; 50]",
+	"PageOf": "[PageLine; 32]",
+	"RootId": "u64",
 	"ZoneId": "u64",
 	"Point2D":{ 
 		"lon":"Coord", 
 		"lat":"Coord"
 	},
 	"Rect2D": {
-		"north_west": "Point2D",
-		"south_east": "Point2D"
+		"south_west": "Point2D",
+		"north_east": "Point2D"
 	},
 	"ZoneOf": {
 		"zone_id": "ZoneId",
