@@ -12,7 +12,7 @@ use substrate_fixed::types::I10F22;
 use sp_std::str::FromStr;
 
 // Explanation for all hardcoded values down here
-//                             Root        P2(55.92, 37.90)
+//                             Root        P2(55.921, 37.901)
 //            +----+-------------------------+----O
 //            |2861|                         |2915|
 //            |    | Area 2861               |    |
@@ -30,7 +30,7 @@ use sp_std::str::FromStr;
 //        |   | 1  | 2  | 3  |               | 55 |
 //  delta |   |    |    |    |               |    |
 //  =0.01 +-> O----+----+----+---------------+----+
-//       Origin(55.37, 37.37)
+//       Origin(55.371, 37.371)
 //
 // (wp1, wp2) is a testing waypoints
 //                   Area 58       (55.400, 37.390)
@@ -955,11 +955,12 @@ fn it_add_route_one_area() {
         ));
         let waypoints = construct_testing_waypoints();
         // This one do not block the way, and test will pass
-        assert_ok!(DSMapsModule::zone_add(
-            Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-            construct_custom_rect("55.391", "37.381", "55.392", "37.382"),
-            DEFAULT_HEIGHT, 
-            ROOT_ID,
+        assert_ok!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_custom_rect("55.391", "37.381", "55.392", "37.382"),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
         ));
         assert_ok!(
             DSMapsModule::route_add(
@@ -968,11 +969,12 @@ fn it_add_route_one_area() {
                 ROOT_ID,
         ));
         // But this one will fail, as it blocks the way
-        assert_ok!(DSMapsModule::zone_add(
-            Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-            construct_testing_rect(),
-            DEFAULT_HEIGHT, 
-            ROOT_ID,
+        assert_ok!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_rect(),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
         ));
         assert_noop!(
             DSMapsModule::route_add(
@@ -983,6 +985,7 @@ fn it_add_route_one_area() {
         );
     });
 }
+
 #[test]
 fn it_add_route_multiple_areas() {
     new_test_ext().execute_with(|| {
@@ -999,12 +1002,14 @@ fn it_add_route_multiple_areas() {
                 coord(DELTA),
         ));
         // Route starts at 1 area, and ends in testing rect
-        let waypoints = construct_custom_waypoints("55.371", "37.371", "55.396", "37.386", 10, 20);
-        assert_ok!(DSMapsModule::zone_add(
-            Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-            construct_custom_rect("55.391", "37.381", "55.392", "37.382"),
-            DEFAULT_HEIGHT, 
-            ROOT_ID,
+        let waypoints = construct_custom_waypoints("55.373", "37.373", "55.396", "37.386", 10, 20);
+        // This one located far from our route, so no intersection
+        assert_ok!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_custom_rect("55.411", "37.372", "55.416", "37.375"),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
         ));
         assert_ok!(
             DSMapsModule::route_add(
@@ -1013,11 +1018,12 @@ fn it_add_route_multiple_areas() {
                 ROOT_ID,
         ));
         // But this one will
-        assert_ok!(DSMapsModule::zone_add(
-            Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-            construct_testing_rect(),
-            DEFAULT_HEIGHT, 
-            ROOT_ID,
+        assert_ok!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_rect(),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
         ));
         assert_noop!(
             DSMapsModule::route_add(
@@ -1025,6 +1031,60 @@ fn it_add_route_multiple_areas() {
                 waypoints,
                 ROOT_ID,
             ), Error::RouteIntersectRedZone
+        );
+    });
+}
+
+// Here we show that zone exist, and then we remove it from storage
+#[test]
+fn it_add_route_and_remove_zone() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(
+            DSAccountsModule::account_add(
+                Origin::signed(ADMIN_ACCOUNT_ID),
+                REGISTRAR_1_ACCOUNT_ID,
+                super::REGISTRAR_ROLE
+            )
+        );
+        assert_ok!(
+            DSMapsModule::root_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_box(),
+                coord(DELTA),
+            )
+        );
+        let waypoints = construct_custom_waypoints("55.373", "37.373", "55.396", "37.386", 10, 20);
+        assert_ok!(
+            DSMapsModule::zone_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                construct_testing_rect(),
+                DEFAULT_HEIGHT, 
+                ROOT_ID,
+            )
+        );
+        // Can't add it, zone is blocking the way
+        assert_noop!(
+            DSMapsModule::route_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                waypoints.clone(),
+                ROOT_ID,
+            ), 
+            Error::RouteIntersectRedZone
+        );
+        let zone_index = DSMapsModule::pack_index(ROOT_ID, AREA_ID, 0);
+        // Now we remove it, and path is clear
+        assert_ok!(
+            DSMapsModule::zone_remove(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                zone_index,
+            )
+        );
+        assert_ok!(
+            DSMapsModule::route_add(
+                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
+                waypoints,
+                ROOT_ID,
+            )
         );
     });
 }
