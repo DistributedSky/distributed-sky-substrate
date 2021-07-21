@@ -542,6 +542,7 @@ mod line_tests {
             assert!(intersecting_line.intersects_rect(rect));
             let third_point = Point2D::new(coord("55.393"), coord("37.386"));
             let outside_line = Line::new(first_point, third_point);
+            assert!(!outside_line.intersects_rect(rect));
         }
     }
 }
@@ -1771,17 +1772,16 @@ decl_module! {
             // We receive all areas, containing list of zones which could be intersected
             let route_areas: Vec<AreaId> = route_line.get_route_areas(root);
             // Loop through areas, check each existing zone
-            let mut clear_path = true;
             for area_id in route_areas.iter() {
                 if AreaData::contains_key(root_id, area_id) {
                     let mut zone_id = Self::pack_index(root_id, *area_id, 0);
                     while RedZones::<T>::contains_key(zone_id) {
-                        clear_path = route_line.intersects_rect(RedZones::<T>::get(zone_id).rect);
+                        // TODO ask about ensure!() usage in cycle
+                        ensure!(!route_line.intersects_rect(RedZones::<T>::get(zone_id).rect), Error::<T>::RouteIntersectRedZone);
                         zone_id += 1;
                     }
                 }
             }
-            ensure!(clear_path, Error::<T>::RouteIntersectRedZone);
             Self::deposit_event(RawEvent::RouteAdded(
                 start_waypoint.location, end_waypoint.location, 
                 start_time, arrival_time, root_id, who
