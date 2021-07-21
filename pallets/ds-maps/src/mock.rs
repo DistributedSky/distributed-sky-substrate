@@ -108,7 +108,6 @@ impl Trait for Test {
     type WeightInfo = ();
     type Coord = I10F22;
     type BigCoord = I42F22;
-    type RouteId = u32;
     type RawCoord = i32;
     type MaxBuildingsInArea = MaxBuildingsInArea;
     type MaxHeight = MaxHeight;

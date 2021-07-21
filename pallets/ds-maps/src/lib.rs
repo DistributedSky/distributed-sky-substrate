@@ -232,13 +232,6 @@ impl<Coord, Moment> Waypoint<Coord, Moment> {
     }
 }
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
-pub struct Route<Coord, OwnerId, Moment> { 
-    pub route: Vec<Waypoint<Coord, Moment>>,
-    pub owner: OwnerId,
-}
-
 // Actually, this is line section, so we need limits
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Copy, Default, Debug, PartialEq, Eq)]
@@ -1319,8 +1312,6 @@ pub trait Trait: accounts::Trait {
     + Default
     + PartialOrd
     + Copy;
-
-    type RouteId: Default + Parameter + Copy;
     
     type RawCoord: Default 
     + Parameter 
@@ -1365,7 +1356,6 @@ decl_storage! {
 pub type PageOf<T> = Page<<T as Trait>::Coord>;
 pub type RootBoxOf<T> = RootBox<<T as Trait>::Coord>;
 pub type ZoneOf<T> = Zone<<T as Trait>::Coord>;
-pub type RouteOf<T> = Route<<T as Trait>::Coord, <T as frame_system::Config>::AccountId, <T as pallet_timestamp::Config>::Moment>;
 
 // Pallets use events to inform users when important changes are made.
 // https://substrate.dev/docs/en/knowledgebase/runtime/events
