@@ -243,9 +243,9 @@ pub struct Route<Coord, OwnerId, Moment> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub struct Line<Coord, BigCoord> { 
-    pub a: Coord,
-    pub b: Coord,
-    pub c: Coord,
+    // pub a: Coord,
+    // pub b: Coord,
+    // pub c: Coord,
     pub start_point: Point2D<Coord>,
     pub end_point: Point2D<Coord>,
     _phantom: PhantomData<BigCoord>
@@ -258,17 +258,17 @@ impl<
     pub fn new(point_0: Point2D<Coord>, point_1: Point2D<Coord>) -> Self {
         // Form coefficients (y1 - y2)x + (x2 - x1)y + (x1y2 - x2y1) = 0
         // TODO (n>2) in a cycle
-        let a = (point_0.lat.try_into() - point_1.lat.try_into()).try_from(); 
-        let b = (point_1.lon.try_into() - point_0.lon.try_into()).try_from(); 
-        let c = (
-        (point_0.lon.try_into() * point_1.lat.try_into()) - 
-        (point_1.lon.try_into() * point_0.lat.try_into())
-        ).try_from(); 
+        // let a = (point_0.lat.try_into() - point_1.lat.try_into()).try_from(); 
+        // let b = (point_1.lon.try_into() - point_0.lon.try_into()).try_from(); 
+        // let c = (
+        // (point_0.lon.try_into() * point_1.lat.try_into()) - 
+        // (point_1.lon.try_into() * point_0.lat.try_into())
+        // ).try_from(); 
         // TODO if point_0.lat > point_1.lat, swap points
         Line {
-            a: a,
-            b: b,
-            c: c,
+            // a: a,
+            // b: b,
+            // c: c,
             start_point: point_0,
             end_point: point_1,
             _phantom: PhantomData
@@ -376,90 +376,129 @@ mod line_tests {
     use crate::tests::{construct_custom_box, coord, Coord};
     // TODO draw rect in ascii as an illustration
 
-    #[test]
-    fn get_route_areas_in_square() {
-        let rect = construct_custom_box("0", "0", "4", "4");
-        let root = RootBox::new(1, rect, coord("1"));
-        let first_point = Point2D::new(coord("0.5"),
-                                       coord("0.5"));
-        let second_point = Point2D::new(coord("2.5"),
-                                        coord("2.5"));
-        let line = Line::new(first_point, second_point);
-        let areas = line.get_route_areas(root);
-        assert_eq!(areas, vec![1, 5, 9, 2, 6, 10, 3, 7, 11]);
+    // In this section we try test calculations for intersecting areas with line
+    mod route_area_tests {
+        use super::*;
 
+        #[test]
+        fn get_route_areas_in_square() {
+            let rect = construct_custom_box("0", "0", "4", "4");
+            let root = RootBox::new(1, rect, coord("1"));
+            let first_point = Point2D::new(coord("0.5"),
+                                        coord("0.5"));
+            let second_point = Point2D::new(coord("2.5"),
+                                            coord("2.5"));
+            let line = Line::new(first_point, second_point);
+            let areas = line.get_route_areas(root);
+            assert_eq!(areas, vec![1, 5, 9, 2, 6, 10, 3, 7, 11]);
+        }
 
+        #[test]
+        fn get_route_areas_in_line() {
+            let rect = construct_custom_box("0", "0", "4", "4");
+            let root = RootBox::new(1, rect, coord("1"));
+            let first_point = Point2D::new(coord("0.1"),
+                coord("0.1"));
+            let second_point = Point2D::new(coord("3.1"),
+                coord("0.2"));
+            let line = Line::new(first_point, second_point);
+            let areas = line.get_route_areas(root);
+            assert_eq!(areas, vec![1, 2, 3, 4]);
+        }
+
+        #[test]
+        fn get_route_single_area() {
+            let rect = construct_custom_box("0", "0", "4", "4");
+            let root = RootBox::new(1, rect, coord("1"));
+            let first_point = Point2D::new(coord("0.1"),
+                coord("0.1"));
+            let second_point = Point2D::new(coord("0.3"),
+                coord("0.2"));
+            let line = Line::new(first_point, second_point);
+            let areas = line.get_route_areas(root);
+            assert_eq!(areas, vec![1]);
+        }
     }
 
-    #[test]
-    fn get_route_areas_in_line() {
-        let rect = construct_custom_box("0", "0", "4", "4");
-        let root = RootBox::new(1, rect, coord("1"));
-        let first_point = Point2D::new(coord("0.1"),
-            coord("0.1"));
-        let second_point = Point2D::new(coord("3.1"),
-            coord("0.2"));
-        let line = Line::new(first_point, second_point);
-        let areas = line.get_route_areas(root);
-        assert_eq!(areas, vec![1, 2, 3, 4]);
-    }
+    // In this section we try crossing different lines
+    mod crossing_line_tests { 
+        use super::*;
 
-    #[test]
-    fn get_route_single_area() {
-        let rect = construct_custom_box("0", "0", "4", "4");
-        let root = RootBox::new(1, rect, coord("1"));
-        let first_point = Point2D::new(coord("0.1"),
-            coord("0.1"));
-        let second_point = Point2D::new(coord("0.3"),
-            coord("0.2"));
-        let line = Line::new(first_point, second_point);
-        let areas = line.get_route_areas(root);
-        assert_eq!(areas, vec![1]);
-    }
+        #[test]
+        fn lines_cross() {
+            let a_first_point: Point2D<Coord> = Point2D::new(coord("0.1"),
+                coord("0.1"));
+            let a_second_point: Point2D<Coord> = Point2D::new(coord("1"),
+                coord("1"));
+            let b_first_point: Point2D<Coord> = Point2D::new(coord("0.1"),
+                coord("1"));
+            let b_second_point: Point2D<Coord> = Point2D::new(coord("1"),
+                coord("0.2"));
+            let a = Line::new(a_first_point, a_second_point);
+            let b = Line::new(b_first_point, b_second_point);
+            assert!(a.is_lines_cross(b));
+        }
 
-    #[test]
-    fn lines_cross() {
-        let a_first_point: Point2D<Coord> = Point2D::new(coord("0.1"),
-            coord("0.1"));
-        let a_second_point: Point2D<Coord> = Point2D::new(coord("1"),
-            coord("1"));
-        let b_first_point: Point2D<Coord> = Point2D::new(coord("0.1"),
-            coord("1"));
-        let b_second_point: Point2D<Coord> = Point2D::new(coord("1"),
-            coord("0.2"));
-        let a = Line::new(a_first_point, a_second_point);
-        let b = Line::new(b_first_point, b_second_point);
-        assert!(a.is_lines_cross(b));
-    }
+        #[test]
+        fn long_lines_cross() {
+            let a_first_point: Point2D<Coord> = Point2D::new(coord("10"),
+                coord("0.1"));
+            let a_second_point: Point2D<Coord> = Point2D::new(coord("10"),
+                coord("10"));
+            let b_first_point: Point2D<Coord> = Point2D::new(coord("5"),
+                coord("5"));
+            let b_second_point: Point2D<Coord> = Point2D::new(coord("15"),
+                coord("5"));
+            let a = Line::new(a_first_point, a_second_point);
+            let b = Line::new(b_first_point, b_second_point);
+            assert!(a.is_lines_cross(b));
+        }
 
-    #[test]
-    fn long_lines_cross() {
-        let a_first_point: Point2D<Coord> = Point2D::new(coord("10"),
-            coord("0.1"));
-        let a_second_point: Point2D<Coord> = Point2D::new(coord("10"),
-            coord("10"));
-        let b_first_point: Point2D<Coord> = Point2D::new(coord("5"),
-            coord("5"));
-        let b_second_point: Point2D<Coord> = Point2D::new(coord("15"),
-            coord("5"));
-        let a = Line::new(a_first_point, a_second_point);
-        let b = Line::new(b_first_point, b_second_point);
-        assert!(a.is_lines_cross(b));
-    }
+        #[test]
+        fn lines_do_not_cross() {
+            let a_first_point: Point2D<Coord> = Point2D::new(coord("0.1"),
+                coord("0.1"));
+            let a_second_point: Point2D<Coord> = Point2D::new(coord("1"),
+                coord("1"));
+            let b_first_point: Point2D<Coord> = Point2D::new(coord("1.3"),
+                coord("1.3"));
+            let b_second_point: Point2D<Coord> = Point2D::new(coord("2"),
+                coord("4"));
+            let a = Line::new(a_first_point, a_second_point);
+            let b = Line::new(b_first_point, b_second_point);
+            assert!(!a.is_lines_cross(b));
+        }
 
-    #[test]
-    fn lines_do_not_cross() {
-        let a_first_point: Point2D<Coord> = Point2D::new(coord("0.1"),
-            coord("0.1"));
-        let a_second_point: Point2D<Coord> = Point2D::new(coord("1"),
-            coord("1"));
-        let b_first_point: Point2D<Coord> = Point2D::new(coord("1.3"),
-            coord("1.3"));
-        let b_second_point: Point2D<Coord> = Point2D::new(coord("2"),
-            coord("4"));
-        let a = Line::new(a_first_point, a_second_point);
-        let b = Line::new(b_first_point, b_second_point);
-        assert!(!a.is_lines_cross(b));
+        #[test]
+        fn lines_cross_at_high_angle() {
+            let a_first_point: Point2D<Coord> = Point2D::new(coord("10"),
+                coord("0.1"));
+            let a_second_point: Point2D<Coord> = Point2D::new(coord("10"),
+                coord("10"));
+            let b_first_point: Point2D<Coord> = Point2D::new(coord("9.8"),
+                coord("0.1"));
+            let b_second_point: Point2D<Coord> = Point2D::new(coord("10.1"),
+                coord("10"));
+            let a = Line::new(a_first_point, a_second_point);
+            let b = Line::new(b_first_point, b_second_point);
+            assert!(a.is_lines_cross(b));
+        }
+
+        #[test]
+        fn line_cross_rect() {
+            // It is becoming kinda long, but there's a lot of coords in use
+            let a_first_point: Point2D<Coord> = Point2D::new(coord("0.1"),
+                coord("0.1"));
+            let a_second_point: Point2D<Coord> = Point2D::new(coord("1"),
+                coord("1"));
+            let b_first_point: Point2D<Coord> = Point2D::new(coord("1.3"),
+                coord("1.3"));
+            let b_second_point: Point2D<Coord> = Point2D::new(coord("2"),
+                coord("4"));
+            let a = Line::new(a_first_point, a_second_point);
+            let b = Line::new(b_first_point, b_second_point);
+            assert!(!a.is_lines_cross(b));
+        }
     }
 }
 
