@@ -264,7 +264,6 @@ impl<
         // (point_0.lon.try_into() * point_1.lat.try_into()) - 
         // (point_1.lon.try_into() * point_0.lat.try_into())
         // ).try_from(); 
-        // TODO if point_0.lat > point_1.lat, swap points
         Line {
             // a: a,
             // b: b,
@@ -323,11 +322,11 @@ impl<
         let south_line = Line::new(south_east, rect.south_west);
 
         let rect_lines = vec![west_line, north_line, east_line, south_line];
-        let mut crossed = false;
+        
         for line in rect_lines.iter() {
-            crossed = self.is_lines_cross(*line);
+            if self.is_lines_cross(*line) { return true; }
         }
-        crossed
+        false
     }
     // TODO change BigCoord::default to custom epsilon in Trait
     pub fn is_lines_cross(&self, line: Line<Coord, BigCoord>) -> bool {
@@ -373,7 +372,7 @@ impl<
 #[cfg(test)]
 mod line_tests {
     use super::*;
-    use crate::tests::{construct_custom_box, coord, Coord};
+    use crate::tests::{construct_custom_box, construct_testing_rect, coord, Coord};
     // TODO draw rect in ascii as an illustration
 
     // In this section we try test calculations for intersecting areas with line
@@ -426,13 +425,14 @@ mod line_tests {
 
         #[test]
         fn lines_cross() {
+            // I'm not sure, why do i have to specify variable type in each fn 
             let a_first_point: Point2D<Coord> = Point2D::new(coord("0.1"),
                 coord("0.1"));
-            let a_second_point: Point2D<Coord> = Point2D::new(coord("1"),
+            let a_second_point = Point2D::new(coord("1"),
                 coord("1"));
-            let b_first_point: Point2D<Coord> = Point2D::new(coord("0.1"),
+            let b_first_point = Point2D::new(coord("0.1"),
                 coord("1"));
-            let b_second_point: Point2D<Coord> = Point2D::new(coord("1"),
+            let b_second_point = Point2D::new(coord("1"),
                 coord("0.2"));
             let a = Line::new(a_first_point, a_second_point);
             let b = Line::new(b_first_point, b_second_point);
@@ -443,11 +443,11 @@ mod line_tests {
         fn long_lines_cross() {
             let a_first_point: Point2D<Coord> = Point2D::new(coord("10"),
                 coord("0.1"));
-            let a_second_point: Point2D<Coord> = Point2D::new(coord("10"),
+            let a_second_point = Point2D::new(coord("10"),
                 coord("10"));
-            let b_first_point: Point2D<Coord> = Point2D::new(coord("5"),
+            let b_first_point = Point2D::new(coord("5"),
                 coord("5"));
-            let b_second_point: Point2D<Coord> = Point2D::new(coord("15"),
+            let b_second_point = Point2D::new(coord("15"),
                 coord("5"));
             let a = Line::new(a_first_point, a_second_point);
             let b = Line::new(b_first_point, b_second_point);
@@ -458,11 +458,11 @@ mod line_tests {
         fn lines_do_not_cross() {
             let a_first_point: Point2D<Coord> = Point2D::new(coord("0.1"),
                 coord("0.1"));
-            let a_second_point: Point2D<Coord> = Point2D::new(coord("1"),
+            let a_second_point = Point2D::new(coord("1"),
                 coord("1"));
-            let b_first_point: Point2D<Coord> = Point2D::new(coord("1.3"),
+            let b_first_point = Point2D::new(coord("1.3"),
                 coord("1.3"));
-            let b_second_point: Point2D<Coord> = Point2D::new(coord("2"),
+            let b_second_point = Point2D::new(coord("2"),
                 coord("4"));
             let a = Line::new(a_first_point, a_second_point);
             let b = Line::new(b_first_point, b_second_point);
@@ -473,11 +473,11 @@ mod line_tests {
         fn lines_cross_at_high_angle() {
             let a_first_point: Point2D<Coord> = Point2D::new(coord("10"),
                 coord("0.1"));
-            let a_second_point: Point2D<Coord> = Point2D::new(coord("10"),
+            let a_second_point = Point2D::new(coord("10"),
                 coord("10"));
-            let b_first_point: Point2D<Coord> = Point2D::new(coord("9.8"),
+            let b_first_point = Point2D::new(coord("9.8"),
                 coord("0.1"));
-            let b_second_point: Point2D<Coord> = Point2D::new(coord("10.1"),
+            let b_second_point = Point2D::new(coord("10.1"),
                 coord("10"));
             let a = Line::new(a_first_point, a_second_point);
             let b = Line::new(b_first_point, b_second_point);
@@ -485,19 +485,63 @@ mod line_tests {
         }
 
         #[test]
-        fn line_cross_rect() {
+        fn line_through_rect() {
             // It is becoming kinda long, but there's a lot of coords in use
-            let a_first_point: Point2D<Coord> = Point2D::new(coord("0.1"),
-                coord("0.1"));
-            let a_second_point: Point2D<Coord> = Point2D::new(coord("1"),
+            let rect_first_point: Point2D<Coord> = Point2D::new(coord("1"),
                 coord("1"));
-            let b_first_point: Point2D<Coord> = Point2D::new(coord("1.3"),
-                coord("1.3"));
-            let b_second_point: Point2D<Coord> = Point2D::new(coord("2"),
-                coord("4"));
-            let a = Line::new(a_first_point, a_second_point);
-            let b = Line::new(b_first_point, b_second_point);
-            assert!(!a.is_lines_cross(b));
+            let rect_second_point = Point2D::new(coord("2"),
+                coord("15"));
+            let first_point = Point2D::new(coord("0.1"),
+                coord("3"));
+            let second_point = Point2D::new(coord("4"),
+                coord("3"));
+            let rect = Rect2D::new(rect_first_point, rect_second_point);
+            let line = Line::new(first_point, second_point);
+            assert!(line.intersects_rect(rect));
+        }
+
+        #[test]
+        fn line_partially_inside_rect() {
+            let rect_first_point: Point2D<Coord> = Point2D::new(coord("1"),
+                coord("1"));
+            let rect_second_point = Point2D::new(coord("2"),
+                coord("15"));
+            let first_point = Point2D::new(coord("0.1"),
+                coord("3"));
+            let second_point = Point2D::new(coord("1.5"),
+                coord("3"));
+            let rect = Rect2D::new(rect_first_point, rect_second_point);
+            let line = Line::new(first_point, second_point);
+            assert!(line.intersects_rect(rect));
+        }
+
+
+        #[test]
+        fn line_outside_rect() {
+            let rect_first_point: Point2D<Coord> = Point2D::new(coord("1"),
+                coord("1"));
+            let rect_second_point = Point2D::new(coord("2"),
+                coord("15"));
+            let first_point = Point2D::new(coord("3"),
+                coord("3"));
+            let second_point = Point2D::new(coord("4"),
+                coord("6"));
+            let rect = Rect2D::new(rect_first_point, rect_second_point);
+            let line = Line::new(first_point, second_point);
+            assert!(!line.intersects_rect(rect));
+        }
+
+        #[test]
+        fn line_rect_gps_coords() {
+            let first_point = Point2D::new(coord("55.392"),
+                coord("37.386"));
+            let second_point = Point2D::new(coord("55.396"),
+                coord("37.386"));
+            let rect = construct_testing_rect();
+            let intersecting_line = Line::new(first_point, second_point);
+            assert!(intersecting_line.intersects_rect(rect));
+            let third_point = Point2D::new(coord("55.393"), coord("37.386"));
+            let outside_line = Line::new(first_point, third_point);
         }
     }
 }

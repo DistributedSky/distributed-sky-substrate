@@ -95,7 +95,7 @@ pub fn construct_custom_box(sw_lat: &str, sw_lon: &str, ne_lat: &str, ne_lon: &s
     Box3D::new(south_west, north_east)
 }
 
-fn construct_testing_rect() -> Rect2D<Coord> {
+pub fn construct_testing_rect() -> Rect2D<Coord> {
     let south_west = Point2D::new(coord("55.395"),
                                   coord("37.385"));
     let north_east = Point2D::new(coord("55.396"),
