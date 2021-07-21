@@ -17,7 +17,9 @@ use frame_support::{
 use sp_std::{
     str::FromStr,
     marker::PhantomData,
-    vec,
+    vec, 
+    mem::swap,
+    cmp::{max, min}
 };
 
 use dsky_utils::{CastToType, FromRaw, IntDiv, Signed, ToBigCoord, FromBigCoord};
@@ -245,7 +247,7 @@ pub struct Line<Coord, BigCoord> {
 }
 
 impl<
-    Coord: ToBigCoord<Output = BigCoord> + PartialOrd + Signed + IntDiv + Mul<Output = Coord> + Sub<Output = Coord> + Add<Output = Coord> + Div<Output = Coord> + Copy,
+    Coord: ToBigCoord<Output = BigCoord> + Ord + Signed + IntDiv + Mul<Output = Coord> + Sub<Output = Coord> + Add<Output = Coord> + Div<Output = Coord> + Copy,
     BigCoord: Mul<Output = BigCoord> + Sub<Output = BigCoord> + FromBigCoord<Output = Coord> + Copy + Default + PartialOrd
     > Line<Coord, BigCoord> {
     pub fn new(point_0: Point2D<Coord>, point_1: Point2D<Coord>) -> Self {
@@ -275,9 +277,7 @@ impl<
         if start_area == end_area {return vec![start_area]}
         let mut output = Vec::new();
         let delta = root.delta;
-        // let lat_area = (self.end_point.lat - self.start_point.lat) / root.delta;
-        // // TODO handle negative substraction
-        // let lon_area = (self.end_point.lon - self.start_point.lon) / root.delta;
+        // TODO handle negative substraction
 
         let start_vector = root.bounding_box.south_west.project().get_distance_vector(self.start_point);
         let start_row = start_vector.lat.integer_division_u16(root.delta) + 1;
@@ -303,6 +303,7 @@ impl<
         }
         output
     }
+
     // Basically we split rect to 4 lines(maybe 2 is enough?), and check each one for intersection
     pub fn intersects_rect(&self, rect: Rect2D<Coord>) -> bool {
         // true
@@ -333,32 +334,17 @@ impl<
 
     // Okay, this is just unreadable code   
     fn intersect_1(_a: Coord, _b: Coord, _c: Coord, _d: Coord) -> bool {
-        let (mut a, mut b, mut c, mut d) = (_a.clone(), _b.clone(), _c.clone(), _d.clone());
-        if a > b {
-            let temp = a;
-            a = b;
-            b = temp;
-        }
-        if c > d {
-            let temp = c;
-            c = d;
-            d = temp;
-        }
-        Line::max(a,c) <= Line::min(b,d)
+        let (mut a, mut b, mut c, mut d) = (_a, _b, _c, _d);
+        if a > b { swap(&mut a, &mut b) }
+        if c > d { swap(&mut c, &mut d) }
+        
+        max(a,c) <= min(b,d)
     }
     
     // Area of a triangle
     fn area(a: Point2D<Coord>, b: Point2D<Coord>, c: Point2D<Coord>) -> BigCoord {
         (b.lat.try_into() - a.lat.try_into()) * (c.lon.try_into() - a.lon.try_into()) - 
         (b.lon.try_into() - a.lon.try_into()) * (c.lat.try_into() - a.lat.try_into())
-    }
-
-    fn max(a: Coord, b: Coord) -> Coord {
-        if a > b {a} else {b}
-    }
-
-    fn min(a: Coord, b: Coord) -> Coord {
-        if a > b {b} else {a}
     }
 }
 
@@ -1290,6 +1276,7 @@ pub trait Trait: accounts::Trait {
     + Parameter
     + Copy
     + PartialOrd
+    + Ord
     + PartialEq
     + FromStr
     + Signed
