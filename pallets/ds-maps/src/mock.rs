@@ -95,6 +95,9 @@ impl crate::WeightInfo for WeightInfo {
     fn change_area_type() -> Weight {
         <() as crate::WeightInfo>::change_area_type()
     }
+    fn route_add() -> Weight {
+        <() as crate::WeightInfo>::route_add()
+    }
 }
 
 // After researches, consider placing here max grid sizes

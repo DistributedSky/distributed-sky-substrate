@@ -269,7 +269,7 @@ impl<
         }
     }
 
-    //TODO optimize fn to get ONLY intersected areas, for now it gets everythig from the rect
+    // This fn reuqires few days of research for proper work, this is unoptimized version 
     pub fn get_route_areas(self, root: RootBox<Coord>) -> Vec<AreaId> {
         let start_area = root.detect_intersected_area(self.start_point);
         let end_area = root.detect_intersected_area(self.end_point);
@@ -277,7 +277,6 @@ impl<
         if start_area == end_area {return vec![start_area]}
         let mut output = Vec::new();
         let delta = root.delta;
-        // TODO handle negative substraction
 
         let start_vector = root.bounding_box.south_west.project().get_distance_vector(self.start_point);
         let start_row = start_vector.lat.integer_division_u16(root.delta) + 1;
@@ -289,7 +288,7 @@ impl<
 
         let mut current_point = self.start_point;
         let mut row_counter = start_row;
-
+        // Iterating through all areas from start to end points
         while row_counter <= end_row {
             let mut column_counter = start_column;
             while column_counter <= end_column {
@@ -1726,7 +1725,7 @@ decl_module! {
             Ok(())
         }
 
-        /// creates new route for UAV
+        /// Creates new route for UAV
         #[weight = <T as Trait>::WeightInfo::route_add()]
         pub fn route_add(origin, 
                         waypoints: Vec<Waypoint<T::Coord, <T as pallet_timestamp::Config>::Moment>>, 
@@ -1736,8 +1735,8 @@ decl_module! {
             ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
             ensure!(waypoints.len() >= 2, Error::<T>::InvalidData);
-            let start_waypoint = &waypoints[0]; 
-            let end_waypoint = &waypoints[waypoints.len() - 1]; 
+            let start_waypoint = &waypoints.first().unwrap(); 
+            let end_waypoint = &waypoints.last().unwrap(); 
             // Getting all time bounds
             let start_time = start_waypoint.arrival;
             let arrival_time = end_waypoint.arrival;
@@ -1758,6 +1757,7 @@ decl_module! {
             for area_id in route_areas.iter() {
                 if AreaData::contains_key(root_id, area_id) {
                     let mut zone_id = Self::pack_index(root_id, *area_id, 0);
+                    // Loop through zones, maybe add constraint to MaxBuildingsInArea
                     while RedZones::<T>::contains_key(zone_id) {
                         // TODO ask about ensure!() usage in cycle
                         ensure!(!route_line.intersects_rect(RedZones::<T>::get(zone_id).rect), Error::<T>::RouteIntersectRedZone);

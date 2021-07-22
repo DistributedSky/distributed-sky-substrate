@@ -1108,9 +1108,7 @@ fn it_add_lots_of_zones() {
         let delta: Coord = coord(DELTA);
         let waypoints = construct_custom_waypoints("55.373", "37.373", "55.396", "37.386", 10, 20);
         let mut testing_rect: Rect2D<Coord> = construct_testing_rect();
-        for n in 1..11 {
-            testing_rect.north_east.lon += delta;
-            testing_rect.south_west.lon += delta;
+        for _n in 1..11 {
             assert_ok!(
                 DSMapsModule::zone_add(
                     Origin::signed(REGISTRAR_1_ACCOUNT_ID),
@@ -1119,17 +1117,10 @@ fn it_add_lots_of_zones() {
                     ROOT_ID,
                 )
             );
+            testing_rect.north_east.lon += delta;
+            testing_rect.south_west.lon += delta;
         }
-
-        assert_ok!(
-            DSMapsModule::zone_add(
-                Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                construct_testing_rect(),
-                DEFAULT_HEIGHT, 
-                ROOT_ID,
-            )
-        );
-        // Can't add it, zone is blocking the way
+        // Can't add it, one of this zones is blocking the way
         assert_noop!(
             DSMapsModule::route_add(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
