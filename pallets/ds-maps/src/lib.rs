@@ -22,7 +22,7 @@ use sp_std::{
     cmp::{max, min}
 };
 
-use dsky_utils::{CastToType, FromRaw, IntDiv, Signed, ToBigCoord, FromBigCoord};
+use dsky_utils::{CastToType, FromRaw, IntDiv, Signed, ToBigCoord, FromBigCoord, GetEpsilon};
 use frame_system::ensure_signed;
 use pallet_ds_accounts as accounts;
 use accounts::REGISTRAR_ROLE;
@@ -248,7 +248,7 @@ pub struct Line<Coord, BigCoord> {
 
 impl<
     Coord: ToBigCoord<Output = BigCoord> + Ord + Signed + IntDiv + Mul<Output = Coord> + Sub<Output = Coord> + Add<Output = Coord> + Div<Output = Coord> + Copy,
-    BigCoord: Mul<Output = BigCoord> + Sub<Output = BigCoord> + FromBigCoord<Output = Coord> + Copy + Default + PartialOrd
+    BigCoord: Mul<Output = BigCoord> + Sub<Output = BigCoord> + FromBigCoord<Output = Coord> + Copy + PartialOrd + GetEpsilon
     > Line<Coord, BigCoord> {
     pub fn new(point_0: Point2D<Coord>, point_1: Point2D<Coord>) -> Self {
         // Form coefficients (y1 - y2)x + (x2 - x1)y + (x1y2 - x2y1) = 0
@@ -322,18 +322,21 @@ impl<
         }
         false
     }
-    // TODO change BigCoord::default to custom epsilon in Trait
+    // This method allows to proof intersection, but can't find intersection points
     pub fn is_lines_cross(&self, line: Line<Coord, BigCoord>) -> bool {
-        Line::intersect_1(self.start_point.lat, self.end_point.lat, line.start_point.lat, line.end_point.lat) &&
-        Line::intersect_1(self.start_point.lon, self.end_point.lon, line.start_point.lon, line.end_point.lon) &&
+        // Checking if the segments are collinear
+        Line::projection_intersect(self.start_point.lat, self.end_point.lat, line.start_point.lat, line.end_point.lat) &&
+        Line::projection_intersect(self.start_point.lon, self.end_point.lon, line.start_point.lon, line.end_point.lon) &&
+        // Check, that points of AB lies on different sides of CD, and vice versa
+        // TODO basically we need only signs and zero-condition, consider refactor
         ((Line::area(self.start_point, self.end_point, line.start_point) * 
-        Line::area(self.start_point, self.end_point, line.end_point)) <= BigCoord::default()) &&
+        Line::area(self.start_point, self.end_point, line.end_point)) <= BigCoord::get_epsilon()) &&
         ((Line::area(line.start_point, line.end_point, self.start_point) * 
-        Line::area(line.start_point, line.end_point, self.end_point)) <= BigCoord::default())
+        Line::area(line.start_point, line.end_point, self.end_point)) <= BigCoord::get_epsilon())
     }
 
-    // Okay, this is just unreadable code   
-    fn intersect_1(_a: Coord, _b: Coord, _c: Coord, _d: Coord) -> bool {
+    // Checks for projections not to intersect
+    fn projection_intersect(_a: Coord, _b: Coord, _c: Coord, _d: Coord) -> bool {
         let (mut a, mut b, mut c, mut d) = (_a, _b, _c, _d);
         if a > b { swap(&mut a, &mut b) }
         if c > d { swap(&mut c, &mut d) }
@@ -341,7 +344,8 @@ impl<
         max(a,c) <= min(b,d)
     }
     
-    // Area of a triangle
+    // BigCoord required, cause this math is out of bounds for Coord
+    // Signed area of a triangle, oriented clockwise (same as vector multiplication)
     fn area(a: Point2D<Coord>, b: Point2D<Coord>, c: Point2D<Coord>) -> BigCoord {
         (b.lat.try_into() - a.lat.try_into()) * (c.lon.try_into() - a.lon.try_into()) - 
         (b.lon.try_into() - a.lon.try_into()) * (c.lat.try_into() - a.lat.try_into())
@@ -1295,10 +1299,11 @@ pub trait Trait: accounts::Trait {
     + Div<Output = Self::BigCoord>
     + Mul<Output = Self::BigCoord>
     + Add<Output = Self::BigCoord>
-    + FromBigCoord<Output = Self::Coord>
     + Default
     + PartialOrd
-    + Copy;
+    + Copy
+    + FromBigCoord<Output = Self::Coord>
+    + GetEpsilon;
     
     type RawCoord: Default 
     + Parameter 
@@ -1318,6 +1323,7 @@ pub trait WeightInfo {
     fn root_remove() -> Weight;
     fn zone_remove() -> Weight;
     fn change_area_type() -> Weight;
+    fn route_add() -> Weight;
 }
 
 decl_storage! {
@@ -1721,7 +1727,7 @@ decl_module! {
         }
 
         /// creates new route for UAV
-        #[weight = <T as Trait>::WeightInfo::change_area_type()]
+        #[weight = <T as Trait>::WeightInfo::route_add()]
         pub fn route_add(origin, 
                         waypoints: Vec<Waypoint<T::Coord, <T as pallet_timestamp::Config>::Moment>>, 
                         root_id: RootId) -> dispatch::DispatchResult {

@@ -31,6 +31,10 @@ pub trait FromBigCoord {
     fn try_from(self) -> Self::Output;
 }
 
+pub trait GetEpsilon {
+    fn get_epsilon() -> Self;
+}
+
 // Here comes the implementations 
 // Want to change Coord type => impl trait for it here
 impl IntDiv for I10F22 {
@@ -83,10 +87,17 @@ impl ToBigCoord for I10F22 {
         self.into()
     }
 }
+
 // TODO handle possible errors through checked_from_fixed()
 impl FromBigCoord for I42F22 {
     type Output = I10F22;
     fn try_from(self) -> Self::Output {
         I10F22::from_fixed(self)
+    }
+}
+
+impl GetEpsilon for I42F22 {
+    fn get_epsilon() -> I42F22 {
+        I42F22::from_num(0.00001f64)
     }
 }
