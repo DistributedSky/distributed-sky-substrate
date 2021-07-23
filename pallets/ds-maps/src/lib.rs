@@ -247,7 +247,7 @@ pub struct Line<Coord, BigCoord> {
 }
 
 impl<
-    Coord: ToBigCoord<Output = BigCoord> + Ord + Signed + IntDiv + Mul<Output = Coord> + Sub<Output = Coord> + Add<Output = Coord> + Div<Output = Coord> + Copy,
+    Coord: FromStr + Default + ToBigCoord<Output = BigCoord> + Ord + Signed + IntDiv + Mul<Output = Coord> + Sub<Output = Coord> + Add<Output = Coord> + Div<Output = Coord> + Copy,
     BigCoord: Mul<Output = BigCoord> + Sub<Output = BigCoord> + FromBigCoord<Output = Coord> + Copy + PartialOrd + GetEpsilon
     > Line<Coord, BigCoord> {
     pub fn new(point_0: Point2D<Coord>, point_1: Point2D<Coord>) -> Self {
@@ -266,8 +266,14 @@ impl<
             start_point: point_0,
             end_point: point_1,
             _phantom: PhantomData
-        }
+        } 
     }
+    fn coord_from_str (s: &str) -> Coord {
+        match Coord::from_str(s) {
+            Ok(v) => v,
+            Err(_) => Default::default(),
+        }
+    } 
 
     // Realisation of Bresenham's line algorithm 
     pub fn get_route_areas(self, root: RootBox<Coord>) -> Vec<AreaId> {
@@ -277,29 +283,42 @@ impl<
         if start_area == end_area {return vec![start_area]}
         let mut output = Vec::new();
         let delta = root.delta;
-
-        let start_vector = root.bounding_box.south_west.project().get_distance_vector(self.start_point);
-        let start_row = start_vector.lat.integer_division_u16(root.delta) + 1;
-        let start_column = start_vector.lon.integer_division_u16(root.delta) + 1;
-
-        let end_vector = root.bounding_box.south_west.project().get_distance_vector(self.end_point);
-        let end_row = end_vector.lat.integer_division_u16(root.delta) + 1;
-        let end_column = end_vector.lon.integer_division_u16(root.delta) + 1;
+        // Simplification, it's still lat/lon
+        let mut dx = self.end_point.lat - self.start_point.lat;
+        let mut dy = self.end_point.lon - self.start_point.lon;
+        let incx = dx.signum() * delta;
+        let incy = dy.signum() * delta;
+        dx = dx.abs(); 
+        dy = dy.abs();
+        let pdx: Coord;
+        let pdy: Coord;
+        let es: Coord;
+        let el: Coord;
+        let zero: Coord = Line::coord_from_str("0");
+        if dx > dy {
+            pdx = incx; pdy = zero;
+            es = dy;    el = dx;
+        } else {
+            pdx = zero;     pdy = incy;
+            es = dx;     el = dy;
+        }
 
         let mut current_point = self.start_point;
-        let mut row_counter = start_row;
-        // TODO fix inverted stepping 
-        // Iterating through all areas from start to end points
-        while row_counter <= end_row {
-            let mut column_counter = start_column;
-            while column_counter <= end_column {
-                output.push(root.detect_intersected_area(current_point));
-                current_point.lon = current_point.lon + delta;
-                column_counter += 1;
+        output.push(root.detect_intersected_area(current_point));
+        let mut count: Coord = zero;
+        let mut err = el / Line::coord_from_str("2");
+        while count < el {
+            count = count + delta; 
+            err = err - es;
+            if err < zero {
+                err = err + el;
+                current_point.lat = current_point.lat + incx;
+                current_point.lon = current_point.lon + incy;
+            } else {
+                current_point.lat = current_point.lat + pdx;
+                current_point.lon = current_point.lon + pdy;
             }
-            current_point.lon = self.start_point.lon;
-            current_point.lat = current_point.lat + delta;
-            row_counter += 1;
+            output.push(root.detect_intersected_area(current_point));
         }
         output
     }
@@ -374,7 +393,7 @@ mod line_tests {
                                             coord("2.5"));
             let line = Line::new(first_point, second_point);
             let areas = line.get_route_areas(root);
-            assert_eq!(areas, vec![1, 5, 9, 2, 6, 10, 3, 7, 11]);
+            assert_eq!(areas, vec![1, 6, 11]);
         }
 
         #[test]
@@ -388,6 +407,19 @@ mod line_tests {
             let line = Line::new(first_point, second_point);
             let areas = line.get_route_areas(root);
             assert_eq!(areas, vec![1, 2, 3, 4]);
+        }
+
+        #[test]
+        fn get_route_areas_in_frac_delta() {
+            let rect = construct_custom_box("0", "0", "4", "4");
+            let root = RootBox::new(1, rect, coord("0.1"));
+            let first_point = Point2D::new(coord("0.01"),
+                coord("0.01"));
+            let second_point = Point2D::new(coord("0.31"),
+                coord("0.02"));
+            let line = Line::new(first_point, second_point);
+            let areas = line.get_route_areas(root);
+            assert_eq!(areas, vec![1, 2, 3, 4, 5]);
         }
 
         #[test]

@@ -10,6 +10,7 @@ pub trait IntDiv<RHS = Self> {
 
 pub trait Signed { 
     fn abs(self) -> Self;
+    fn signum(self) -> Self;
 }
 
 pub trait FromRaw {
@@ -56,6 +57,10 @@ impl FromRaw for I10F22 {
 impl Signed for I10F22 {
     fn abs(self) -> Self {
         self.abs()
+    }
+    /// returns sign (-1, 1, 0)
+    fn signum(self) -> Self {
+        self.signum()
     }
 }
 
