@@ -269,7 +269,7 @@ impl<
         }
     }
 
-    // This fn reuqires few days of research for proper work, this is unoptimized version 
+    // Realisation of Bresenham's line algorithm 
     pub fn get_route_areas(self, root: RootBox<Coord>) -> Vec<AreaId> {
         let start_area = root.detect_intersected_area(self.start_point);
         let end_area = root.detect_intersected_area(self.end_point);
@@ -288,6 +288,7 @@ impl<
 
         let mut current_point = self.start_point;
         let mut row_counter = start_row;
+        // TODO fix inverted stepping 
         // Iterating through all areas from start to end points
         while row_counter <= end_row {
             let mut column_counter = start_column;
@@ -356,7 +357,9 @@ mod line_tests {
     use super::*;
     use crate::tests::{construct_custom_box, construct_testing_rect, coord, Coord};
     // TODO draw rect in ascii as an illustration
-
+    // +---+
+    // |   |
+    // +---+
     // In this section we try test calculations for intersecting areas with line
     mod route_area_tests {
         use super::*;
