@@ -363,7 +363,7 @@ impl<
         max(a,c) <= min(b,d)
     }
     
-    // BigCoord required, cause this math is out of bounds for Coord
+    // Yea, this fn hurts
     // Signed area of a triangle, oriented clockwise (same as vector multiplication)
     fn area(a: Point2D<Coord>, b: Point2D<Coord>, c: Point2D<Coord>) -> BigCoord {
         (b.lat.try_into() - a.lat.try_into()) * (c.lon.try_into() - a.lon.try_into()) - 
@@ -1805,6 +1805,28 @@ decl_module! {
                 start_time, arrival_time, root_id, who
             ));
             Ok(())
+        }
+
+        #[weight = <T as Trait>::WeightInfo::route_add()]
+        pub fn raw_route_add(origin, 
+                            raw_waypoints: [T::RawCoord; 4],
+                            start_time: T::Moment,
+                            arrival_time: T::Moment,
+                            root_id: RootId) -> dispatch::DispatchResult {
+            let start_location = Point3D::new(
+                T::Coord::from_raw(raw_waypoints[0].into()), 
+                T::Coord::from_raw(raw_waypoints[1].into()),
+                Self::coord_from_str("1"));
+
+            let start_waypoint = Waypoint::new(start_location, start_time);
+
+            let arrival_location = Point3D::new(
+                T::Coord::from_raw(raw_waypoints[2].into()), 
+                T::Coord::from_raw(raw_waypoints[3].into()),
+                Self::coord_from_str("1"));
+
+            let arrival_waypoint = Waypoint::new(arrival_location, arrival_time);
+            Module::<T>::route_add(origin, vec![start_waypoint, arrival_waypoint], root_id)
         }
     }
 }
