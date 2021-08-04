@@ -27,6 +27,22 @@ Current proof-of-concept runtime includes functions:
 - setting "red" areas inside flight zone by REGISTRAR (set area on map, that cannot be intersected by any route)
 - setting route (by checking intersections with zones and firing blockchain Event with flight route params)
 
+# Build and run
+
+```bash
+# clone project from repo
+git clone https://github.com/DistributedSky/distributed-sky-substrate.git
+cd distributed-sky-substrate
+
+# add build target "wasm32-unknown-unknown" to build runtime
+rustup target add wasm32-unknown-unknown
+
+# build release
+cargo build --release
+
+# run node in "dev" mode
+./target/release/node-dsky --dev
+```
 
 ## Future improvements
 
