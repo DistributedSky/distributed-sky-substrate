@@ -16,5 +16,7 @@ impl crate::WeightInfo for () {
     fn change_area_type() -> Weight {
         100_000_u64.saturating_add(DbWeight::get().writes(1))
     }   
-
+    fn route_add() -> Weight {
+        100_000_u64.saturating_add(DbWeight::get().writes(1))
+    }
 }
