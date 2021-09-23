@@ -7,7 +7,7 @@ use frame_support::{
     codec::{Decode, Encode},
     storage::StorageDoubleMap,
     dispatch::fmt::Debug,
-    sp_runtime::sp_std::{ops::{Sub, Div}, vec::Vec},
+    sp_runtime::sp_std::{ops::{Sub, Div, Mul, Add}, vec::Vec},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,    
     weights::Weight,
     Parameter,
@@ -17,10 +17,12 @@ use frame_support::{
 use sp_std::{
     str::FromStr,
     marker::PhantomData,
-    vec,
+    vec, 
+    mem::swap,
+    cmp::{max, min}
 };
 
-use dsky_utils::{CastToType, FromRaw, IntDiv, Signed};
+use dsky_utils::{CastToType, FromRaw, IntDiv, Signed, ToBigCoord, FromBigCoord, GetEpsilon};
 use frame_system::ensure_signed;
 use pallet_ds_accounts as accounts;
 use accounts::REGISTRAR_ROLE;
@@ -185,9 +187,15 @@ pub struct Point3D<Coord> {
     alt: Coord,
 }
 
-impl<Coord> Point3D<Coord> {
+impl<
+    Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv
+    > Point3D<Coord> {
     pub fn new(lat: Coord, lon: Coord, alt: Coord) -> Self {
         Point3D{lat, lon, alt}
+    }
+
+    pub fn project(self) -> Point2D<Coord> {
+        Point2D::new(self.lat, self.lon)
     }
 }
 
@@ -207,13 +215,352 @@ impl<
 
     /// Gets rect 2D projection from a box
     pub fn projection_on_plane(self) -> Rect2D<Coord> {
-        let south_west = 
-        Point2D::new(self.south_west.lat,
-                     self.south_west.lon); 
-        let north_east = 
-        Point2D::new(self.north_east.lat,
-                    self.north_east.lon); 
+        let south_west = self.south_west.project();
+        let north_east = self.north_east.project();
         Rect2D::new(south_west, north_east)
+    }
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, Eq)]
+pub struct Waypoint<Coord, Moment> { 
+    pub location: Point3D<Coord>,
+    pub arrival: Moment,
+}
+
+impl<Coord, Moment> Waypoint<Coord, Moment> {
+    pub fn new(location: Point3D<Coord>, arrival: Moment) -> Self {
+        Waypoint{location, arrival}
+    }
+}
+
+// Actually, this is line section, so we need limits
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub struct Line<Coord, BigCoord> { 
+    // pub a: Coord,
+    // pub b: Coord,
+    // pub c: Coord,
+    pub start_point: Point2D<Coord>,
+    pub end_point: Point2D<Coord>,
+    _phantom: PhantomData<BigCoord>
+}
+
+impl<
+    Coord: FromStr + Default + ToBigCoord<Output = BigCoord> + Ord + Signed + IntDiv + Mul<Output = Coord> + Sub<Output = Coord> + Add<Output = Coord> + Div<Output = Coord> + Copy,
+    BigCoord: Mul<Output = BigCoord> + Sub<Output = BigCoord> + FromBigCoord<Output = Coord> + Copy + PartialOrd + GetEpsilon
+    > Line<Coord, BigCoord> {
+    pub fn new(point_0: Point2D<Coord>, point_1: Point2D<Coord>) -> Self {
+        // Form coefficients (y1 - y2)x + (x2 - x1)y + (x1y2 - x2y1) = 0
+        // TODO (n>2) in a cycle
+        // let a = (point_0.lat.try_into() - point_1.lat.try_into()).try_from(); 
+        // let b = (point_1.lon.try_into() - point_0.lon.try_into()).try_from(); 
+        // let c = (
+        // (point_0.lon.try_into() * point_1.lat.try_into()) - 
+        // (point_1.lon.try_into() * point_0.lat.try_into())
+        // ).try_from(); 
+        Line {
+            // a: a,
+            // b: b,
+            // c: c,
+            start_point: point_0,
+            end_point: point_1,
+            _phantom: PhantomData
+        } 
+    }
+    fn coord_from_str (s: &str) -> Coord {
+        match Coord::from_str(s) {
+            Ok(v) => v,
+            Err(_) => Default::default(),
+        }
+    } 
+
+    // Realisation of Bresenham's line algorithm 
+    pub fn get_route_areas(self, root: RootBox<Coord>) -> Vec<AreaId> {
+        let start_area = root.detect_intersected_area(self.start_point);
+        let end_area = root.detect_intersected_area(self.end_point);
+        // In case everything is in one area 
+        if start_area == end_area {return vec![start_area]}
+        let mut output = Vec::new();
+        let delta = root.delta;
+        // Simplification, it's still lat/lon
+        let mut dx = self.end_point.lat - self.start_point.lat;
+        let mut dy = self.end_point.lon - self.start_point.lon;
+        let incx = dx.signum() * delta;
+        let incy = dy.signum() * delta;
+        dx = dx.abs(); 
+        dy = dy.abs();
+        let pdx: Coord;
+        let pdy: Coord;
+        let es: Coord;
+        let el: Coord;
+        let zero: Coord = Line::coord_from_str("0");
+        if dx > dy {
+            pdx = incx; pdy = zero;
+            es = dy;    el = dx;
+        } else {
+            pdx = zero;     pdy = incy;
+            es = dx;     el = dy;
+        }
+
+        let mut current_point = self.start_point;
+        output.push(root.detect_intersected_area(current_point));
+        let mut count: Coord = zero;
+        let mut err = el / Line::coord_from_str("2");
+        while count < el {
+            count = count + delta; 
+            err = err - es;
+            if err < zero {
+                err = err + el;
+                current_point.lat = current_point.lat + incx;
+                current_point.lon = current_point.lon + incy;
+            } else {
+                current_point.lat = current_point.lat + pdx;
+                current_point.lon = current_point.lon + pdy;
+            }
+            output.push(root.detect_intersected_area(current_point));
+        }
+        output
+    }
+
+    // Basically we split rect to 4 lines(maybe 2 is enough?), and check each one for intersection
+    pub fn intersects_rect(&self, rect: Rect2D<Coord>) -> bool {
+        // true
+        let south_east = Point2D::new(rect.north_east.lat, rect.south_west.lon);
+        let north_west = Point2D::new(rect.south_west.lat, rect.north_east.lon);
+
+        let west_line = Line::new(rect.south_west, north_west);
+        let north_line = Line::new(north_west, rect.north_east);
+        let east_line = Line::new(rect.north_east, south_east);
+        let south_line = Line::new(south_east, rect.south_west);
+
+        let rect_lines = vec![west_line, north_line, east_line, south_line];
+        
+        for line in rect_lines.iter() {
+            if self.is_lines_cross(*line) { return true; }
+        }
+        false
+    }
+    // This method allows to proof intersection, but can't find intersection points
+    pub fn is_lines_cross(&self, line: Line<Coord, BigCoord>) -> bool {
+        // Checking if the segments are collinear
+        Line::projection_intersect(self.start_point.lat, self.end_point.lat, line.start_point.lat, line.end_point.lat) &&
+        Line::projection_intersect(self.start_point.lon, self.end_point.lon, line.start_point.lon, line.end_point.lon) &&
+        // Check, that points of AB lies on different sides of CD, and vice versa
+        // TODO basically we need only signs and zero-condition, consider refactor
+        ((Line::area(self.start_point, self.end_point, line.start_point) * 
+        Line::area(self.start_point, self.end_point, line.end_point)) <= BigCoord::get_epsilon()) &&
+        ((Line::area(line.start_point, line.end_point, self.start_point) * 
+        Line::area(line.start_point, line.end_point, self.end_point)) <= BigCoord::get_epsilon())
+    }
+
+    // Checks for projections not to intersect
+    fn projection_intersect(_a: Coord, _b: Coord, _c: Coord, _d: Coord) -> bool {
+        let (mut a, mut b, mut c, mut d) = (_a, _b, _c, _d);
+        if a > b { swap(&mut a, &mut b) }
+        if c > d { swap(&mut c, &mut d) }
+        
+        max(a,c) <= min(b,d)
+    }
+    
+    // Yea, this fn hurts
+    // Signed area of a triangle, oriented clockwise (same as vector multiplication)
+    fn area(a: Point2D<Coord>, b: Point2D<Coord>, c: Point2D<Coord>) -> BigCoord {
+        (b.lat.try_into() - a.lat.try_into()) * (c.lon.try_into() - a.lon.try_into()) - 
+        (b.lon.try_into() - a.lon.try_into()) * (c.lat.try_into() - a.lat.try_into())
+    }
+}
+
+#[cfg(test)]
+mod line_tests {
+    use super::*;
+    use crate::tests::{construct_custom_box, construct_testing_rect, coord, Coord};
+    // TODO draw rect in ascii as an illustration
+    // +---+
+    // |   |
+    // +---+
+    // In this section we try test calculations for intersecting areas with line
+    mod route_area_tests {
+        use super::*;
+
+        #[test]
+        fn get_route_areas_in_square() {
+            let rect = construct_custom_box("0", "0", "4", "4");
+            let root = RootBox::new(1, rect, coord("1"));
+            let first_point = Point2D::new(coord("0.5"),
+                                        coord("0.5"));
+            let second_point = Point2D::new(coord("2.5"),
+                                            coord("2.5"));
+            let line = Line::new(first_point, second_point);
+            let areas = line.get_route_areas(root);
+            assert_eq!(areas, vec![1, 6, 11]);
+        }
+
+        #[test]
+        fn get_route_areas_in_line() {
+            let rect = construct_custom_box("0", "0", "4", "4");
+            let root = RootBox::new(1, rect, coord("1"));
+            let first_point = Point2D::new(coord("0.1"),
+                coord("0.1"));
+            let second_point = Point2D::new(coord("3.1"),
+                coord("0.2"));
+            let line = Line::new(first_point, second_point);
+            let areas = line.get_route_areas(root);
+            assert_eq!(areas, vec![1, 2, 3, 4]);
+        }
+
+        #[test]
+        fn get_route_areas_in_frac_delta() {
+            let rect = construct_custom_box("0", "0", "4", "4");
+            let root = RootBox::new(1, rect, coord("0.1"));
+            let first_point = Point2D::new(coord("0.01"),
+                coord("0.01"));
+            let second_point = Point2D::new(coord("0.31"),
+                coord("0.02"));
+            let line = Line::new(first_point, second_point);
+            let areas = line.get_route_areas(root);
+            assert_eq!(areas, vec![1, 2, 3, 4, 5]);
+        }
+
+        #[test]
+        fn get_route_single_area() {
+            let rect = construct_custom_box("0", "0", "4", "4");
+            let root = RootBox::new(1, rect, coord("1"));
+            let first_point = Point2D::new(coord("0.1"),
+                coord("0.1"));
+            let second_point = Point2D::new(coord("0.3"),
+                coord("0.2"));
+            let line = Line::new(first_point, second_point);
+            let areas = line.get_route_areas(root);
+            assert_eq!(areas, vec![1]);
+        }
+    }
+
+    // In this section we try crossing different lines
+    mod crossing_line_tests { 
+        use super::*;
+
+        #[test]
+        fn lines_cross() {
+            // I'm not sure, why do i have to specify variable type in each fn 
+            let a_first_point: Point2D<Coord> = Point2D::new(coord("0.1"),
+                coord("0.1"));
+            let a_second_point = Point2D::new(coord("1"),
+                coord("1"));
+            let b_first_point = Point2D::new(coord("0.1"),
+                coord("1"));
+            let b_second_point = Point2D::new(coord("1"),
+                coord("0.2"));
+            let a = Line::new(a_first_point, a_second_point);
+            let b = Line::new(b_first_point, b_second_point);
+            assert!(a.is_lines_cross(b));
+        }
+
+        #[test]
+        fn long_lines_cross() {
+            let a_first_point: Point2D<Coord> = Point2D::new(coord("10"),
+                coord("0.1"));
+            let a_second_point = Point2D::new(coord("10"),
+                coord("10"));
+            let b_first_point = Point2D::new(coord("5"),
+                coord("5"));
+            let b_second_point = Point2D::new(coord("15"),
+                coord("5"));
+            let a = Line::new(a_first_point, a_second_point);
+            let b = Line::new(b_first_point, b_second_point);
+            assert!(a.is_lines_cross(b));
+        }
+
+        #[test]
+        fn lines_do_not_cross() {
+            let a_first_point: Point2D<Coord> = Point2D::new(coord("0.1"),
+                coord("0.1"));
+            let a_second_point = Point2D::new(coord("1"),
+                coord("1"));
+            let b_first_point = Point2D::new(coord("1.3"),
+                coord("1.3"));
+            let b_second_point = Point2D::new(coord("2"),
+                coord("4"));
+            let a = Line::new(a_first_point, a_second_point);
+            let b = Line::new(b_first_point, b_second_point);
+            assert!(!a.is_lines_cross(b));
+        }
+
+        #[test]
+        fn lines_cross_at_high_angle() {
+            let a_first_point: Point2D<Coord> = Point2D::new(coord("10"),
+                coord("0.1"));
+            let a_second_point = Point2D::new(coord("10"),
+                coord("10"));
+            let b_first_point = Point2D::new(coord("9.8"),
+                coord("0.1"));
+            let b_second_point = Point2D::new(coord("10.1"),
+                coord("10"));
+            let a = Line::new(a_first_point, a_second_point);
+            let b = Line::new(b_first_point, b_second_point);
+            assert!(a.is_lines_cross(b));
+        }
+
+        #[test]
+        fn line_through_rect() {
+            // It is becoming kinda long, but there's a lot of coords in use
+            let rect_first_point: Point2D<Coord> = Point2D::new(coord("1"),
+                coord("1"));
+            let rect_second_point = Point2D::new(coord("2"),
+                coord("15"));
+            let first_point = Point2D::new(coord("0.1"),
+                coord("3"));
+            let second_point = Point2D::new(coord("4"),
+                coord("3"));
+            let rect = Rect2D::new(rect_first_point, rect_second_point);
+            let line = Line::new(first_point, second_point);
+            assert!(line.intersects_rect(rect));
+        }
+
+        #[test]
+        fn line_partially_inside_rect() {
+            let rect_first_point: Point2D<Coord> = Point2D::new(coord("1"),
+                coord("1"));
+            let rect_second_point = Point2D::new(coord("2"),
+                coord("15"));
+            let first_point = Point2D::new(coord("0.1"),
+                coord("3"));
+            let second_point = Point2D::new(coord("1.5"),
+                coord("3"));
+            let rect = Rect2D::new(rect_first_point, rect_second_point);
+            let line = Line::new(first_point, second_point);
+            assert!(line.intersects_rect(rect));
+        }
+
+
+        #[test]
+        fn line_outside_rect() {
+            let rect_first_point: Point2D<Coord> = Point2D::new(coord("1"),
+                coord("1"));
+            let rect_second_point = Point2D::new(coord("2"),
+                coord("15"));
+            let first_point = Point2D::new(coord("3"),
+                coord("3"));
+            let second_point = Point2D::new(coord("4"),
+                coord("6"));
+            let rect = Rect2D::new(rect_first_point, rect_second_point);
+            let line = Line::new(first_point, second_point);
+            assert!(!line.intersects_rect(rect));
+        }
+
+        #[test]
+        fn line_rect_gps_coords() {
+            let first_point = Point2D::new(coord("55.392"),
+                coord("37.386"));
+            let second_point = Point2D::new(coord("55.396"),
+                coord("37.386"));
+            let rect = construct_testing_rect();
+            let intersecting_line = Line::new(first_point, second_point);
+            assert!(intersecting_line.intersects_rect(rect));
+            let third_point = Point2D::new(coord("55.393"), coord("37.386"));
+            let outside_line = Line::new(first_point, third_point);
+            assert!(!outside_line.intersects_rect(rect));
+        }
     }
 }
 
@@ -226,7 +573,7 @@ pub struct RootBox<Coord> {
 }
 
 impl<
-    Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv + Div<Output = Coord> + Copy 
+    Coord: PartialOrd + Sub<Output = Coord> + Signed + IntDiv + Mul<Output = Coord> + Div<Output = Coord> + Copy,
     > RootBox<Coord> {
     pub fn new(id: RootId, bounding_box: Box3D<Coord>, delta: Coord) -> Self {
         RootBox{id, bounding_box, delta}
@@ -967,20 +1314,36 @@ pub trait Trait: accounts::Trait {
     + Parameter
     + Copy
     + PartialOrd
+    + Ord
     + PartialEq
     + FromStr
-    + IntDiv
     + Signed
+    + Sub<Output = Self::Coord>
+    + Div<Output = Self::Coord>
+    + Mul<Output = Self::Coord>
+    + Add<Output = Self::Coord>
+    // Traits from dsky-utils
+    + IntDiv
     + FromRaw
     + CastToType
-    + Sub<Output = Self::Coord>
-    + Div<Output = Self::Coord>;
+    + ToBigCoord<Output = Self::BigCoord>;
 
+    // Required for global calculations, where Coord is not enough. Not for common usage.
+    type BigCoord: Sub<Output = Self::BigCoord>
+    + Div<Output = Self::BigCoord>
+    + Mul<Output = Self::BigCoord>
+    + Add<Output = Self::BigCoord>
+    + Default
+    + PartialOrd
+    + Copy
+    + FromBigCoord<Output = Self::Coord>
+    + GetEpsilon;
+    
     type RawCoord: Default 
     + Parameter 
     + Into<i32>
     + Copy;
-
+    
     /// This allows us to have a top border for zones
     type MaxBuildingsInArea: Get<u16>;
     
@@ -994,6 +1357,7 @@ pub trait WeightInfo {
     fn root_remove() -> Weight;
     fn zone_remove() -> Weight;
     fn change_area_type() -> Weight;
+    fn route_add() -> Weight;
 }
 
 decl_storage! {
@@ -1026,6 +1390,8 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Config>::AccountId,
+        Moment = <T as pallet_timestamp::Config>::Moment,
+        Coord = <T as Trait>::Coord,
     {
         // Event documentation should end with an array that provides descriptive names for event parameters.
         /// New root box has been created [box number, who]
@@ -1038,6 +1404,8 @@ decl_event!(
         RootRemoved(RootId, AccountId),
         /// Zone was removed from storage
         ZoneRemoved(ZoneId, AccountId),
+        /// New route was submitted [start, destination, start, arrival, rootId, who]
+        RouteAdded(Point3D<Coord>, Point3D<Coord>, Moment, Moment, RootId, AccountId),
     }
 );
 
@@ -1075,6 +1443,12 @@ decl_error! {
         ZoneDoesntFit,
         /// Zone you are trying to access is not in storage
         ZoneDoesntExist,
+        /// Wrong time bounds are supplied 
+        WrongTimeSupplied,
+        /// Route contain 1 or more wpoints, which lie outside of root
+        RouteDoesNotFitToRoot,
+        /// Route intersect 1 or more zones
+        RouteIntersectRedZone, 
         // Add additional errors below
     }
 }
@@ -1384,6 +1758,75 @@ decl_module! {
             });
             Self::deposit_event(RawEvent::AreaTypeChanged(area_type, area_id, root_id, who));
             Ok(())
+        }
+
+        /// Creates new route for UAV
+        #[weight = <T as Trait>::WeightInfo::route_add()]
+        pub fn route_add(origin, 
+                        waypoints: Vec<Waypoint<T::Coord, <T as pallet_timestamp::Config>::Moment>>, 
+                        root_id: RootId) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin)?;
+            // TODO consider role for route addition
+            ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
+            ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
+            ensure!(waypoints.len() >= 2, Error::<T>::InvalidData);
+            let start_waypoint = &waypoints.first().unwrap(); 
+            let end_waypoint = &waypoints.last().unwrap(); 
+            // Getting all time bounds
+            let start_time = start_waypoint.arrival;
+            let arrival_time = end_waypoint.arrival;
+            let current_timestamp = <pallet_timestamp::Module<T>>::get();
+            // TODO (n>2) wp[n].arrival < wp[n + 1].arrival
+            ensure!((arrival_time > current_timestamp) && (arrival_time > start_time), Error::<T>::WrongTimeSupplied);
+            
+            let root = RootBoxes::<T>::get(root_id);
+            let start_area = root.detect_intersected_area(start_waypoint.location.project());
+            let end_area = root.detect_intersected_area(end_waypoint.location.project());
+            // TODO (n>2) each wp[n].location shall be inside one Root
+            ensure!((start_area != 0) && (end_area != 0), Error::<T>::RouteDoesNotFitToRoot);
+            // TODO (n>2) vec! in here
+            let route_line = Line::new(start_waypoint.location.project(), end_waypoint.location.project());
+            // We receive all areas, containing list of zones which could be intersected
+            let route_areas: Vec<AreaId> = route_line.get_route_areas(root);
+            // Loop through areas, check each existing zone
+            for area_id in route_areas.iter() {
+                if AreaData::contains_key(root_id, area_id) {
+                    let mut zone_id = Self::pack_index(root_id, *area_id, 0);
+                    // Loop through zones, maybe add constraint to MaxBuildingsInArea
+                    while RedZones::<T>::contains_key(zone_id) {
+                        // TODO ask about ensure!() usage in cycle
+                        ensure!(!route_line.intersects_rect(RedZones::<T>::get(zone_id).rect), Error::<T>::RouteIntersectRedZone);
+                        zone_id += 1;
+                    }
+                }
+            }
+            Self::deposit_event(RawEvent::RouteAdded(
+                start_waypoint.location, end_waypoint.location, 
+                start_time, arrival_time, root_id, who
+            ));
+            Ok(())
+        }
+
+        #[weight = <T as Trait>::WeightInfo::route_add()]
+        pub fn raw_route_add(origin, 
+                            raw_waypoints: [T::RawCoord; 4],
+                            start_time: T::Moment,
+                            arrival_time: T::Moment,
+                            root_id: RootId) -> dispatch::DispatchResult {
+            let start_location = Point3D::new(
+                T::Coord::from_raw(raw_waypoints[0].into()), 
+                T::Coord::from_raw(raw_waypoints[1].into()),
+                Self::coord_from_str("1"));
+
+            let start_waypoint = Waypoint::new(start_location, start_time);
+
+            let arrival_location = Point3D::new(
+                T::Coord::from_raw(raw_waypoints[2].into()), 
+                T::Coord::from_raw(raw_waypoints[3].into()),
+                Self::coord_from_str("1"));
+
+            let arrival_waypoint = Waypoint::new(arrival_location, arrival_time);
+            Module::<T>::route_add(origin, vec![start_waypoint, arrival_waypoint], root_id)
         }
     }
 }
