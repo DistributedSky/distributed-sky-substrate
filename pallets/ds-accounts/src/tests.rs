@@ -152,7 +152,8 @@ fn it_register_pilot_by_registrar() {
         ));
         assert_ok!(DSAccountsModule::register_pilot(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
-                PILOT_1_ACCOUNT_ID
+                PILOT_1_ACCOUNT_ID,
+                vec![0],
         ));
 
         let account = DSAccountsModule::account_registry(PILOT_1_ACCOUNT_ID);
@@ -169,7 +170,8 @@ fn it_try_register_pilot_not_by_registrar() {
         assert_noop!(
             DSAccountsModule::register_pilot(
                 Origin::signed(ADMIN_ACCOUNT_ID), 
-                PILOT_1_ACCOUNT_ID
+                PILOT_1_ACCOUNT_ID,
+                vec![0],
             ),
             Error::NotAuthorized
         );
@@ -189,7 +191,8 @@ fn it_try_register_same_pilot_twice() {
  
         assert_ok!(DSAccountsModule::register_pilot(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
-                PILOT_1_ACCOUNT_ID
+                PILOT_1_ACCOUNT_ID,
+                vec![0],
         ));
  
         let account = DSAccountsModule::account_registry(PILOT_1_ACCOUNT_ID);
@@ -207,7 +210,8 @@ fn it_try_register_same_pilot_twice() {
         assert_noop!(
             DSAccountsModule::register_pilot(
                 Origin::signed(REGISTRAR_2_ACCOUNT_ID),
-                PILOT_1_ACCOUNT_ID
+                PILOT_1_ACCOUNT_ID,
+                vec![0],
             ),
             Error::AlreadyRegistered,
         );
@@ -226,6 +230,7 @@ fn it_try_to_add_admin_account_role_pilot() {
             DSAccountsModule::register_pilot(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID), 
                 ADMIN_ACCOUNT_ID, 
+                vec![0],
             )
         );
     });
@@ -299,6 +304,7 @@ fn it_try_to_add_new_uav_with_allowed_roles() {
         assert_ok!(DSAccountsModule::register_pilot(
             Origin::signed(REGISTRAR_1_ACCOUNT_ID),
             PILOT_1_ACCOUNT_ID,
+            vec![0],
         ));
 
         assert_ok!(DSAccountsModule::register_uav(
@@ -345,6 +351,7 @@ fn it_try_register_uav_on_wrong_addr() {
         assert_ok!(DSAccountsModule::register_pilot(
             Origin::signed(REGISTRAR_1_ACCOUNT_ID),
             PILOT_1_ACCOUNT_ID,
+            vec![0],
         ));
         assert_noop!(
             DSAccountsModule::register_uav(
@@ -386,6 +393,7 @@ fn it_try_register_user_on_uav_addr() {
             DSAccountsModule::register_pilot(
                 Origin::signed(REGISTRAR_1_ACCOUNT_ID),
                 UAV_1_ACCOUNT_ID,
+                vec![0],
             ), 
             Error::AddressAlreadyUsed
         );

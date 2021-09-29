@@ -25,7 +25,7 @@ use sp_std::{
 use dsky_utils::{CastToType, FromRaw, IntDiv, Signed, ToBigCoord, FromBigCoord, GetEpsilon};
 use frame_system::ensure_signed;
 use pallet_ds_accounts as accounts;
-use accounts::REGISTRAR_ROLE;
+use accounts::{REGISTRAR_ROLE, PILOT_ROLE};
 
 mod default_weight;
 #[cfg(test)]
@@ -1767,7 +1767,7 @@ decl_module! {
                         root_id: RootId) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             // TODO consider role for route addition
-            ensure!(<accounts::Module<T>>::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
+            ensure!(<accounts::Module<T>>::account_is(&who, (PILOT_ROLE | REGISTRAR_ROLE).into()), Error::<T>::NotAuthorized);
             ensure!(RootBoxes::<T>::contains_key(root_id), Error::<T>::RootDoesNotExist);
             ensure!(waypoints.len() >= 2, Error::<T>::InvalidData);
             let start_waypoint = &waypoints.first().unwrap(); 
