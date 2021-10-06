@@ -173,6 +173,7 @@ decl_event!(
         AccountId = <T as frame_system::Config>::AccountId,
         Balance = BalanceOf<T>,
         AccountRole = <T as Trait>::AccountRole,
+        MetaIPFS = <T as Trait>::MetaIPFS,
     {
         // Event documentation should end with an array that provides descriptive names for event parameters.
         /// New account has been created [who, account, role]
@@ -181,10 +182,10 @@ decl_event!(
         AccountDisabled(AccountId, AccountId),
         /// Lock balance [who, balance]
         BalanceLocked(AccountId, Balance),
-        /// Pilot has been registered [who, account]
-        PilotRegistered(AccountId, AccountId),
-        /// UAV has been registered [who, account] (do we need ipfs link here?)
-        UAVRegistred(AccountId, AccountId),
+        /// Pilot has been registered [who, account, license_ipfs_hash]
+        PilotRegistered(AccountId, AccountId, MetaIPFS),
+        /// UAV has been registered [who, account, license_ipfs_hash]
+        UAVRegistred(AccountId, AccountId, MetaIPFS),
         // add other events here
     }
 );
@@ -256,7 +257,7 @@ decl_module! {
 
         /// Register an entry in account registry with PILOT role.
         #[weight = <T as Trait>::WeightInfo::register_pilot()]
-        pub fn register_pilot(origin, account: T::AccountId) -> dispatch::DispatchResult {
+        pub fn register_pilot(origin, account: T::AccountId, metadata_ipfs_hash: T::MetaIPFS) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(Self::account_is(&who, REGISTRAR_ROLE.into()), Error::<T>::NotAuthorized);
             ensure!(!UAVRegistry::<T>::contains_key(&account), Error::<T>::AddressAlreadyUsed);
@@ -274,7 +275,7 @@ decl_module! {
             });
 
             if update_storage_result.is_ok() {
-                Self::deposit_event(RawEvent::PilotRegistered(who, account));
+                Self::deposit_event(RawEvent::PilotRegistered(who, account, metadata_ipfs_hash));
             }
 
             update_storage_result
@@ -289,9 +290,9 @@ decl_module! {
             ensure!(Self::account_is(&who, (REGISTRAR_ROLE | PILOT_ROLE).into()), Error::<T>::NotAuthorized);
             ensure!(!AccountRegistry::<T>::contains_key(&uav_address), Error::<T>::AddressAlreadyUsed);
 
-            UAVRegistry::<T>::insert(&uav_address, UAVOf::<T>::new(serial_number, meta, &who));
+            UAVRegistry::<T>::insert(&uav_address, UAVOf::<T>::new(serial_number, meta.clone(), &who));
 
-            Self::deposit_event(RawEvent::UAVRegistred(who, uav_address));
+            Self::deposit_event(RawEvent::UAVRegistred(who, uav_address, meta));
             Ok(())
         }
 

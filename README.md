@@ -30,6 +30,9 @@ Current proof-of-concept runtime includes functions:
 # Build and run
 
 ```bash
+# install rust and all required dependencies
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
 # clone project from repo
 git clone https://github.com/DistributedSky/distributed-sky-substrate.git
 cd distributed-sky-substrate
